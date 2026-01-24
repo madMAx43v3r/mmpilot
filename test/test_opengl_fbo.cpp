@@ -66,6 +66,13 @@ static void checkEgl(const char* where) {
     }
 }
 
+static void checkGl(const char* where) {
+    GLenum e = glGetError();
+    if (e != GL_NO_ERROR) {
+        die(std::string(where) + ": " + glErrorToString(e));
+    }
+}
+
 static std::string fboStatusToString(GLenum s) {
     switch (s) {
         case GL_FRAMEBUFFER_COMPLETE: return "GL_FRAMEBUFFER_COMPLETE";
@@ -201,28 +208,36 @@ static bool testFormat(const FormatCase& fc, bool verbose = false) {
         return false;
     }
 
+    // Ensure draw buffer is set (important on GLES)
+    GLenum drawBuf = GL_COLOR_ATTACHMENT0;
+	glDrawBuffers(1, &drawBuf);
+	checkGl("glDrawBuffers");
+
     // Try a clear + readback to ensure writes work
     glViewport(0, 0, 1, 1);
-    glDisable(GL_SCISSOR_TEST);
-    glClearColor(0.25f, 0.5f, 0.75f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
+	glDisable(GL_SCISSOR_TEST);
+	glClearColor(0.25f, 0.5f, 0.75f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT);
 
-    // Read back as float RGBA (implementation converts as needed)
-    float rgba[4] = {0,0,0,0};
-    glReadPixels(0, 0, 1, 1, GL_RGBA, GL_FLOAT, rgba);
-    ge = glGetError();
-    if (ge != GL_NO_ERROR) {
-        if (verbose) {
-            std::cerr << "  glReadPixels error: " << glErrorToString(ge) << "\n";
-        }
-        glDeleteFramebuffers(1, &fbo);
-        glDeleteTextures(1, &tex);
-        return false;
-    }
-
-    // If it is a single-channel target, expect only R meaningful; others default.
-    // We just sanity-check we didn't get all zeros.
-    bool ok = !(rgba[0] == 0.0f && rgba[1] == 0.0f && rgba[2] == 0.0f && rgba[3] == 0.0f);
+    // Validate by reading back
+	bool ok = false;
+	if (fc.type == GL_UNSIGNED_BYTE) {
+		unsigned char pix[4] = {0,0,0,0};
+		glReadPixels(0, 0, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, pix);
+		GLenum ge = glGetError();
+		if (ge == GL_NO_ERROR) {
+			// Expect approx [64,128,191,255]
+			ok = (pix[3] > 200); // alpha should be near 255
+		}
+	} else {
+		float pix[4] = {0,0,0,0};
+		glReadPixels(0, 0, 1, 1, GL_RGBA, GL_FLOAT, pix);
+		GLenum ge = glGetError();
+		if (ge == GL_NO_ERROR) {
+			// Loose tolerance for conversion/quantization
+			ok = (pix[3] > 0.9f);
+		}
+	}
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glDeleteFramebuffers(1, &fbo);
