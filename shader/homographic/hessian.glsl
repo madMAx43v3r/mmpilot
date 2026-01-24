@@ -10,28 +10,24 @@ uniform sampler2D uJ0;   // RGBA: J0..J3
 uniform sampler2D uJ1;   // RGBA: J4..J7
 
 uniform int uHeight;     // of the *input* textures
-uniform int uChunkSize;  // rows per output pixel (e.g., 32/64, max 1024)
-uniform int uChunkMask;  // bit mask for modulo
+uniform int uChunkSize;  // output rows (e.g., 16/32/64)
 
 void main()
 {
     ivec2 p = ivec2(gl_FragCoord.xy);
-
-    int x = p.x;
-    int k = p.y & uChunkMask;
 
     vec4 S0 = vec4(0.0);
     vec4 S1 = vec4(0.0);
     vec4 S2 = vec4(0.0);
     vec4 S3 = vec4(0.0);
 
-    for (int i = 0; i < uChunkSize && i < 1024; i++)      // compile-time cap
+    for (int i = 0; i < 4096; i++)      // compile-time cap
     {
-        int y = i * uChunkSize + k;
+        int y = i * uChunkSize + p.y;
         if (y >= uHeight) {
             break;
         }
-        ivec2 t = ivec2(x, y);
+        ivec2 t = ivec2(p.x, y);
 
         vec4 J0123 = texelFetch(uJ0, t, 0);
         vec4 J4567 = texelFetch(uJ1, t, 0);

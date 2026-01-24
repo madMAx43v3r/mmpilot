@@ -4,7 +4,7 @@ layout(location = 0) out vec4 outJ0;
 layout(location = 1) out vec4 outJ1;
 layout(location = 2) out vec4 outR;
 
-uniform sampler2D uRefLin;      // R16F
+uniform sampler2D uRef;         // R16F
 uniform sampler2D uGrad;        // RGB16F, (Y, Ix, Iy), zero border
 
 uniform vec2 uInvSize;
@@ -24,6 +24,13 @@ void main()
 
     vec2 wp = vec2(uN, vN) / d;
     vec2 uv = wp * uInvSize;
+
+    if (uv.x < 0 || uv.y < 0 || uv.x > 1.0 || uv.y > 1.0) {
+        outJ0 = vec4(0.0);
+        outJ1 = vec4(0.0);
+        outR = vec4(0.0);
+        return;
+    }
 
     vec3 grad = texture(uGrad, uv).rgb;  // (Y, Ix, Iy)
 
@@ -61,13 +68,9 @@ void main()
     outJ0 = vec4(J0, J1, J2, J3);
     outJ1 = vec4(J4, J5, J6, J7);
 
-    float mask = 1.0;
-    if (uv.x < 0 || uv.y < 0 || uv.x > 1.0 || uv.y > 1.0) {
-        mask = 0.0;
-    }
-
-    float Yref = texture(uRefLin, p * uInvSize).r;
+    // TODO: move to gradient shader
+    float Yref = texture(uRef, p * uInvSize).r;
     float R = Y - Yref;
 
-    outR = vec4(vec3(R * mask), mask);
+    outR = vec4(vec3(R), 1.0);
 }
