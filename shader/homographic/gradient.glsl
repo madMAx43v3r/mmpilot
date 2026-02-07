@@ -6,7 +6,7 @@ layout(location = 1) out vec4 outG1; // b4..b7
 layout(location = 2) out vec4 outD0; // d0..d3
 layout(location = 3) out vec4 outD1; // d4..d7
 
-uniform sampler2D uRes;  // residual texture (R, R, R, mask)
+uniform sampler2D uRes;  // residual texture (R, w)
 uniform sampler2D uJ0;   // RGBA: J0..J3
 uniform sampler2D uJ1;   // RGBA: J4..J7
 
@@ -17,13 +17,12 @@ void main()
 {
     ivec2 p = ivec2(gl_FragCoord.xy);
 
-    // Initialize accumulators
     vec4 G0 = vec4(0.0);
     vec4 G1 = vec4(0.0);
     vec4 D0 = vec4(0.0);
     vec4 D1 = vec4(0.0);
 
-    for (int i = 0; i < 4096; i++)      // compile-time cap
+    for (int i = 0; i < 1024; i++)      // compile-time cap
     {
         int y = i * uChunkSize + p.y;
         if (y >= uHeight) {

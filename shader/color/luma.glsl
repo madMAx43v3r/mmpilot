@@ -1,6 +1,6 @@
 #version 310 es
 
-layout(location = 0) out float out0;
+layout(location = 0) out vec2 out0;     // (Y, w)
 
 uniform sampler2D uSrc;     // RGB
 
@@ -15,5 +15,5 @@ void main()
 
     float Y  = dot(rgb, vec3(0.2126, 0.7152, 0.0722));
 
-    out0 = Y;
+    out0 = vec2(Y, 1.0);
 }
