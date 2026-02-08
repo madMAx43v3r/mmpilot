@@ -6,7 +6,7 @@
  */
 
 #include <mmpilot/render.h>
-#include <mmpilot/helpers.h>
+#include <mmpilot/opengl.h>
 
 
 namespace mmpilot {

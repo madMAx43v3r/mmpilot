@@ -6,6 +6,7 @@
  */
 
 #include <mmpilot/opengl.h>
+#include <mmpilot/util.h>
 
 #include <string>
 #include <stdexcept>

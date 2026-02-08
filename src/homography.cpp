@@ -28,7 +28,7 @@
 //
 // NOTE: Use glGetError / KHR_debug in your real code.
 
-#include <mmpilot/helpers.h>
+#include <mmpilot/opengl.h>
 #include <mmpilot/render.h>
 #include <mmpilot/homography.h>
 

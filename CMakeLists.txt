@@ -19,6 +19,10 @@ include_directories(
 	include
 )
 
+add_library(mmpilot_util STATIC
+	src/util.cpp
+)
+
 if(LIBCAMERA_FOUND)
 	add_library(mmpilot_camera STATIC
 		src/camera.cpp
