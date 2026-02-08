@@ -53,21 +53,22 @@ int main(int argc, char** argv)
 
 	Camera::init();
 
-	Camera cam(index, 0, width, height, format);
+	auto cam = std::make_unique<Camera>(index, 0, width, height, format);
 
-	cam.open();
+	cam->open();
 
-	cam.on_frame = &handle;
+	cam->on_frame = &handle;
 
 	if(fps > 0) {
-		cam.set_interval(1000 / fps);
+		cam->set_interval(1000 / fps);
 	}
 
-	cam.start();
+	cam->start();
 
 	wait_for_exit();
 
-	cam.stop();
+	cam->stop();
+	cam = nullptr;
 
 	Camera::cleanup();
 

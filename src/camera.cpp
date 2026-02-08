@@ -253,7 +253,6 @@ void Camera::stop()
 		}
 	}
 	cam->release();
-	cam = nullptr;
 
 	for(auto& kv : mappings) {
 		munmapFrameBuffer(kv.second);
