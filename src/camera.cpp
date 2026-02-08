@@ -199,10 +199,13 @@ void Camera::start()
 
 void Camera::handle(Request* req)
 {
-	if(req->status() == Request::RequestCancelled) {
+	std::lock_guard<std::mutex> lock(mutex);
+
+	if(!do_run || req->status() == Request::RequestCancelled) {
+		num_pending--;
+		signal.notify_all();
 		return;
 	}
-	std::lock_guard<std::mutex> lock(mutex);
 
 	const auto& buffers = req->buffers();
 
@@ -231,23 +234,18 @@ void Camera::handle(Request* req)
 	}
 
 	// Re-queue for endless streaming
-	if(do_run) {
-		req->reuse(Request::ReuseBuffers);
-		if(cam->queueRequest(req) < 0) {
-			do_run = false;
-		}
-	} else {
-		num_pending--;
-		signal.notify_all();
+	req->reuse(Request::ReuseBuffers);
+	if(cam->queueRequest(req) < 0) {
+		do_run = false;
 	}
 }
 
 void Camera::stop()
 {
+	cam->stop();
 	{
 		std::unique_lock<std::mutex> lock(mutex);
 		do_run = false;
-		cam->stop();
 		while(num_pending > 0) {
 			signal.wait(lock);
 		}
