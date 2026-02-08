@@ -34,11 +34,11 @@ void handle(const Camera::Frame& frame)
 
 int main(int argc, char** argv)
 {
-	int index			= argc > 1 ? atoi(argv[0]) : 0;
-	int width 			= argc > 2 ? atoi(argv[1]) : 1280;
-	int height 			= argc > 3 ? atoi(argv[2]) : 720;
-	int fps				= argc > 4 ? atoi(argv[3]) : 10;
-	std::string format	= argc > 5 ? argv[4] : "SRGGB8";
+	int index			= argc > 1 ? atoi(argv[1]) : 0;
+	int width 			= argc > 2 ? atoi(argv[2]) : 1280;
+	int height 			= argc > 3 ? atoi(argv[3]) : 720;
+	int fps				= argc > 4 ? atoi(argv[4]) : 10;
+	std::string format	= argc > 5 ? argv[5] : "SRGGB8";
 
 	std::cout << "index = " << index << std::endl;
 	std::cout << "width = " << width << std::endl;
