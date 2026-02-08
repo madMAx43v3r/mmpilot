@@ -24,6 +24,7 @@ extern "C" void handle_sigint(int)
 		::exit(-1);
 	}
 	g_shutdown = 1;
+	std::cout << std::endl;
 }
 
 void wait_for_exit()

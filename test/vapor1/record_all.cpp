@@ -40,28 +40,30 @@ int main(int argc, char** argv)
 
 	Camera::init();
 
-	Camera cam_0(0, 0, 2304, 1296, "SBGGR16");
-	Camera cam_1(1, 0, 1640, 1232, "SBGGR16");
+	auto cam_0 = std::make_unique<Camera>(0, 0, 2304, 1296, "SBGGR16");
+	auto cam_1 = std::make_unique<Camera>(1, 0, 1640, 1232, "SBGGR16");
 
-	cam_0.open();
-	cam_1.open();
+	cam_0->open();
+	cam_1->open();
 
-	cam_0.on_frame = std::bind(on_frame, "camera.front", std::placeholders::_1);
-	cam_1.on_frame = std::bind(on_frame, "camera.below", std::placeholders::_1);
+	cam_0->on_frame = std::bind(on_frame, "camera.front", std::placeholders::_1);
+	cam_1->on_frame = std::bind(on_frame, "camera.below", std::placeholders::_1);
 
-	cam_0.set_interval(500);
-	cam_1.set_interval(500);
+	cam_0->set_interval(500);
+	cam_1->set_interval(500);
 
-	cam_0.start();
-	cam_1.start();
+	cam_0->start();
+	cam_1->start();
 
 	wait_for_exit();
 
-	cam_0.stop();
-	cam_1.stop();
+	cam_0->stop();
+	cam_1->stop();
+
+	cam_0 = nullptr;
+	cam_1 = nullptr;
 
 	rec->close();
-
 	delete rec;
 
 	Camera::cleanup();
