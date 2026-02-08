@@ -6,7 +6,7 @@
  */
 
 #include <mmpilot/camera.h>
-#include <mmpilot/helpers.h>
+#include <mmpilot/util.h>
 
 #include <string>
 #include <iostream>
@@ -65,8 +65,7 @@ int main(int argc, char** argv)
 
 	cam.start();
 
-	std::string cmd;
-	std::cin >> cmd;
+	wait_for_exit();
 
 	cam.stop();
 
