@@ -33,6 +33,7 @@ void handle(const Camera::Frame& frame)
 		std::cout << "  WARNING: Dropped " << (frame.sequence - last_seq - 1) << " frames !!!!!" << std::endl;
 	}
 	last_ts = frame.timestamp;
+	last_seq = frame.sequence;
 }
 
 
