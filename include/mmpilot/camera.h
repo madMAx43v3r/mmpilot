@@ -40,7 +40,7 @@ public:
 
 	std::string get_id() const;
 
-	libcamera::ControlList& controls() const;
+	libcamera::ControlList& controls();
 
 	static void init();
 

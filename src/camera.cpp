@@ -26,6 +26,9 @@ using libcamera::CameraConfiguration;
 
 namespace mmpilot {
 
+std::shared_ptr<libcamera::CameraManager> Camera::g_manager;
+
+
 static std::vector<std::pair<void*, size_t>> mmapFrameBuffer(const FrameBuffer& buffer)
 {
 	std::vector<std::pair<void*, size_t>> planes;
@@ -67,12 +70,26 @@ void Camera::cleanup()
 	g_manager = nullptr;
 }
 
+
+Camera::Camera(int index, int stream, int width, int height, std::string pixel_format)
+	:	camera_index(index), stream_index(stream), width(width), height(height), pixel_format(pixel_format)
+{
+}
+
 std::string Camera::get_id() const
 {
 	if(!cam) {
 		throw std::logic_error("open() first");
 	}
 	return cam->id();
+}
+
+libcamera::ControlList& Camera::controls()
+{
+	if(!control) {
+		throw std::logic_error("open() first");
+	}
+	return *control;
 }
 
 void Camera::open()
