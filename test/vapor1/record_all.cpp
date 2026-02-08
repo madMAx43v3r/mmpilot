@@ -7,7 +7,7 @@
 
 #include <mmpilot/camera.h>
 #include <mmpilot/sample.h>
-#include <mmpilot/helpers.h>
+#include <mmpilot/util.h>
 
 #include <string>
 #include <iostream>
