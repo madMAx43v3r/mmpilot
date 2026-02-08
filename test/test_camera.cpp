@@ -14,6 +14,7 @@ using namespace mmpilot;
 
 
 uint64_t last_ts = 0;
+uint64_t last_seq = 0;
 
 void handle(const Camera::Frame& frame)
 {
@@ -27,6 +28,9 @@ void handle(const Camera::Frame& frame)
 	}
 	if(last_ts) {
 		std::cout << "  Interval: " << (frame.timestamp - last_ts) / 1000 << " us" << std::endl;
+	}
+	if(frame.sequence > last_seq + 1) {
+		std::cout << "  WARNING: Dropped " << (frame.sequence - last_seq - 1) << " frames !!!!!" << std::endl;
 	}
 	last_ts = frame.timestamp;
 }
