@@ -53,11 +53,13 @@ int main(int argc, char** argv)
 
 	cam.on_frame = &handle;
 
-	int frame_us = 1000000 / fps;
-	cam.controls().set(libcamera::controls::FrameDurationLimits,
-			libcamera::Span<const int64_t, 2>({frame_us, 2 * frame_us}));
+	if(fps > 0) {
+		int frame_us = 1000000 / fps;
+		cam.controls().set(libcamera::controls::FrameDurationLimits,
+				libcamera::Span<const int64_t, 2>({frame_us, 2 * frame_us}));
+	}
 
-	cam.controls().set(libcamera::controls::ExposureTime, 5000);
+//	cam.controls().set(libcamera::controls::ExposureTime, 5000);
 
 	cam.start();
 
