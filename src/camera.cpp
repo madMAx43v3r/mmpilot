@@ -201,12 +201,12 @@ void Camera::handle(Request* req)
 {
 	std::lock_guard<std::mutex> lock(mutex);
 
-	if(!do_run || req->status() == Request::RequestCancelled) {
-		num_pending--;
-		signal.notify_all();
+	num_pending--;
+	signal.notify_all();
+
+	if(req->status() == Request::RequestCancelled) {
 		return;
 	}
-
 	const auto& buffers = req->buffers();
 
 	const auto it = buffers.find(stream);
@@ -237,6 +237,8 @@ void Camera::handle(Request* req)
 	req->reuse(Request::ReuseBuffers);
 	if(cam->queueRequest(req) < 0) {
 		do_run = false;
+	} else {
+		num_pending++;
 	}
 }
 
