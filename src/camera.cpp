@@ -204,7 +204,7 @@ void Camera::handle(Request* req)
 	num_pending--;
 	signal.notify_all();
 
-	if(req->status() == Request::RequestCancelled) {
+	if(!do_run || req->status() == Request::RequestCancelled) {
 		return;
 	}
 	const auto& buffers = req->buffers();
@@ -253,6 +253,7 @@ void Camera::stop()
 		}
 	}
 	cam->release();
+	cam = nullptr;
 
 	for(auto& kv : mappings) {
 		munmapFrameBuffer(kv.second);
