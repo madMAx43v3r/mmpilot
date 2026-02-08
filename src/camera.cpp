@@ -193,6 +193,7 @@ void Camera::start()
 		if(cam->queueRequest(req.get()) < 0) {
 			throw std::runtime_error("Failed to queue request");
 		}
+		num_pending++;
 	}
 }
 
@@ -230,15 +231,27 @@ void Camera::handle(Request* req)
 	}
 
 	// Re-queue for endless streaming
-	req->reuse(Request::ReuseBuffers);
-	if(cam->queueRequest(req) < 0) {
-		cam->stop();
+	if(do_run) {
+		req->reuse(Request::ReuseBuffers);
+		if(cam->queueRequest(req) < 0) {
+			do_run = false;
+		}
+	} else {
+		num_pending--;
+		signal.notify_all();
 	}
 }
 
 void Camera::stop()
 {
-	cam->stop();
+	{
+		std::unique_lock<std::mutex> lock(mutex);
+		do_run = false;
+		cam->stop();
+		while(num_pending > 0) {
+			signal.wait(lock);
+		}
+	}
 	cam->release();
 
 	for(auto& kv : mappings) {

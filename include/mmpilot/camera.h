@@ -14,6 +14,7 @@
 
 #include <mutex>
 #include <functional>
+#include <condition_variable>
 
 
 namespace mmpilot {
@@ -78,6 +79,9 @@ private:
 	std::unique_ptr<libcamera::FrameBufferAllocator> allocator;
 
 	std::mutex mutex;
+	bool do_run = true;
+	int num_pending = 0;
+	std::condition_variable signal;
 	std::vector<std::unique_ptr<libcamera::Request>> requests;
 	std::map<libcamera::FrameBuffer*, std::vector<std::pair<void*, size_t>>> mappings;
 
