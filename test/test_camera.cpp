@@ -6,6 +6,7 @@
  */
 
 #include <mmpilot/camera.h>
+#include <mmpilot/helpers.h>
 
 #include <string>
 #include <iostream>
@@ -42,7 +43,7 @@ int main(int argc, char** argv)
 	int index			= argc > 1 ? atoi(argv[1]) : 0;
 	int width 			= argc > 2 ? atoi(argv[2]) : 1280;
 	int height 			= argc > 3 ? atoi(argv[3]) : 720;
-	int fps				= argc > 4 ? atoi(argv[4]) : 10;
+	int fps				= argc > 4 ? atoi(argv[4]) : 0;
 	std::string format	= argc > 5 ? argv[5] : "SRGGB8";
 
 	std::cout << "index = " << index << std::endl;
@@ -59,12 +60,8 @@ int main(int argc, char** argv)
 	cam.on_frame = &handle;
 
 	if(fps > 0) {
-		int frame_us = 1000000 / fps;
-		cam.controls().set(libcamera::controls::FrameDurationLimits,
-				libcamera::Span<const int64_t, 2>({frame_us, 2 * frame_us}));
+		cam.set_interval(1000 / fps);
 	}
-
-//	cam.controls().set(libcamera::controls::ExposureTime, 5000);
 
 	cam.start();
 

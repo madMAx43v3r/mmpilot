@@ -19,4 +19,11 @@ include_directories(
 	include
 )
 
+if(LIBCAMERA_FOUND)
+	add_library(mmpilot_camera STATIC
+		src/camera.cpp
+	)
+	target_link_libraries(mmpilot_camera camera camera-base)
+endif()
+
 add_subdirectory(test)

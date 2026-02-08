@@ -84,6 +84,18 @@ std::string Camera::get_id() const
 	return cam->id();
 }
 
+void Camera::set_exposure(int exposure_ms)
+{
+	controls().set(libcamera::controls::ExposureTime, exposure_ms);
+}
+
+void Camera::set_interval(int interval_ms)
+{
+	const auto frame_us = int64_t(interval_ms) * 1000;
+	controls().set(libcamera::controls::FrameDurationLimits,
+				libcamera::Span<const int64_t, 2>({frame_us, frame_us}));
+}
+
 libcamera::ControlList& Camera::controls()
 {
 	if(!control) {
@@ -203,6 +215,7 @@ void Camera::handle(Request* req)
 	Frame out;
 	out.width = width;
 	out.height = height;
+	out.stride = stride;
 	out.sequence = meta.sequence;
 	out.timestamp = meta.timestamp;
 	out.pixel_format = pixel_format;
@@ -235,6 +248,37 @@ void Camera::stop()
 
 	allocator->free(stream);
 }
+
+
+void Camera::Frame::write(Recorder& out) const
+{
+	out.write_u32(0xc08a5cba);
+	out.write_u32(1);
+	out.write_u32(width);
+	out.write_u32(height);
+	out.write_u32(stride);
+	out.write_u64(sequence);
+	out.write_u64(timestamp);
+	out.write(pixel_format);
+
+	out.write_u32(data.size());
+	for(const auto& buf : data) {
+		out.write(buf.first, buf.second);
+	}
+}
+
+Camera::Frame::~Frame()
+{
+	if(is_owner) {
+		for(const auto& buf : data) {
+			::free(buf.first);
+		}
+	}
+}
+
+
+
+
 
 
 

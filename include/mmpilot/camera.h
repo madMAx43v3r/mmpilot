@@ -8,6 +8,8 @@
 #ifndef INCLUDE_MMPILOT_CAMERA_H_
 #define INCLUDE_MMPILOT_CAMERA_H_
 
+#include <mmpilot/record.h>
+
 #include <libcamera/libcamera.h>
 
 #include <mutex>
@@ -18,7 +20,8 @@ namespace mmpilot {
 
 class Camera {
 public:
-	struct Frame {
+	class Frame {
+	public:
 		int width = 0;
 		int height = 0;
 		int stride = 0;				// bytes
@@ -26,6 +29,11 @@ public:
 		uint64_t timestamp = 0;		// [ns]
 		std::string pixel_format;
 		std::vector<std::pair<void*, size_t>> data;
+
+		void write(Recorder& out) const;
+		~Frame();
+	private:
+		bool is_owner = false;
 	};
 
 	std::function<void(const Frame&)> on_frame;
@@ -39,6 +47,10 @@ public:
 	void stop();
 
 	std::string get_id() const;
+
+	void set_exposure(int exposure_ms);
+
+	void set_interval(int interval_ms);
 
 	libcamera::ControlList& controls();
 
@@ -59,7 +71,6 @@ private:
 
 	std::string pixel_format;
 
-	bool do_run = true;
 	libcamera::Stream* stream = nullptr;
 	std::shared_ptr<libcamera::Camera> cam;
 	std::unique_ptr<libcamera::ControlList> control;
