@@ -127,7 +127,10 @@ void Camera::open()
 			<< ", " << sc.size.width << "x" << sc.size.height
 			<< ", stride = " << sc.stride << ", buffer_count = " << sc.bufferCount << std::endl;
 
+	width = sc.size.width;
+	height = sc.size.height;
 	stride = sc.stride;
+	pixel_format = sc.pixelFormat.toString();
 	buffer_count = sc.bufferCount;
 
 	if(cam->configure(config.get())) {

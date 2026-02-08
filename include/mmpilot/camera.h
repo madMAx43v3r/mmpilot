@@ -21,9 +21,9 @@ public:
 	struct Frame {
 		int width = 0;
 		int height = 0;
-		int stride = 0;
+		int stride = 0;				// bytes
 		uint64_t sequence = 0;
-		uint64_t timestamp = 0;
+		uint64_t timestamp = 0;		// [ns]
 		std::string pixel_format;
 		std::vector<std::pair<void*, size_t>> data;
 	};

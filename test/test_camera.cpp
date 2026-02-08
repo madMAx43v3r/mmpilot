@@ -26,7 +26,7 @@ void handle(const Camera::Frame& frame)
 		std::cout << "  Buffer: size = " << buf.second << std::endl;
 	}
 	if(last_ts) {
-		std::cout << "  Interval: " << (frame.timestamp - last_ts) << " us" << std::endl;
+		std::cout << "  Interval: " << (frame.timestamp - last_ts) / 1000 << " us" << std::endl;
 	}
 	last_ts = frame.timestamp;
 }
