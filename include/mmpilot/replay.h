@@ -120,9 +120,12 @@ public:
 		const auto f_handle = handle[topic];
 
 		if(!f_decode) {
-			throw std::runtime_error("Player: missing decoder for " + topic);
+			throw std::runtime_error("missing decoder for " + topic);
 		}
 		const auto sample = f_decode(*this);
+		if(!sample) {
+			throw std::runtime_error("decode failed");
+		}
 		sample->topic = topic;
 
 		const auto now_us = get_time_micros();
