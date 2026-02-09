@@ -9,6 +9,7 @@
 #define INCLUDE_MMPILOT_REPLAY_H_
 
 #include <mmpilot/threads.h>
+#include <mmpilot/sample.h>
 #include <mmpilot/util.h>
 
 #include <map>
@@ -16,6 +17,7 @@
 #include <cstdint>
 #include <fstream>
 #include <stdexcept>
+#include <iostream>
 
 
 namespace mmpilot {
@@ -27,11 +29,11 @@ public:
 
 	bool real_time = true;
 
-	// callback type: (Player, topic)
-	typedef std::function<void(Player&, const std::string&)> handle_t;
+	// [topic, callback]
+	std::map<std::string, std::function<std::shared_ptr<Sample>(Player&)>> decode;
 
 	// [topic, callback]
-	std::map<std::string, handle_t> handle;
+	std::map<std::string, std::function<void(std::shared_ptr<Sample>)>> handle;
 
 	Player(const std::string& file_name, size_t num_threads = 4)
 		:	stream(file_name, std::ios::binary | std::ios::in),
@@ -89,15 +91,18 @@ public:
 	{
 		stream.read(static_cast<char*>(data), count);
 		if(!stream) {
-			throw std::runtime_error("Player: read failed or EOF reached");
+			throw std::runtime_error("read failed or EOF reached");
 		}
 	}
 
-	void read_sample()
+	bool read_sample()
 	{
 		const auto magic = read_u32();
+		if(magic == eof_magic) {
+			return false;
+		}
 		if(magic != 0x3d171f57) {
-			throw std::runtime_error("expected sample");
+			throw std::runtime_error("bad sample magic: " + std::to_string(magic));
 		}
 		const auto version = read_u32();
 		if(version > 0) {
@@ -110,10 +115,20 @@ public:
 		if(!mutex) {
 			mutex = (topic_lock[topic] = std::make_shared<std::mutex>());
 		}
+
+		const auto f_decode = decode[topic];
+		const auto f_handle = handle[topic];
+
+		if(!f_decode) {
+			throw std::runtime_error("Player: missing decoder for " + topic);
+		}
+		const auto sample = f_decode(*this);
+		sample->topic = topic;
+
 		const auto now_us = get_time_micros();
 
 		if(have_init) {
-			const int64_t delay_us = now_us - (ts + ts_delta);
+			const int64_t delay_us = (ts + ts_delta) - now_us;
 			if(real_time && delay_us > 0) {
 				sleep_us(delay_us);		// sleep to match real time
 			}
@@ -122,28 +137,27 @@ public:
 			have_init = true;
 		}
 
-		const auto it = handle.find(topic);
-		if(it == handle.end()) {
-			throw std::runtime_error("unknown topic: " + topic);
-		}
-		const auto& func = it->second;
-
-		if(func) {
-			threads.dispatch([this, mutex, topic, func]() {
+		if(f_handle) {
+			threads.dispatch([this, mutex, sample, f_handle]() {
 				// make sure topics are not processed in parallel
 				std::lock_guard<std::mutex> lock(*mutex);
-				func(*this, topic);
+				f_handle(sample);
 			});
-		} else {
-			throw std::runtime_error("topic handler null");
 		}
+		return true;
 	}
 
 	void play()
 	{
 		while(true) {
 			try {
-				read_sample();
+				if(!read_sample()) {
+					std::cerr << "Player: EOF" << std::endl;
+					break;
+				}
+			} catch(std::exception& ex) {
+				std::cerr << "Player: " << ex.what() << std::endl;
+				break;
 			} catch(...) {
 				break;
 			}
@@ -163,10 +177,12 @@ private:
 	T read_pod()
 	{
 		static_assert(std::is_integral<T>::value, "integral types only");
-		T out;
+		T out = 0;
 		read(&out, sizeof(T));
 		return out;
 	}
+
+	static const uint32_t eof_magic = 0x90ce9e5b;
 
 };
 

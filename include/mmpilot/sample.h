@@ -16,6 +16,13 @@
 
 namespace mmpilot {
 
+class Sample {
+public:
+	std::string topic;
+
+	virtual ~Sample() {}
+};
+
 template<typename T>
 void write_sample(Recorder& out, const std::string& topic, const T& data)
 {

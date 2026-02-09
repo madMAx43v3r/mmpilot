@@ -10,11 +10,12 @@
 
 #include <mmpilot/record.h>
 #include <mmpilot/replay.h>
+#include <mmpilot/sample.h>
 
 
 namespace mmpilot {
 
-class CameraFrame {
+class CameraFrame : public Sample {
 public:
 	int width = 0;
 	int height = 0;

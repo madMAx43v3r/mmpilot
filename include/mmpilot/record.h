@@ -76,6 +76,7 @@ public:
 	void close()
 	{
 		if(stream.is_open()) {
+			write_u32(eof_magic);
 			flush();
 			stream.close();
 			if(stream.fail()) {
@@ -108,6 +109,8 @@ private:
 			throw std::runtime_error("Recorder: write failed");
 		}
 	}
+
+	static const uint32_t eof_magic = 0x90ce9e5b;
 
 };
 

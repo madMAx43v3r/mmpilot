@@ -20,20 +20,30 @@ int main(int argc, char** argv)
 
 	std::mutex mutex;
 
-	const auto on_frame = [&](Player& in, const std::string& topic)
+	const auto on_frame = [&](std::shared_ptr<Sample> sample)
 	{
-		auto frame = CameraFrame::read(in);
+		auto frame = std::dynamic_pointer_cast<CameraFrame>(sample);
+		if(!frame) {
+			return;
+		}
 		{
 			std::lock_guard<std::mutex> lock(mutex);
-			std::cout << "[" << topic << "] ts = " << frame->timestamp
+			std::cout << "[" << frame->topic << "] ts = " << frame->timestamp
 					<< ", width = " << frame->width << ", height = " << frame->height << std::endl;
 		}
 	};
 
+	std::cout << "file_name = " << file_name << std::endl;
+
 	Player player(file_name, 4);
+
+	player.decode["camera.front"] = &CameraFrame::read;
+	player.decode["camera.below"] = &CameraFrame::read;
 
 	player.handle["camera.front"] = on_frame;
 	player.handle["camera.below"] = on_frame;
+
+	player.play();
 
 	return 0;
 }
