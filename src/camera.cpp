@@ -216,7 +216,7 @@ void Camera::handle(Request* req)
 	auto* fb = it->second;
 	const auto& meta = fb->metadata();
 
-	Frame out;
+	CameraFrame out;
 	out.width = width;
 	out.height = height;
 	out.stride = stride;
@@ -261,37 +261,6 @@ void Camera::stop()
 
 	allocator->free(stream);
 }
-
-
-void Camera::Frame::write(Recorder& out) const
-{
-	out.write_u32(0xc08a5cba);
-	out.write_u32(1);
-	out.write_u32(width);
-	out.write_u32(height);
-	out.write_u32(stride);
-	out.write_u64(sequence);
-	out.write_u64(timestamp);
-	out.write(pixel_format);
-
-	out.write_u32(data.size());
-	for(const auto& buf : data) {
-		out.write(buf.first, buf.second);
-	}
-}
-
-Camera::Frame::~Frame()
-{
-	if(is_owner) {
-		for(const auto& buf : data) {
-			::free(buf.first);
-		}
-	}
-}
-
-
-
-
 
 
 

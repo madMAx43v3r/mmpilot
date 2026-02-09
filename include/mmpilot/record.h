@@ -18,7 +18,7 @@ namespace mmpilot {
 
 class Recorder {
 public:
-	explicit Recorder(const std::string& file_name)
+	Recorder(const std::string& file_name)
 		:	stream(file_name, std::ios::binary | std::ios::out | std::ios::trunc)
 	{
 		if(!stream.is_open()) {
@@ -29,8 +29,6 @@ public:
 
 	Recorder(const Recorder&) = delete;
 	Recorder& operator=(const Recorder&) = delete;
-	Recorder(Recorder&&) noexcept = default;
-	Recorder& operator=(Recorder&&) noexcept = default;
 
 	~Recorder() {
 		try {
@@ -105,7 +103,7 @@ private:
 
 	void write_data(const void* data, const size_t count)
 	{
-		stream.write(static_cast<const char*>(data), static_cast<std::streamsize>(count));
+		stream.write(static_cast<const char*>(data), count);
 		if(!stream) {
 			throw std::runtime_error("Recorder: write failed");
 		}

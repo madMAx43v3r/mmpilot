@@ -8,6 +8,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(PkgConfig)
+find_package(Threads REQUIRED)
 
 if(PkgConfig_FOUND)
     pkg_check_modules(LIBCAMERA libcamera)
