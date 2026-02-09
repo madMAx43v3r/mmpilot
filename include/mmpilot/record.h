@@ -110,7 +110,7 @@ private:
 		}
 	}
 
-	static const uint32_t eof_magic = 0x90ce9e5b;
+	static constexpr uint32_t eof_magic = 0x90ce9e5b;
 
 };
 
