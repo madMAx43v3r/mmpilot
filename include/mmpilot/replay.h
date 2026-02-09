@@ -155,7 +155,6 @@ public:
 		while(true) {
 			try {
 				if(!read_sample()) {
-					std::cerr << "Player: EOF" << std::endl;
 					break;
 				}
 			} catch(std::exception& ex) {
