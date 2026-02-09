@@ -17,7 +17,7 @@ using namespace mmpilot;
 uint64_t last_ts = 0;
 uint64_t last_seq = 0;
 
-void handle(const Camera::Frame& frame)
+void handle(const CameraFrame& frame)
 {
 	std::cout << "Frame " << frame.sequence << ": ts = " << frame.timestamp
 			<< ", width = " << frame.width << ", height = " << frame.height

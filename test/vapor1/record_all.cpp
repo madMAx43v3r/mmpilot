@@ -19,7 +19,7 @@ using namespace mmpilot;
 std::mutex mutex;
 Recorder* rec = nullptr;
 
-void on_frame(const std::string& topic, const Camera::Frame& frame)
+void on_frame(const std::string& topic, const CameraFrame& frame)
 {
 	{
 		std::lock_guard<std::mutex> lock(mutex);
