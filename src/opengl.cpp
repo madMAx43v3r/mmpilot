@@ -192,51 +192,86 @@ void GL_bind_tex(GLuint prog, const char* name, GLuint tex, GLint unit)
 	GL_check("GL_bind_tex");
 }
 
-void GL_set_uniform_2f(GLuint prog, const char* name, float x, float y)
-{
-	auto loc = glGetUniformLocation(prog, name);
-	if(loc >= 0)
-		glUniform2f(loc, x, y);
-}
-
-void GL_set_uniform_int(GLuint prog, const char* name, int v)
-{
-	auto loc = glGetUniformLocation(prog, name);
-	if(loc >= 0)
-		glUniform1i(loc, v);
-}
-
-template<int N>
-void GL_set_uniform_fv(GLuint prog, const char* name, const std::array<float, N>& v)
+void GL_set_uniform_1f(GLuint prog, const char* name, float x)
 {
 	auto loc = glGetUniformLocation(prog, name);
 	if(loc >= 0) {
-		glUniform1fv(loc, N, v.data());
+		glUniform1f(loc, x);
+	}
+}
+
+void GL_set_uniform_2f(GLuint prog, const char* name, float x, float y)
+{
+	auto loc = glGetUniformLocation(prog, name);
+	if(loc >= 0) {
+		glUniform2f(loc, x, y);
+	}
+}
+
+void GL_set_uniform_1i(GLuint prog, const char* name, int v)
+{
+	auto loc = glGetUniformLocation(prog, name);
+	if(loc >= 0) {
+		glUniform1i(loc, v);
+	}
+}
+
+void GL_set_uniform_2i(GLuint prog, const char* name, int x, int y)
+{
+	auto loc = glGetUniformLocation(prog, name);
+	if(loc >= 0) {
+		glUniform2i(loc, x, y);
 	}
 }
 
 void GL_read_FBO_R(GLuint fbo, int index, int w, int h, std::vector<float>& out)
 {
-	out.resize((size_t)w * (size_t)h);
+	out.resize(w * h);
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 	glReadBuffer(GL_COLOR_ATTACHMENT0 + index);
+	glPixelStorei(GL_PACK_ALIGNMENT, 1);
+	glPixelStorei(GL_PACK_ROW_LENGTH, 0);
 	glReadPixels(0, 0, w, h, GL_RED, GL_FLOAT, out.data());
+}
+
+void GL_read_FBO_R(GLuint fbo, int index, int w, int h, std::vector<uint8_t>& out)
+{
+	out.resize(w * h);
+	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+	glReadBuffer(GL_COLOR_ATTACHMENT0 + index);
+	glPixelStorei(GL_PACK_ALIGNMENT, 1);
+	glPixelStorei(GL_PACK_ROW_LENGTH, 0);
+	glReadPixels(0, 0, w, h, GL_RED_INTEGER, GL_UNSIGNED_BYTE, out.data());
 }
 
 void GL_read_FBO_RG(GLuint fbo, int index, int w, int h, std::vector<float>& out)
 {
-	out.resize((size_t)w * (size_t)h * 2);
+	out.resize(w * h * 2);
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 	glReadBuffer(GL_COLOR_ATTACHMENT0 + index);
+	glPixelStorei(GL_PACK_ALIGNMENT, 1);
+	glPixelStorei(GL_PACK_ROW_LENGTH, 0);
 	glReadPixels(0, 0, w, h, GL_RG, GL_FLOAT, out.data());
 }
 
 void GL_read_FBO_RGBA(GLuint fbo, int index, int w, int h, std::vector<float>& out)
 {
-	out.resize((size_t)w * (size_t)h * 4);
+	out.resize(w * h * 4);
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 	glReadBuffer(GL_COLOR_ATTACHMENT0 + index);
+	glPixelStorei(GL_PACK_ALIGNMENT, 1);
+	glPixelStorei(GL_PACK_ROW_LENGTH, 0);
 	glReadPixels(0, 0, w, h, GL_RGBA, GL_FLOAT, out.data());
+}
+
+void GL_read_FBO_RGBA(GLuint fbo, int index, int w, int h, std::vector<uint8_t>& out)
+{
+	out.resize(w * h * 4);
+	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+	glReadBuffer(GL_COLOR_ATTACHMENT0 + index);
+	glPixelStorei(GL_PACK_ALIGNMENT, 1);
+	glPixelStorei(GL_PACK_ROW_LENGTH, 0);
+	glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, out.data());
 }
 
 

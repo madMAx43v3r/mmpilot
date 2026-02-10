@@ -16,6 +16,8 @@ if(PkgConfig_FOUND)
     
     pkg_check_modules(EGL REQUIRED egl)
 	pkg_check_modules(GLESv3 REQUIRED glesv2)
+	
+	pkg_check_modules(X11 x11)
 endif()
 
 
@@ -52,6 +54,19 @@ if(LIBCAMERA_FOUND)
 		src/camera.cpp
 	)
 	target_link_libraries(mmpilot_camera camera camera-base)
+endif()
+
+if(X11_FOUND)
+	add_library(mmpilot_display STATIC
+		src/display.cpp
+	)
+	target_include_directories(mmpilot_display
+		PRIVATE ${X11_INCLUDE_DIRS}
+	)
+	target_link_libraries(mmpilot_display
+		PUBLIC mmpilot_opengl
+		PRIVATE ${X11_LIBRARIES}
+	)
 endif()
 
 add_subdirectory(test)

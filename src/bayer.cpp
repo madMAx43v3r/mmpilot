@@ -53,19 +53,25 @@ void DeBayer::handle(std::shared_ptr<CameraFrame> frame)
 	if(frame->data.size() != 1) {
 		throw std::runtime_error("DeBayer: invalid frame data");
 	}
-	input->upload(frame->data[0].first);
+	input->upload(frame->data[0].first, frame->stride / 2);
 
 	if(out_luma) {
 		glUseProgram(prog_luma);
 		GL_bind_tex(prog_luma, "uBayer", input->id, 0);
+
 		render::fullscreen(fbo_luma, width, height);
+
 		GL_finish("DeBayer::handle(): prog_luma");
 		on_luma(out_luma);
 	}
+
 	if(out_rgba) {
 		glUseProgram(prog_rgba);
 		GL_bind_tex(prog_rgba, "uBayer", input->id, 0);
+		GL_set_uniform_1f(prog_rgba, "uGamma", gamma);
+
 		render::fullscreen(fbo_rgba, width, height);
+
 		GL_finish("DeBayer::handle(): prog_rgba");
 		on_rgba(out_rgba);
 	}

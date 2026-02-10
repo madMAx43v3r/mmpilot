@@ -36,16 +36,12 @@ public:
 		glBindTexture(GL_TEXTURE_2D, id);
 	}
 
-	void upload(const void* data, int level = 0)
+	void upload(const void* data, GLint stride = 0)
 	{
 		bind();
-		if(width % 4 == 0) {
-			glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-		} else {
-			glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-		}
-		glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-		glTexSubImage2D(GL_TEXTURE_2D, level, 0, 0, width, height, format, type, data);
+		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+		glPixelStorei(GL_UNPACK_ROW_LENGTH, stride);
+		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, format, type, data);
 		GL_check("GL_Tex2D::upload()");
 	}
 

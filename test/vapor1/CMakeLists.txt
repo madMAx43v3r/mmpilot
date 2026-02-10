@@ -5,4 +5,4 @@ if(LIBCAMERA_FOUND)
 endif()
 
 add_executable(test_replay test_replay.cpp)
-target_link_libraries(test_replay mmpilot_opengl Threads::Threads)
+target_link_libraries(test_replay mmpilot_opengl mmpilot_display Threads::Threads)

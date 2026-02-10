@@ -41,18 +41,27 @@ GLuint GL_create_FBO(const std::vector<GLuint>& tex_list);
 
 void GL_bind_tex(GLuint prog, const char* name, GLuint tex, GLint unit);
 
+void GL_set_uniform_1f(GLuint prog, const char* name, float x);
 void GL_set_uniform_2f(GLuint prog, const char* name, float x, float y);
-
-void GL_set_uniform_int(GLuint prog, const char* name, int v);
+void GL_set_uniform_1i(GLuint prog, const char* name, int v);
+void GL_set_uniform_2i(GLuint prog, const char* name, int x, int y);
 
 template<int N>
-void GL_set_uniform_fv(GLuint prog, const char* name, const std::array<float, N>& v);
+void GL_set_uniform_fv(GLuint prog, const char* name, const std::array<float, N>& v)
+{
+	auto loc = glGetUniformLocation(prog, name);
+	if(loc >= 0) {
+		glUniform1fv(loc, N, v.data());
+	}
+}
 
 void GL_read_FBO_R(GLuint fbo, int index, int w, int h, std::vector<float>& out);
+void GL_read_FBO_R(GLuint fbo, int index, int w, int h, std::vector<uint8_t>& out);
 
 void GL_read_FBO_RG(GLuint fbo, int index, int w, int h, std::vector<float>& out);
 
 void GL_read_FBO_RGBA(GLuint fbo, int index, int w, int h, std::vector<float>& out);
+void GL_read_FBO_RGBA(GLuint fbo, int index, int w, int h, std::vector<uint8_t>& out);
 
 
 } // mmpilot
