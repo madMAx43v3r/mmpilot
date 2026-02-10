@@ -9,6 +9,7 @@
 #include <mmpilot/util.h>
 
 #include <stdexcept>
+#include <iostream>
 #include <sstream>
 
 
@@ -27,6 +28,18 @@ const char* GL_error_name(GLenum err)
     }
 }
 
+std::string GL_FBO_status_name(GLenum s) {
+	switch (s) {
+		case GL_FRAMEBUFFER_COMPLETE: return "GL_FRAMEBUFFER_COMPLETE";
+		case GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT: return "GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT";
+		case GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT: return "GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT";
+		case GL_FRAMEBUFFER_INCOMPLETE_DIMENSIONS: return "GL_FRAMEBUFFER_INCOMPLETE_DIMENSIONS";
+		case GL_FRAMEBUFFER_UNSUPPORTED: return "GL_FRAMEBUFFER_UNSUPPORTED";
+		case GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE: return "GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE";
+		default: return "GL_FRAMEBUFFER_UNKNOWN_STATUS";
+	}
+}
+
 void GL_check(const char* where)
 {
     GLenum err;
@@ -43,6 +56,17 @@ void GL_check(const char* where)
     if(found) {
         throw std::runtime_error(oss.str());
     }
+}
+
+void GL_print_version()
+{
+	const char* ver = reinterpret_cast<const char*>(glGetString(GL_VERSION));
+	const char* ren = reinterpret_cast<const char*>(glGetString(GL_RENDERER));
+	const char* ven = reinterpret_cast<const char*>(glGetString(GL_VENDOR));
+	std::cout << "GL_VENDOR  : " << (ven ? ven : "(null)") << "\n";
+	std::cout << "GL_RENDERER: " << (ren ? ren : "(null)") << "\n";
+	std::cout << "GL_VERSION : " << (ver ? ver : "(null)") << "\n";
+	GL_check("glGetString()");
 }
 
 void GL_finish()

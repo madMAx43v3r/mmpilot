@@ -1,0 +1,43 @@
+/*
+ * bayer.h
+ *
+ *  Created on: Feb 10, 2026
+ *      Author: mad
+ */
+
+#ifndef INCLUDE_MMPILOT_BAYER_H_
+#define INCLUDE_MMPILOT_BAYER_H_
+
+#include <mmpilot/texture.h>
+#include <mmpilot/camera_frame.h>
+
+#include <memory>
+#include <functional>
+
+
+namespace mmpilot {
+
+class DeBayer {
+public:
+	std::function<void(std::shared_ptr<GL_Tex2D>)> on_luma;		// RG16F (luma, 1)
+	std::function<void(std::shared_ptr<GL_Tex2D>)> on_rgba;		// RGBA8
+
+	void init(int width, int height, std::string format);
+
+	void handle(std::shared_ptr<CameraFrame> frame);
+
+private:
+	int width = 0;
+	int height = 0;
+	std::string format;
+
+	std::shared_ptr<GL_Tex2D> input;
+
+	bool have_init = false;
+
+};
+
+
+} // mmpilot
+
+#endif /* INCLUDE_MMPILOT_BAYER_H_ */

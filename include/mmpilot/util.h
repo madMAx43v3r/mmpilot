@@ -16,7 +16,7 @@
 
 namespace mmpilot {
 
-inline void die(const char* msg) {
+inline void die(std::string&& msg) {
 	throw std::runtime_error(msg);
 }
 

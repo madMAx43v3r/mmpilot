@@ -8,6 +8,10 @@
 #include <mmpilot/replay.h>
 #include <mmpilot/sample.h>
 #include <mmpilot/camera_frame.h>
+#include <mmpilot/render.h>
+#include <mmpilot/bayer.h>
+#include <mmpilot/egl.h>
+#include <mmpilot/opengl.h>
 
 #include <mutex>
 #include <iostream>
@@ -21,16 +25,28 @@ int main(int argc, char** argv)
 
 	std::mutex mutex;
 
+	DeBayer debayer_0;
+
 	const auto on_frame = [&](std::shared_ptr<CameraFrame> frame)
 	{
-		{
-			std::lock_guard<std::mutex> lock(mutex);
-			std::cout << "[" << frame->topic << "] ts = " << frame->timestamp
-					<< ", width = " << frame->width << ", height = " << frame->height << std::endl;
-		}
+		std::lock_guard<std::mutex> lock(mutex);
+		std::cout << "[" << frame->topic << "] ts = " << frame->timestamp
+				<< ", width = " << frame->width << ", height = " << frame->height << std::endl;
+	};
+
+	const auto on_frame_1 = [&](std::shared_ptr<CameraFrame> frame)
+	{
+		on_frame(frame);
+		debayer_0.handle(frame);
 	};
 
 	std::cout << "file_name = " << file_name << std::endl;
+
+	auto ctx = EGL_create_context();
+
+	GL_print_version();
+
+	render::init();
 
 	Player player(file_name, 4);
 
@@ -38,9 +54,11 @@ int main(int argc, char** argv)
 	player.decode["camera.below"] = &CameraFrame::read;
 
 	player.handle["camera.front"] = type_cast<CameraFrame>(on_frame);
-	player.handle["camera.below"] = type_cast<CameraFrame>(on_frame);
+	player.handle["camera.below"] = type_cast<CameraFrame>(on_frame_1);
 
 	player.play();
+
+	ctx.terminate();
 
 	return 0;
 }

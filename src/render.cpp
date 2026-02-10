@@ -35,7 +35,7 @@ void init()
 	glGenVertexArrays(1, &g_dummy_vao);
 
 	g_fullscreen_vertex_shader =
-			GL_compile_shader_file(GL_VERTEX_SHADER, "shader/vertex/fullsreen.glsl");
+			GL_compile_shader_file(GL_VERTEX_SHADER, "shader/vertex/fullscreen.glsl");
 
 	GL_check("render::init()");
 }

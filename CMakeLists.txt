@@ -28,8 +28,10 @@ add_library(mmpilot_util STATIC
 )
 
 add_library(mmpilot_opengl STATIC
+	src/egl.cpp
 	src/opengl.cpp
 	src/render.cpp
+	src/bayer.cpp
 )
 
 target_include_directories(mmpilot_opengl
@@ -41,6 +43,7 @@ target_link_directories(mmpilot_opengl
 )
 
 target_link_libraries(mmpilot_opengl
+	PUBLIC mmpilot_util
 	PRIVATE ${EGL_LIBRARIES} ${GLESv3_LIBRARIES}
 )
 
