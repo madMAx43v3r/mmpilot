@@ -19,8 +19,10 @@ namespace mmpilot {
 
 class DeBayer {
 public:
+	float gamma = 0.7;		// for RGBA8
+
 	std::function<void(std::shared_ptr<GL_Tex2D>)> on_luma;		// RG16F (luma, 1)
-	std::function<void(std::shared_ptr<GL_Tex2D>)> on_rgba;		// RGBA8
+	std::function<void(std::shared_ptr<GL_Tex2D>)> on_rgba;		// RGBA8 (RGB, 1)
 
 	void init(int width, int height, std::string format);
 
@@ -32,6 +34,13 @@ private:
 	std::string format;
 
 	std::shared_ptr<GL_Tex2D> input;
+	std::shared_ptr<GL_Tex2D> out_luma;
+	std::shared_ptr<GL_Tex2D> out_rgba;
+
+	GLuint fs_luma = 0;
+	GLuint fs_rgba = 0;
+	GLuint prog_luma = 0;
+	GLuint prog_rgba = 0;
 
 	bool have_init = false;
 

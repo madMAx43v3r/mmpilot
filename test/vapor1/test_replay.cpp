@@ -46,9 +46,12 @@ int main(int argc, char** argv)
 
 	GL_print_version();
 
+	GL_compile_shader_file(GL_FRAGMENT_SHADER, "shader/color/luma.glsl");
+	GL_compile_shader_file(GL_FRAGMENT_SHADER, "shader/test/test_interger_tex.glsl");
+
 	render::init();
 
-	Player player(file_name, 4);
+	Player player(file_name);
 
 	player.decode["camera.front"] = &CameraFrame::read;
 	player.decode["camera.below"] = &CameraFrame::read;
@@ -57,6 +60,8 @@ int main(int argc, char** argv)
 	player.handle["camera.below"] = type_cast<CameraFrame>(on_frame_1);
 
 	player.play();
+
+	render::cleanup();
 
 	ctx.terminate();
 

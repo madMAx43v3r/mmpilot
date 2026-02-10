@@ -81,21 +81,28 @@ void GL_finish(const char* where)
 	GL_check(where);
 }
 
-GLuint GL_compile_shader(GLenum type, const std::string& src)
+GLuint GL_compile_shader(GLenum type, const std::string& source, const std::string& name)
 {
 	GLuint sh = glCreateShader(type);
-	const char* src_[1] = {src.data()};
-	glShaderSource(sh, 1, src_, nullptr);
+	const char* src = source.data();
+	GLint src_len = source.size();
+	glShaderSource(sh, 1, &src, &src_len);
 	glCompileShader(sh);
 
 	GLint ok = 0;
 	glGetShaderiv(sh, GL_COMPILE_STATUS, &ok);
 	if(!ok) {
+		std::cout << source << std::endl;
+
 		GLint len = 0;
 		glGetShaderiv(sh, GL_INFO_LOG_LENGTH, &len);
+		len = std::max(len, 4096);
+
+		GLsizei outLen = 0;
 		std::vector<char> log(len);
-		glGetShaderInfoLog(sh, len, nullptr, log.data());
-		std::fprintf(stderr, "Shader compile error:\n%s\n", std::string(log.data(), log.size()).c_str());
+		glGetShaderInfoLog(sh, len, &outLen, log.data());
+		std::cerr << "Shader compile error: " << name << std::endl
+				<< std::string(log.data(), outLen).c_str() << std::endl;
 		die("glCompileShader failed");
 	}
 	GL_check("GL_compile_shader");
@@ -104,7 +111,7 @@ GLuint GL_compile_shader(GLenum type, const std::string& src)
 
 GLuint GL_compile_shader_file(GLenum type, const std::string& file_path)
 {
-	return GL_compile_shader(type, read_file_txt(file_path));
+	return GL_compile_shader(type, read_file_txt(file_path), file_path);
 }
 
 GLuint GL_link_program(GLuint vs, GLuint fs)

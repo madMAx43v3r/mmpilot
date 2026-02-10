@@ -28,7 +28,7 @@ void GL_print_version();
 void GL_finish();
 void GL_finish(const char* where);
 
-GLuint GL_compile_shader(GLenum type, const std::string& src);
+GLuint GL_compile_shader(GLenum type, const std::string& source, const std::string& name);
 
 GLuint GL_compile_shader_file(GLenum type, const std::string& file_path);
 

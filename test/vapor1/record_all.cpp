@@ -21,13 +21,13 @@ Recorder* rec = nullptr;
 
 void on_frame(const std::string& topic, const CameraFrame& frame)
 {
-	{
-		std::lock_guard<std::mutex> lock(mutex);
-		std::cout << "Frame " << frame.sequence << ": ts = " << frame.timestamp
-				<< ", width = " << frame.width << ", height = " << frame.height
-				<< ", stride = " << frame.stride
-				<< ", format = " << frame.pixel_format << std::endl;
-	}
+	std::lock_guard<std::mutex> lock(mutex);
+
+	std::cout << "Frame " << frame.sequence << ": ts = " << frame.timestamp
+			<< ", width = " << frame.width << ", height = " << frame.height
+			<< ", stride = " << frame.stride
+			<< ", format = " << frame.pixel_format << std::endl;
+
 	write_sample(*rec, topic, frame);
 }
 

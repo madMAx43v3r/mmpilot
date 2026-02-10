@@ -8,7 +8,6 @@
 #ifndef INCLUDE_MMPILOT_REPLAY_H_
 #define INCLUDE_MMPILOT_REPLAY_H_
 
-#include <mmpilot/threads.h>
 #include <mmpilot/sample.h>
 #include <mmpilot/util.h>
 
@@ -35,9 +34,8 @@ public:
 	// [topic, callback]
 	std::map<std::string, std::function<void(std::shared_ptr<Sample>)>> handle;
 
-	Player(const std::string& file_name, size_t num_threads = 4)
-		:	stream(file_name, std::ios::binary | std::ios::in),
-			threads(num_threads)
+	Player(const std::string& file_name)
+		:	stream(file_name, std::ios::binary | std::ios::in)
 	{
 		if(!stream.is_open()) {
 			throw std::runtime_error("Player: failed to open file for reading");
@@ -111,11 +109,6 @@ public:
 		const auto ts = read_i64();
 		const auto topic = read_string();
 
-		auto mutex = topic_lock[topic];
-		if(!mutex) {
-			mutex = (topic_lock[topic] = std::make_shared<std::mutex>());
-		}
-
 		const auto f_decode = decode[topic];
 		const auto f_handle = handle[topic];
 
@@ -141,11 +134,7 @@ public:
 		}
 
 		if(f_handle) {
-			threads.dispatch([this, mutex, sample, f_handle]() {
-				// make sure topics are not processed in parallel
-				std::lock_guard<std::mutex> lock(*mutex);
-				f_handle(sample);
-			});
+			f_handle(sample);
 		}
 		return true;
 	}
@@ -164,16 +153,12 @@ public:
 				break;
 			}
 		}
-		threads.wait();
 	}
 
 private:
-	std::ifstream stream;
-	ThreadPool threads;
-
-	int64_t ts_delta = 0;
 	bool have_init = false;
-	std::map<std::string, std::shared_ptr<std::mutex>> topic_lock;
+	std::ifstream stream;
+	int64_t ts_delta = 0;
 
 	template<class T>
 	T read_pod()
