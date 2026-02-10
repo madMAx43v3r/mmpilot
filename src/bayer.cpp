@@ -68,6 +68,9 @@ void DeBayer::handle(std::shared_ptr<CameraFrame> frame)
 	if(out_rgba) {
 		glUseProgram(prog_rgba);
 		GL_bind_tex(prog_rgba, "uBayer", input->id, 0);
+
+		GL_set_uniform_1f(prog_rgba, "uBlack", black);
+		GL_set_uniform_1f(prog_rgba, "uGain", gain);
 		GL_set_uniform_1f(prog_rgba, "uGamma", gamma);
 
 		render::fullscreen(fbo_rgba, width, height);

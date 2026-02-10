@@ -7,6 +7,8 @@ layout(location = 0) out vec4 outRGBA;
 
 uniform usampler2D uBayer;   // GL_R16UI texture, BGGR, values 0..65535
 
+uniform float uBlack;        // black level
+uniform float uGain;         // gain
 uniform float uGamma;        // 0 to 1
 
 float f16(ivec2 p)
@@ -81,6 +83,9 @@ void main()
     ivec2 p = ivec2(gl_FragCoord.xy);
 
     vec3 rgb = demosaicBGGR(p);
+
+    rgb -= vec3(uBlack);
+    rgb *= uGain;
 
     // Clamp to display range before gamma
     rgb = clamp(rgb, 0.0, 1.0);

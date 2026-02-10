@@ -49,8 +49,8 @@ int main(int argc, char** argv)
 	DeBayer debayer_0;
 	DeBayer debayer_1;
 
-	debayer_0.gamma = 1;
-	debayer_1.gamma = 1;
+	debayer_0.gamma = 0.7;
+	debayer_1.gamma = 0.7;
 
 	std::unique_ptr<TexDisplay> display;
 
