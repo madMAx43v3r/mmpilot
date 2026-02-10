@@ -39,8 +39,12 @@ private:
 
 	GLuint fs_luma = 0;
 	GLuint fs_rgba = 0;
+
 	GLuint prog_luma = 0;
 	GLuint prog_rgba = 0;
+
+	GLuint fbo_luma = 0;
+	GLuint fbo_rgba = 0;
 
 	bool have_init = false;
 

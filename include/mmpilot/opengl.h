@@ -36,6 +36,7 @@ GLuint GL_link_program(GLuint vs, GLuint fs);
 
 GLuint GL_create_tex(GLsizei w, GLsizei h, GLenum internal_fmt, GLenum fmt, GLenum type);
 
+GLuint GL_create_FBO(const GLuint tex);
 GLuint GL_create_FBO(const std::vector<GLuint>& tex_list);
 
 void GL_bind_tex(GLuint prog, const char* name, GLuint tex, GLint unit);

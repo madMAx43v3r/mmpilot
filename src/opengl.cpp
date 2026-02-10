@@ -152,6 +152,10 @@ GLuint GL_create_tex(GLsizei w, GLsizei h, GLenum internal_fmt, GLenum fmt, GLen
 	return tex;
 }
 
+GLuint GL_create_FBO(const GLuint tex) {
+	return GL_create_FBO(std::vector<GLuint>{tex});
+}
+
 GLuint GL_create_FBO(const std::vector<GLuint>& tex_list)
 {
 	GLuint fbo = 0;

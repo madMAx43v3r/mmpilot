@@ -16,8 +16,13 @@ GLuint g_dummy_vao = 0;
 GLuint g_fullscreen_vertex_shader = 0;
 
 
-void fullscreen()
+void fullscreen(GLuint fbo, int width, int height)
 {
+	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+	glViewport(0, 0, width, height);
+	glDisable(GL_DEPTH_TEST);
+	glDisable(GL_BLEND);
+
 	// a dummy VAO is required in core-ish profiles; ES typically too
 	glBindVertexArray(g_dummy_vao);
 

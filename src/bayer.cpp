@@ -31,9 +31,11 @@ void DeBayer::init(int width_, int height_, std::string format_)
 
 	if(on_luma) {
 		out_luma = std::make_shared<GL_Tex2D>(width, height, GL_RG16F, GL_RG, GL_HALF_FLOAT);
+		fbo_luma = GL_create_FBO(out_luma->id);
 	}
 	if(on_rgba) {
 		out_rgba = std::make_shared<GL_Tex2D>(width, height, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE);
+		fbo_rgba = GL_create_FBO(out_rgba->id);
 	}
 	have_init = true;
 }
@@ -54,10 +56,19 @@ void DeBayer::handle(std::shared_ptr<CameraFrame> frame)
 	input->upload(frame->data[0].first);
 
 	if(out_luma) {
-
+		glUseProgram(prog_luma);
+		GL_bind_tex(prog_luma, "uBayer", input->id, 0);
+		render::fullscreen(fbo_luma, width, height);
+		GL_finish("DeBayer::handle(): prog_luma");
+		on_luma(out_luma);
 	}
-
-	GL_check("DeBayer::handle()");
+	if(out_rgba) {
+		glUseProgram(prog_rgba);
+		GL_bind_tex(prog_rgba, "uBayer", input->id, 0);
+		render::fullscreen(fbo_rgba, width, height);
+		GL_finish("DeBayer::handle(): prog_rgba");
+		on_rgba(out_rgba);
+	}
 }
 
 

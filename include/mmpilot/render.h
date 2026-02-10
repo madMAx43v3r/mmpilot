@@ -14,7 +14,7 @@
 namespace mmpilot {
 namespace render {
 
-void fullscreen();
+void fullscreen(GLuint fbo, int width, int height);
 
 GLuint get_fullscreen_vertex_shader();
 

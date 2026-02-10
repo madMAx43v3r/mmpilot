@@ -43,7 +43,7 @@ int main(int argc, char** argv)
 
 	Thread thread(&gl_main);
 
-	DeBayer debayer_0;
+	DeBayer debayer_1;
 
 	const auto on_frame = [&](std::shared_ptr<CameraFrame> frame)
 	{
@@ -54,7 +54,17 @@ int main(int argc, char** argv)
 	const auto on_frame_1 = [&](std::shared_ptr<CameraFrame> frame)
 	{
 		on_frame(frame);
-		debayer_0.handle(frame);
+		debayer_1.handle(frame);
+	};
+
+	debayer_1.on_luma = [&](std::shared_ptr<GL_Tex2D> luma)
+	{
+		std::cout << "Got luma: width = " << luma->width << ", height = " << luma->height << std::endl;
+	};
+
+	debayer_1.on_rgba = [&](std::shared_ptr<GL_Tex2D> luma)
+	{
+		std::cout << "Got rgba: width = " << luma->width << ", height = " << luma->height << std::endl;
 	};
 
 	Player player(file_name);
