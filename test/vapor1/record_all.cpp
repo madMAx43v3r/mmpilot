@@ -53,6 +53,8 @@ int main(int argc, char** argv)
 	cam_0->set_interval(500);
 	cam_1->set_interval(500);
 
+	cam_1->controls().set(libcamera::controls::AwbEnable, true);
+
 	cam_0->start();
 	cam_1->start();
 
