@@ -12,6 +12,7 @@
 #include <mmpilot/util.h>
 
 #include <string>
+#include <functional>
 
 
 namespace mmpilot {
@@ -33,6 +34,19 @@ void write_sample(Recorder& out, const std::string& topic, const T& data)
 
 	data.write(out);
 	out.flush();
+}
+
+template<typename T, typename F>
+auto type_cast(F&& handler)
+{
+	auto h = std::forward<F>(handler);
+
+	return [h = std::move(h)](const std::shared_ptr<Sample>& sample)
+	{
+		if(auto out = std::dynamic_pointer_cast<T>(sample)) {
+			h(std::move(out));
+		}
+	};
 }
 
 

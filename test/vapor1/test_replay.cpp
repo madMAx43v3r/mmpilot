@@ -6,6 +6,7 @@
  */
 
 #include <mmpilot/replay.h>
+#include <mmpilot/sample.h>
 #include <mmpilot/camera_frame.h>
 
 #include <mutex>
@@ -20,12 +21,8 @@ int main(int argc, char** argv)
 
 	std::mutex mutex;
 
-	const auto on_frame = [&](std::shared_ptr<Sample> sample)
+	const auto on_frame = [&](std::shared_ptr<CameraFrame> frame)
 	{
-		auto frame = std::dynamic_pointer_cast<CameraFrame>(sample);
-		if(!frame) {
-			return;
-		}
 		{
 			std::lock_guard<std::mutex> lock(mutex);
 			std::cout << "[" << frame->topic << "] ts = " << frame->timestamp
@@ -40,8 +37,8 @@ int main(int argc, char** argv)
 	player.decode["camera.front"] = &CameraFrame::read;
 	player.decode["camera.below"] = &CameraFrame::read;
 
-	player.handle["camera.front"] = on_frame;
-	player.handle["camera.below"] = on_frame;
+	player.handle["camera.front"] = type_cast<CameraFrame>(on_frame);
+	player.handle["camera.below"] = type_cast<CameraFrame>(on_frame);
 
 	player.play();
 

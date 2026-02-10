@@ -13,6 +13,9 @@ find_package(Threads REQUIRED)
 if(PkgConfig_FOUND)
     pkg_check_modules(LIBCAMERA libcamera)
     pkg_check_modules(LIBCAMERA_BASE libcamera-base)
+    
+    pkg_check_modules(EGL REQUIRED egl)
+	pkg_check_modules(GLESv3 REQUIRED glesv2)
 endif()
 
 
@@ -22,6 +25,23 @@ include_directories(
 
 add_library(mmpilot_util STATIC
 	src/util.cpp
+)
+
+add_library(mmpilot_opengl STATIC
+	src/opengl.cpp
+	src/render.cpp
+)
+
+target_include_directories(mmpilot_opengl
+	PUBLIC ${EGL_INCLUDE_DIRS} ${GLESv3_INCLUDE_DIRS}
+)
+
+target_link_directories(mmpilot_opengl
+	PRIVATE ${EGL_LIBRARY_DIRS} ${GLESv3_LIBRARY_DIRS}
+)
+
+target_link_libraries(mmpilot_opengl
+	PRIVATE ${EGL_LIBRARIES} ${GLESv3_LIBRARIES}
 )
 
 if(LIBCAMERA_FOUND)
