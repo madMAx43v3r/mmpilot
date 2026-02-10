@@ -42,7 +42,7 @@ vec3 demosaicBGGR(ivec2 p)
     float DL = f16(pDL);
     float DR = f16(pDR);
 
-    float R, G, B;
+    float R = 0.0, G = 0.0, B = 0.0;
 
     // BGGR:
     // (even,even)=B, (even,odd)=G, (odd,even)=G, (odd,odd)=R

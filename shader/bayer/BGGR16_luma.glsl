@@ -25,7 +25,7 @@ void main()
     bool xOdd = (p.x & 1) != 0;
     bool yOdd = (p.y & 1) != 0;
 
-    float R, G, B;
+    float R = 0.0, G = 0.0, B = 0.0;
 
     // Clamp neighbor coords to image bounds (avoids border issues)
     ivec2 size = textureSize(uBayer, 0);
