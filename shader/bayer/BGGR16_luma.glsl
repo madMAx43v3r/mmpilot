@@ -7,7 +7,6 @@ layout(location = 0) out vec2 outY;
 
 uniform usampler2D uBayer;   // GL_R16UI texture, values 0..65535
 
-// Fetch and normalize to 0..1
 float f16(ivec2 p)
 {
     uint v = texelFetch(uBayer, p, 0).r;

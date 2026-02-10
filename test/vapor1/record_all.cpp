@@ -17,6 +17,7 @@ using namespace mmpilot;
 
 
 std::mutex mutex;
+
 Recorder* rec = nullptr;
 
 void on_frame(const std::string& topic, const CameraFrame& frame)
