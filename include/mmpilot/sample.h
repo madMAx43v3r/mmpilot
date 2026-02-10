@@ -9,6 +9,7 @@
 #define INCLUDE_MMPILOT_SAMPLE_H_
 
 #include <mmpilot/record.h>
+#include <mmpilot/thread.h>
 #include <mmpilot/util.h>
 
 #include <string>
@@ -36,15 +37,13 @@ void write_sample(Recorder& out, const std::string& topic, const T& data)
 	out.flush();
 }
 
-template<typename T, typename F>
-auto type_cast(F&& handler)
+template<typename T>
+auto dispatch(Thread& thread, const std::function<void(std::shared_ptr<T>)>& handler)
 {
-	auto h = std::forward<F>(handler);
-
-	return [h = std::move(h)](const std::shared_ptr<Sample>& sample)
+	return [t = &thread, h = handler](const std::shared_ptr<Sample>& sample)
 	{
 		if(auto out = std::dynamic_pointer_cast<T>(sample)) {
-			h(std::move(out));
+			t->post(std::bind(h, out));
 		}
 	};
 }

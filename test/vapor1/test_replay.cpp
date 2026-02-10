@@ -12,6 +12,7 @@
 #include <mmpilot/bayer.h>
 #include <mmpilot/egl.h>
 #include <mmpilot/opengl.h>
+#include <mmpilot/thread.h>
 
 #include <mutex>
 #include <iostream>
@@ -19,17 +20,33 @@
 using namespace mmpilot;
 
 
+void gl_main(Thread& self)
+{
+	auto ctx = EGL_create_context();
+
+	GL_print_version();
+
+	render::init();
+
+	self.run();
+
+	render::cleanup();
+
+	ctx.terminate();
+}
+
 int main(int argc, char** argv)
 {
 	const std::string file_name = argc > 1 ? argv[1] : "vapor1_record.dat";
 
-	std::mutex mutex;
+	std::cout << "file_name = " << file_name << std::endl;
+
+	Thread thread(&gl_main);
 
 	DeBayer debayer_0;
 
 	const auto on_frame = [&](std::shared_ptr<CameraFrame> frame)
 	{
-		std::lock_guard<std::mutex> lock(mutex);
 		std::cout << "[" << frame->topic << "] ts = " << frame->timestamp
 				<< ", width = " << frame->width << ", height = " << frame->height << std::endl;
 	};
@@ -40,30 +57,17 @@ int main(int argc, char** argv)
 		debayer_0.handle(frame);
 	};
 
-	std::cout << "file_name = " << file_name << std::endl;
-
-	auto ctx = EGL_create_context();
-
-	GL_print_version();
-
-	GL_compile_shader_file(GL_FRAGMENT_SHADER, "shader/color/luma.glsl");
-	GL_compile_shader_file(GL_FRAGMENT_SHADER, "shader/test/test_interger_tex.glsl");
-
-	render::init();
-
 	Player player(file_name);
 
 	player.decode["camera.front"] = &CameraFrame::read;
 	player.decode["camera.below"] = &CameraFrame::read;
 
-	player.handle["camera.front"] = type_cast<CameraFrame>(on_frame);
-	player.handle["camera.below"] = type_cast<CameraFrame>(on_frame_1);
+	player.handle["camera.front"] = dispatch<CameraFrame>(thread, on_frame);
+	player.handle["camera.below"] = dispatch<CameraFrame>(thread, on_frame_1);
 
 	player.play();
 
-	render::cleanup();
-
-	ctx.terminate();
+	thread.close();
 
 	return 0;
 }
