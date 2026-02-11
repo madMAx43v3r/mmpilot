@@ -12,6 +12,7 @@
 
 #include <vector>
 #include <cstdint>
+#include <cstddef>
 
 
 namespace mmpilot {
