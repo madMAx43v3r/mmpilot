@@ -49,7 +49,7 @@ public:
 		if(version != 0) {
 			throw std::runtime_error("Image: invalid version");
 		}
-		std::shared_ptr<Image> out;
+		auto out = std::make_shared<Image>();
 		out->width = in.read_u32();
 		out->height = in.read_u32();
 		out->exposure = in.read_u32();

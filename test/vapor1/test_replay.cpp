@@ -59,11 +59,29 @@ int main(int argc, char** argv)
 	const auto on_frame_0 = [&](std::shared_ptr<Image> frame)
 	{
 		on_frame(frame);
+
+		int w, h;
+		const auto luma = decode_jpeg_y(frame->data.data(), frame->data.size(), w, h);
+		const auto rgba = decode_jpeg_rgba(frame->data.data(), frame->data.size(), w, h);
+
+//		if(!display) {
+//			display = std::make_unique<TexDisplay>(w, h);
+//		}
+//		display->show(rgba);
 	};
 
 	const auto on_frame_1 = [&](std::shared_ptr<Image> frame)
 	{
 		on_frame(frame);
+
+		int w, h;
+		const auto luma = decode_jpeg_y(frame->data.data(), frame->data.size(), w, h);
+		const auto rgba = decode_jpeg_rgba(frame->data.data(), frame->data.size(), w, h);
+
+		if(!display) {
+			display = std::make_unique<TexDisplay>(w, h);
+		}
+		display->show(rgba);
 	};
 
 	Player player(file_name);

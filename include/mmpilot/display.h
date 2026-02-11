@@ -28,10 +28,21 @@ public:
 	TexDisplay(int width, int height)
 		:	thread(std::bind(&TexDisplay::main, this, width, height))
 	{
+		std::lock_guard<std::mutex> lock(mutex);
+		buffer.resize(width * height * 4);
 	}
 
 	~TexDisplay() {
 		close();
+	}
+
+	void show(const std::vector<uint8_t>& img)
+	{
+		std::lock_guard<std::mutex> lock(mutex);
+		if(img.size() == buffer.size()) {
+			buffer = img;
+			do_update = true;
+		}
 	}
 
 	void show(std::shared_ptr<GL_Tex2D> tex)
