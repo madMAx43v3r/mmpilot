@@ -54,7 +54,7 @@ target_link_libraries(mmpilot_opengl
 )
 
 target_link_libraries(mmpilot_jpeg
-	PRIVATE turbo-jpeg
+	PRIVATE turbojpeg
 )
 
 if(LIBCAMERA_FOUND)
