@@ -31,7 +31,7 @@ void main()
     outR  = vec2(0);
     outUV = vec2(uv.x, uv.y);
 
-    if (uv.x < 0 || uv.y < 0 || uv.x > 1 || uv.y > 1) {
+    if(uv.x < 0 || uv.y < 0 || uv.x > 1 || uv.y > 1) {
         return;
     }
     vec4 ref = texelFetch(uRef, gl_FragCoord.xy, 0);  // (Y, Ix, Iy, w)
