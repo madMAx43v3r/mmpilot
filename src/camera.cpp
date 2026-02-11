@@ -13,8 +13,9 @@
 #include <map>
 #include <memory>
 #include <string>
-#include <sys/mman.h>
 #include <vector>
+#include <iostream>
+#include <sys/mman.h>
 
 using libcamera::Stream;
 using libcamera::Request;
@@ -214,14 +215,24 @@ void Camera::handle(Request* req)
 		return;
 	}
 	auto* fb = it->second;
-	const auto& meta = fb->metadata();
+	const auto& fm = fb->metadata();
+	const auto& meta = req->metadata();
+
+	if(fm.sequence == 0) {
+		std::cout << "---- metadata (" << meta.size() << ") ----" << std::endl;
+		for(const auto &it : meta) {
+			const libcamera::ControlId *id = it.first;
+			const libcamera::ControlValue &val = it.second;
+			std::cout << id->name() << " = " << val.toString() << std::endl;
+		}
+	}
 
 	CameraFrame out;
 	out.width = width;
 	out.height = height;
 	out.stride = stride;
-	out.sequence = meta.sequence;
-	out.timestamp = meta.timestamp;
+	out.sequence = fm.sequence;
+	out.timestamp = fm.timestamp;
 	out.pixel_format = pixel_format;
 
 	// Find mapped buffer
