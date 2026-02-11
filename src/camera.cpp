@@ -48,6 +48,8 @@ static std::vector<Camera::MappedPlane> mmapFrameBuffer(const FrameBuffer& buffe
 		const size_t length = p.length;
 		const size_t map_len = align_up(length, PAGE_SIZE);
 
+		std::cerr << "mmap(): fd=" << fd << ", offset=" << offset << ", length=" << map_len << std::endl;
+
 		void* base = ::mmap(nullptr, map_len, PROT_READ, MAP_SHARED, fd, offset);
 
 		if(base == MAP_FAILED) {
