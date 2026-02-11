@@ -21,7 +21,7 @@ class Binary : public Sample {
 public:
 	std::vector<uint8_t> data;
 
-	void write(Recorder& out)
+	void write(Recorder& out) const
 	{
 		out.write_u32(MAGIC);
 		out.write(data.data(), data.size());
