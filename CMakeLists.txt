@@ -29,6 +29,10 @@ add_library(mmpilot_util STATIC
 	src/util.cpp
 )
 
+add_library(mmpilot_jpeg STATIC
+	src/jpeg.cpp
+)
+
 add_library(mmpilot_opengl STATIC
 	src/egl.cpp
 	src/opengl.cpp
@@ -47,6 +51,10 @@ target_link_directories(mmpilot_opengl
 target_link_libraries(mmpilot_opengl
 	PUBLIC mmpilot_util
 	PRIVATE ${EGL_LIBRARIES} ${GLESv3_LIBRARIES}
+)
+
+target_link_libraries(mmpilot_jpeg
+	PRIVATE turbo-jpeg
 )
 
 if(LIBCAMERA_FOUND)

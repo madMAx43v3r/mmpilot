@@ -8,6 +8,8 @@
 #include <mmpilot/camera.h>
 #include <mmpilot/sample.h>
 #include <mmpilot/util.h>
+#include <mmpilot/jpeg.h>
+#include <mmpilot/binary.h>
 
 #include <string>
 #include <iostream>
@@ -16,28 +18,40 @@
 using namespace mmpilot;
 
 
-std::mutex mutex;
-
-Recorder* rec = nullptr;
-
-void on_frame(const std::string& topic, const CameraFrame& frame)
-{
-	std::lock_guard<std::mutex> lock(mutex);
-
-	std::cout << "Frame " << frame.sequence << ": ts = " << frame.timestamp
-			<< ", width = " << frame.width << ", height = " << frame.height
-			<< ", stride = " << frame.stride
-			<< ", format = " << frame.pixel_format << std::endl;
-
-	write_sample(*rec, topic, frame);
-}
-
-
 int main(int argc, char** argv)
 {
-	std::string file_name = argc > 1 ? argv[1] : "vapor1_record.dat";
+	const int quality = argc > 1 ? atoi(argv[1]) : 85;
+	std::string file_name = argc > 2 ? argv[2] : "vapor1_record.dat";
 
-	rec = new Recorder(file_name);
+	std::cout << "quality = " << quality << std::endl;
+	std::cout << "file_name = " << file_name << std::endl;
+
+	std::mutex mutex;
+
+	Recorder rec(file_name);
+
+	auto on_frame = [&](const std::string& topic, const CameraFrame& frame)
+	{
+		std::lock_guard<std::mutex> lock(mutex);
+
+		std::cout << "Frame " << frame.sequence << ": ts = " << frame.timestamp
+				<< ", width = " << frame.width << ", height = " << frame.height
+				<< ", stride = " << frame.stride
+				<< ", format = " << frame.pixel_format << std::endl;
+
+		if(frame.data.size() != 3) {
+			return;
+		}
+		const auto* Y = frame.data[0].first;
+		const auto* U = frame.data[1].first;
+		const auto* V = frame.data[2].first;
+
+		Binary out;
+		out.data = encode_jpeg_i420(
+				Y, U, V, frame.width, frame.height, frame.stride, quality);
+
+		write_sample(rec, topic, out);
+	};
 
 	Camera::init();
 
@@ -53,9 +67,6 @@ int main(int argc, char** argv)
 	cam_0->set_interval(500);
 	cam_1->set_interval(500);
 
-	cam_0->controls().set(libcamera::controls::AwbEnable, true);
-	cam_1->controls().set(libcamera::controls::AwbEnable, true);
-
 	cam_0->start();
 	cam_1->start();
 
@@ -67,10 +78,9 @@ int main(int argc, char** argv)
 	cam_0 = nullptr;
 	cam_1 = nullptr;
 
-	rec->close();
-	delete rec;
-
 	Camera::cleanup();
+
+	rec.close();
 
 	return 0;
 }
