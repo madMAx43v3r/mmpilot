@@ -13,7 +13,7 @@ void main()
     vec2 p = gl_FragCoord.xy;
     vec2 q = p - uCenter;
 
-    float Y = texelFetch(uSrc, ivec2(p), 0).r;
+    float Y = texelFetch(uSrc, ivec2(p), 0).x;
 
     float w = (dot(q, q) < uRadiusSq) ? 1.0 : 0.0;
 

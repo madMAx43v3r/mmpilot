@@ -8,7 +8,6 @@
 #ifndef INCLUDE_MMPILOT_WEIGHT_H_
 #define INCLUDE_MMPILOT_WEIGHT_H_
 
-#include <mmpilot/image.h>
 #include <mmpilot/texture.h>
 #include <mmpilot/opengl.h>
 
@@ -28,11 +27,14 @@ public:
 	{
 		out = std::make_shared<GL_Tex2D>(width, height, GL_RG8, GL_RG, GL_UNSIGNED_BYTE);
 
+		// TODO
+
 		have_init = true;
 	}
 
 	void handle(std::shared_ptr<GL_Tex2D> in)
 	{
+		// TODO
 	}
 
 private:

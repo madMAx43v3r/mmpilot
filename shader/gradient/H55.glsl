@@ -2,9 +2,9 @@
 precision highp float;
 precision highp sampler2D;
 
-layout(location = 0) out vec4 out0;   // (Y, Sx, Dx, w)
+layout(location = 0) out vec4 out0;   // RGBA16F (Y, Sx, Dx, w)
 
-uniform sampler2D uSrc;            // RG16F (Y, w)
+uniform sampler2D uSrc;            // (Y, w)
 
 uniform vec2 uInvSize;             // (1/W, 1/H)
 

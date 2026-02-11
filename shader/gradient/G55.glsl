@@ -1,4 +1,6 @@
 #version 310 es
+precision highp float;
+precision highp sampler2D;
 
 layout(location = 0) out vec4 out0;   // (Y, Ix, Iy, w)
 
@@ -7,19 +9,19 @@ uniform sampler2D uTmp;               // RGBA16F from H55: (Y, Sx, Dx, w)
 uniform vec2 uInvSize;                // (1/W, 1/H)
 
 vec2 SD(vec2 uv) {
-    return texture(uTmp, uv).yz;    // (Sx, Dx)
+    return texture(uTmp, uv).yz;      // (Sx, Dx)
 }
 
 void main()
 {
     vec2 uv = gl_FragCoord.xy * uInvSize;
 
-    vec4 c  = texture(uTmp, uv);
-    if(c.w == 0) {
-        out0 = vec4(c.r, 0, 0, 0);
+    vec4 c = texture(uTmp, uv);
+    if(c.w <= 0.0) {
+        out0 = vec4(c.x, 0, 0, 0);
         return;
     }
-    vec2 dy = vec2(0.0, uInvSize.y);
+    vec2 dy = vec2(0, uInvSize.y);
 
     // Fetch (Sx, Dx) at y-2..y+2
     vec2 m2 = SD(uv - 2.0 * dy);
@@ -36,7 +38,7 @@ void main()
     // Iy = vertical derivative (d) applied to Sx
     float Iy = (-1.0 * m2.x -2.0 * m1.x + 2.0 * p1.x + 1.0 * p2.x);
 
-    vec2 I = vec2(Ix, Iy) * (1.0 / 96.0) * c.w;
+    vec2 I = vec2(Ix, Iy) * (1.0 / 96.0);
 
-    out0 = vec4(c.r, I.x, I.y, c.w);
+    out0 = vec4(c.x, I.x, I.y, c.w);
 }
