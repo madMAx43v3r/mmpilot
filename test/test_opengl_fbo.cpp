@@ -85,6 +85,50 @@ static std::string fboStatusToString(GLenum s) {
     }
 }
 
+static const char* glEnumName(GLenum e)
+{
+    switch (e) {
+        case GL_MAX_TEXTURE_SIZE: return "GL_MAX_TEXTURE_SIZE";
+        case GL_MAX_3D_TEXTURE_SIZE: return "GL_MAX_3D_TEXTURE_SIZE";
+        case GL_MAX_ARRAY_TEXTURE_LAYERS: return "GL_MAX_ARRAY_TEXTURE_LAYERS";
+        case GL_MAX_RENDERBUFFER_SIZE: return "GL_MAX_RENDERBUFFER_SIZE";
+        case GL_MAX_COLOR_ATTACHMENTS: return "GL_MAX_COLOR_ATTACHMENTS";
+        case GL_MAX_DRAW_BUFFERS: return "GL_MAX_DRAW_BUFFERS";
+        case GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS: return "GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS";
+        default: return "UNKNOWN_ENUM";
+    }
+}
+
+static void printLimit(GLenum pname)
+{
+    GLint v = 0;
+    glGetIntegerv(pname, &v);
+
+    // If the pname isn't supported in your ES version/driver, v may remain 0 and/or GL error.
+    GLenum err = glGetError();
+    std::cout << std::left << std::setw(36) << glEnumName(pname) << ": " << v;
+    if (err != GL_NO_ERROR) {
+        std::cout << "  (glGetError=0x" << std::hex << err << std::dec << ")";
+    }
+    std::cout << "\n";
+}
+
+static void printComputeLimitVec3(GLenum pname, const char* name)
+{
+    GLint v[3] = {0,0,0};
+    glGetIntegeri_v(pname, 0, &v[0]);
+    glGetIntegeri_v(pname, 1, &v[1]);
+    glGetIntegeri_v(pname, 2, &v[2]);
+
+    GLenum err = glGetError();
+    std::cout << std::left << std::setw(36) << name << ": "
+              << v[0] << " " << v[1] << " " << v[2];
+    if (err != GL_NO_ERROR) {
+        std::cout << "  (glGetError=0x" << std::hex << err << std::dec << ")";
+    }
+    std::cout << "\n";
+}
+
 struct EglCtx {
     EGLDisplay dpy = EGL_NO_DISPLAY;
     EGLContext ctx = EGL_NO_CONTEXT;
@@ -256,18 +300,18 @@ static void printGlInfo() {
     std::cout << "GL_VENDOR  : " << s(GL_VENDOR) << "\n";
     std::cout << "GLSL       : " << s(GL_SHADING_LANGUAGE_VERSION) << "\n";
 
-    GLint maxDB = 0, maxCA = 0;
-    glGetIntegerv(GL_MAX_DRAW_BUFFERS, &maxDB);
-    glGetIntegerv(GL_MAX_COLOR_ATTACHMENTS, &maxCA);
-    std::cout << "GL_MAX_DRAW_BUFFERS     : " << maxDB << "\n";
-    std::cout << "GL_MAX_COLOR_ATTACHMENTS: " << maxCA << "\n";
+    // Texture + FBO limits
+    printLimit(GL_MAX_TEXTURE_SIZE);
+    printLimit(GL_MAX_3D_TEXTURE_SIZE);
+    printLimit(GL_MAX_ARRAY_TEXTURE_LAYERS);
+    printLimit(GL_MAX_RENDERBUFFER_SIZE);
+    printLimit(GL_MAX_COLOR_ATTACHMENTS);
+    printLimit(GL_MAX_DRAW_BUFFERS);
 
-    GLint maxWG[3] = {0,0,0};
-    glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 0, &maxWG[0]);
-    glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 1, &maxWG[1]);
-    glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 2, &maxWG[2]);
-    std::cout << "GL_MAX_COMPUTE_WORK_GROUP_SIZE: "
-              << maxWG[0] << " " << maxWG[1] << " " << maxWG[2] << "\n";
+    // Compute limits (ES 3.1+)
+    printLimit(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS);
+    printComputeLimitVec3(GL_MAX_COMPUTE_WORK_GROUP_SIZE,  "GL_MAX_COMPUTE_WORK_GROUP_SIZE");
+    printComputeLimitVec3(GL_MAX_COMPUTE_WORK_GROUP_COUNT, "GL_MAX_COMPUTE_WORK_GROUP_COUNT");
 }
 
 int main() {
