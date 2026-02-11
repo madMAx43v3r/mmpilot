@@ -12,6 +12,10 @@
 #include <mmpilot/replay.h>
 #include <mmpilot/sample.h>
 
+#include <vector>
+#include <string>
+#include <stdexcept>
+
 
 namespace mmpilot {
 
@@ -20,6 +24,8 @@ public:
 	int width = 0;
 	int height = 0;
 	int stride = 0;				// bytes
+	int exposure = 0;			// [us]
+	float analog_gain = 1;
 	uint64_t sequence = 0;
 	uint64_t timestamp = 0;		// [ns]
 	std::string pixel_format;
@@ -41,6 +47,8 @@ public:
 		out.write_u32(width);
 		out.write_u32(height);
 		out.write_u32(stride);
+		out.write_u32(exposure);
+		out.write_u32(analog_gain * 1000);
 		out.write_u64(sequence);
 		out.write_u64(timestamp);
 		out.write(pixel_format);
@@ -65,6 +73,8 @@ public:
 		out->width = in.read_u32();
 		out->height = in.read_u32();
 		out->stride = in.read_u32();
+		out->exposure = in.read_u32();
+		out->analog_gain = in.read_u32() / 1000.f;
 		out->sequence = in.read_u64();
 		out->timestamp = in.read_u64();
 		out->pixel_format = in.read_string();

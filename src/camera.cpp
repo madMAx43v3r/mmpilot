@@ -276,6 +276,12 @@ void Camera::handle(Request* req)
 	out.width = width;
 	out.height = height;
 	out.stride = stride;
+	if(auto v = meta.get(libcamera::controls::ExposureTime)) {
+		out.exposure = *v;
+	}
+	if(auto v = meta.get(libcamera::controls::AnalogueGain)) {
+		out.analog_gain = *v;
+	}
 	out.sequence = fm.sequence;
 	out.timestamp = fm.timestamp;
 	out.pixel_format = pixel_format;
