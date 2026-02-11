@@ -18,6 +18,7 @@
 #include <mutex>
 #include <vector>
 #include <memory>
+#include <iostream>
 #include <functional>
 
 
@@ -41,6 +42,36 @@ public:
 		std::lock_guard<std::mutex> lock(mutex);
 		if(img.size() == buffer.size()) {
 			buffer = img;
+			do_update = true;
+		}
+		else if(img.size() * 2 == buffer.size()) {
+			for(size_t i = 0; i < buffer.size(); ++i) {
+				const auto k = i % 4;
+				if(k < 2) {
+					buffer[i] = img[(i / 4) * 2 + k];
+				} else if(k == 2) {
+					buffer[i] = 0;
+				} else {
+					buffer[i] = 255;
+				}
+			}
+			do_update = true;
+		}
+		else if(img.size() * 3 == buffer.size()) {
+			for(size_t i = 0; i < buffer.size(); ++i) {
+				const auto k = i % 4;
+				if(k < 3) {
+					buffer[i] = img[(i / 4) * 3 + k];
+				} else {
+					buffer[i] = 255;
+				}
+			}
+			do_update = true;
+		}
+		else if(img.size() * 4 == buffer.size()) {
+			for(size_t i = 0; i < buffer.size(); ++i) {
+				buffer[i] = (i % 4) == 3 ? 255 : img[i / 4];
+			}
 			do_update = true;
 		}
 	}
