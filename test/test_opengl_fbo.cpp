@@ -276,19 +276,20 @@ int main() {
 
     // Test cases. Some may not be valid/allowed on GLES implementations; that is the point.
     const std::vector<FormatCase> cases = {
-        {"RGBA8",   GL_RGBA8,   GL_RGBA, GL_UNSIGNED_BYTE},
+        {"R8",   	GL_R8,   	GL_RED,	 GL_UNSIGNED_BYTE},
+		{"RG8",   	GL_RG8,   	GL_RG,	 GL_UNSIGNED_BYTE},
+		{"RGB8",   	GL_RGB8,  	GL_RGB,	 GL_UNSIGNED_BYTE},
+    	{"RGBA8",   GL_RGBA8,   GL_RGBA, GL_UNSIGNED_BYTE},
 
-        {"RGBA16F", GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT},
-        {"RG16F",   GL_RG16F,   GL_RG,   GL_HALF_FLOAT},
         {"R16F",    GL_R16F,    GL_RED,  GL_HALF_FLOAT},
+		{"RG16F",   GL_RG16F,   GL_RG,   GL_HALF_FLOAT},
+		{"RGB16F",  GL_RGB16F,  GL_RGB,  GL_HALF_FLOAT},
+		{"RGBA16F", GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT},
 
-        {"RGBA32F", GL_RGBA32F, GL_RGBA, GL_FLOAT},
-        {"RG32F",   GL_RG32F,   GL_RG,   GL_FLOAT},
         {"R32F",    GL_R32F,    GL_RED,  GL_FLOAT},
-
-        // RGB float formats are often not renderable on GLES; may fail at teximage or FBO.
-        {"RGB16F",  GL_RGB16F,  GL_RGB,  GL_HALF_FLOAT},
-        {"RGB32F",  GL_RGB32F,  GL_RGB,  GL_FLOAT},
+		{"RG32F",   GL_RG32F,   GL_RG,   GL_FLOAT},
+		{"RGB32F",  GL_RGB32F,  GL_RGB,  GL_FLOAT},
+		{"RGBA32F", GL_RGBA32F, GL_RGBA, GL_FLOAT},
     };
 
     std::cout << "\nFBO renderability tests (1x1 texture attached to COLOR_ATTACHMENT0):\n";
@@ -299,8 +300,6 @@ int main() {
         bool ok = testFormat(fc, /*verbose=*/false);
         std::cout << std::left << std::setw(10) << fc.name << "  " << (ok ? "OK" : "FAIL") << "\n";
     }
-
-    std::cout << "\nTip: If RG16F/R16F fail, keep using RGBA16F and pack into channels.\n";
     return 0;
 }
 
