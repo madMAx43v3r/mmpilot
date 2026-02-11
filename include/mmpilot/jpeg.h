@@ -8,8 +8,6 @@
 #ifndef INCLUDE_MMPILOT_JPEG_H_
 #define INCLUDE_MMPILOT_JPEG_H_
 
-#include <turbojpeg.h>
-
 #include <vector>
 #include <cstdint>
 #include <cstddef>

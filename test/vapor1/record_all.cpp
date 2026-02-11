@@ -9,7 +9,7 @@
 #include <mmpilot/sample.h>
 #include <mmpilot/util.h>
 #include <mmpilot/jpeg.h>
-#include <mmpilot/binary.h>
+#include <mmpilot/image.h>
 
 #include <string>
 #include <iostream>
@@ -20,7 +20,7 @@ using namespace mmpilot;
 
 int main(int argc, char** argv)
 {
-	const int quality = argc > 1 ? atoi(argv[1]) : 85;
+	const int quality = argc > 1 ? atoi(argv[1]) : 95;
 	std::string file_name = argc > 2 ? argv[2] : "vapor1_record.dat";
 
 	std::cout << "quality = " << quality << std::endl;
@@ -41,7 +41,14 @@ int main(int argc, char** argv)
 		const auto* U = frame.data[1].first;
 		const auto* V = frame.data[2].first;
 
-		Binary out;
+		Image out;
+		out.width = frame.width;
+		out.height = frame.height;
+		out.exposure = frame.exposure;
+		out.analog_gain = frame.analog_gain;
+		out.sequence = frame.sequence;
+		out.timestamp = frame.timestamp;
+		out.format = "JPEG";
 		out.data = encode_jpeg_i420(
 				Y, U, V, frame.width, frame.height, frame.stride, quality);
 

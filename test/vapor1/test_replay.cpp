@@ -7,13 +7,13 @@
 
 #include <mmpilot/replay.h>
 #include <mmpilot/sample.h>
-#include <mmpilot/camera_frame.h>
 #include <mmpilot/render.h>
-#include <mmpilot/bayer.h>
 #include <mmpilot/egl.h>
 #include <mmpilot/opengl.h>
 #include <mmpilot/thread.h>
 #include <mmpilot/display.h>
+#include <mmpilot/jpeg.h>
+#include <mmpilot/image.h>
 
 #include <mutex>
 #include <memory>
@@ -48,35 +48,31 @@ int main(int argc, char** argv)
 
 	std::unique_ptr<TexDisplay> display;
 
-	const auto on_frame = [&](std::shared_ptr<CameraFrame> frame)
+	const auto on_frame = [&](std::shared_ptr<Image> frame)
 	{
-		size_t total_size = 0;
-		for(auto p : frame->data) {
-			total_size += p.second;
-		}
 		std::cout << "[" << frame->topic << "] ts = " << frame->timestamp
 				<< ", width = " << frame->width << ", height = " << frame->height
-				<< ", planes = " << frame->data.size() << ", total = " << total_size
+				<< ", size = " << frame->data.size()
 				<< ", exposure = " << frame->exposure << ", gain = " << frame->analog_gain << std::endl;
 	};
 
-	const auto on_frame_0 = [&](std::shared_ptr<CameraFrame> frame)
+	const auto on_frame_0 = [&](std::shared_ptr<Image> frame)
 	{
 		on_frame(frame);
 	};
 
-	const auto on_frame_1 = [&](std::shared_ptr<CameraFrame> frame)
+	const auto on_frame_1 = [&](std::shared_ptr<Image> frame)
 	{
 		on_frame(frame);
 	};
 
 	Player player(file_name);
 
-	player.decode["camera.front"] = &CameraFrame::read;
-	player.decode["camera.below"] = &CameraFrame::read;
+	player.decode["camera.front"] = &Image::read;
+	player.decode["camera.below"] = &Image::read;
 
-	player.handle["camera.front"] = dispatch<CameraFrame>(gl_main, on_frame_0);
-	player.handle["camera.below"] = dispatch<CameraFrame>(gl_main, on_frame_1);
+	player.handle["camera.front"] = dispatch<Image>(gl_main, on_frame_0);
+	player.handle["camera.below"] = dispatch<Image>(gl_main, on_frame_1);
 
 	player.play();
 

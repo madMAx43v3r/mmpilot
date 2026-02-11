@@ -27,18 +27,23 @@ public:
 		out.write(data.data(), data.size());
 	}
 
-	void read(Player& in)
+	static std::shared_ptr<Sample> read(Player& in)
 	{
 		const auto magic = in.read_u32();
 		if(magic != MAGIC) {
 			throw std::runtime_error("Binary: invalid magic");
 		}
+		auto out = std::make_shared<Binary>();
+
 		const auto size = in.read_binary_size();
-		data.resize(size);
-		in.read(data.data(), size);
+		out->data.resize(size);
+		in.read(out->data.data(), size);
+		return out;
 	}
 
+private:
 	static constexpr uint32_t MAGIC = 0x7a2d5c8f;
+
 };
 
 
