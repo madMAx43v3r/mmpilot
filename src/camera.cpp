@@ -123,7 +123,7 @@ void Camera::open()
 	if(cam->acquire()) {
 		throw std::runtime_error("failed to acquire camera");
 	}
-	config = cam->generateConfiguration({libcamera::StreamRole::Raw});
+	config = cam->generateConfiguration({libcamera::StreamRole::VideoRecording});
 	if(!config || config->empty()) {
 		throw std::runtime_error("failed to generate RAW configuration");
 	}

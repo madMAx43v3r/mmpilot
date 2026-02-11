@@ -41,8 +41,8 @@ int main(int argc, char** argv)
 
 	Camera::init();
 
-	auto cam_0 = std::make_unique<Camera>(0, 0, 2304, 1296, "SBGGR16");
-	auto cam_1 = std::make_unique<Camera>(1, 0, 1640, 1232, "SBGGR16");
+	auto cam_0 = std::make_unique<Camera>(0, 0, 2304, 1296, "NV12");
+	auto cam_1 = std::make_unique<Camera>(1, 0, 1640, 1232, "NV12");
 
 	cam_0->open();
 	cam_1->open();
