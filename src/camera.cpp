@@ -35,6 +35,7 @@ inline size_t align_up(size_t x, size_t a) {
 static std::vector<Camera::MappedPlane> mmapFrameBuffer(const FrameBuffer& buffer)
 {
 	const size_t PAGE_SIZE = 4096;
+	std::map<int, size_t> fd_offset;
 	std::vector<Camera::MappedPlane> planes;
 
 	for(const auto& p : buffer.planes())
@@ -43,12 +44,11 @@ static std::vector<Camera::MappedPlane> mmapFrameBuffer(const FrameBuffer& buffe
 		if(fd < 0) {
 			throw std::runtime_error("plane has invalid fd");
 		}
-		const size_t offset = p.offset;
+		const size_t offset = fd_offset[fd];
 		const size_t length = p.length;
 		const size_t map_len = align_up(length, PAGE_SIZE);
 
-		void* base = ::mmap(nullptr, map_len,
-				PROT_READ, MAP_SHARED, fd, offset);
+		void* base = ::mmap(nullptr, map_len, PROT_READ, MAP_SHARED, fd, offset);
 
 		if(base == MAP_FAILED) {
 			const auto e = errno;
@@ -57,6 +57,7 @@ static std::vector<Camera::MappedPlane> mmapFrameBuffer(const FrameBuffer& buffe
 							+ " length=" + std::to_string(length) + " map_len=" + std::to_string(map_len) + " errno="
 							+ std::to_string(e) + " (" + std::strerror(e) + ")");
 		}
+		fd_offset[fd] += map_len;
 
 		Camera::MappedPlane mp;
 		mp.addr = base;
