@@ -34,7 +34,7 @@ GLuint GL_compile_shader_file(GLenum type, const std::string& file_path);
 
 GLuint GL_link_program(GLuint vs, GLuint fs);
 
-GLuint GL_create_tex(GLsizei w, GLsizei h, GLenum internal_fmt, GLenum fmt, GLenum type);
+GLuint GL_create_tex(GLsizei w, GLsizei h, GLenum internal_fmt, GLenum fmt, GLenum type, const void* data = nullptr);
 
 GLuint GL_create_FBO(const GLuint tex);
 GLuint GL_create_FBO(const std::vector<GLuint>& tex_list);

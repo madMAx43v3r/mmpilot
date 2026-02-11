@@ -10,6 +10,10 @@
 
 #include <mmpilot/opengl.h>
 
+#include <memory>
+#include <vector>
+#include <stdexcept>
+
 
 namespace mmpilot {
 
@@ -22,10 +26,10 @@ public:
 	GLenum format = 0;
 	GLenum type = 0;
 
-	explicit GL_Tex2D(GLsizei w, GLsizei h, GLenum internal_fmt, GLenum fmt, GLenum type)
+	explicit GL_Tex2D(GLsizei w, GLsizei h, GLenum internal_fmt, GLenum fmt, GLenum type, const void* data = nullptr)
 		:	width(w), height(h), internal_fmt(internal_fmt), format(fmt), type(type)
 	{
-		id = GL_create_tex(w, h, internal_fmt, fmt, type);
+		id = GL_create_tex(w, h, internal_fmt, fmt, type, data);
 	}
 
 	~GL_Tex2D() {
@@ -36,7 +40,7 @@ public:
 		glBindTexture(GL_TEXTURE_2D, id);
 	}
 
-	void upload(const void* data, GLint stride = 0)
+	void upload(const void* data, int stride = 0)
 	{
 		bind();
 		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);

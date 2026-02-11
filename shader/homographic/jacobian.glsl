@@ -5,8 +5,8 @@ layout(location = 1) out vec4 outJ1;
 layout(location = 2) out vec2 outR;     // (R, w)
 layout(location = 3) out vec2 outUV;    // (u, v)
 
-uniform sampler2D uRef;         // R16F
-uniform sampler2D uGrad;        // RGBA16F, (Y, Ix, Iy, w), zero border
+uniform sampler2D uRef;         // RGBA16F, (Y, Ix, Iy, w)
+uniform sampler2D uNext;        // RGBA16F, (Y, Ix, Iy, w)
 
 uniform vec2 uInvSize;
 
@@ -26,21 +26,28 @@ void main()
     vec2 wp = vec2(uN, vN) / d;
     vec2 uv = wp * uInvSize;
 
+    outJ0 = vec4(0);
+    outJ1 = vec4(0);
+    outR  = vec2(0);
     outUV = vec2(uv.x, uv.y);
 
     if (uv.x < 0 || uv.y < 0 || uv.x > 1 || uv.y > 1) {
-        outJ0 = vec4(0);
-        outJ1 = vec4(0);
-        outR = vec2(0, 0);
         return;
     }
+    vec4 ref = texelFetch(uRef, gl_FragCoord.xy, 0);  // (Y, Ix, Iy, w)
 
-    vec4 grad = texture(uGrad, uv);  // (Y, Ix, Iy, w)
+    vec4 proj = texture(uNext, uv);   // (Y, Ix, Iy, w)
 
-    float Y  = grad.r;
-    float Ix = grad.g;
-    float Iy = grad.b;
-    float w  = grad.a;
+    float w  = ref.w * proj.w;
+    if(w <= 0) {
+        return;
+    }
+    float R = (proj.x - ref.x) * w;
+
+    outR = vec2(R, w);
+
+    float Ix = proj.y * w;
+    float Iy = proj.z * w;
 
     float invD  = 1.0 / d;
     float invD2 = invD * invD;
@@ -71,9 +78,4 @@ void main()
 
     outJ0 = vec4(J0, J1, J2, J3);
     outJ1 = vec4(J4, J5, J6, J7);
-
-    float Yref = texture(uRef, p * uInvSize).r;
-    float R = (Y - Yref) * w;
-
-    outR = vec2(R, w);
 }

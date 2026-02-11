@@ -7,7 +7,7 @@ uniform sampler2D uTmp;               // RGBA16F from H55: (Y, Sx, Dx, w)
 uniform vec2 uInvSize;                // (1/W, 1/H)
 
 vec2 SD(vec2 uv) {
-    return texture(uTmp, uv).gb;    // (Sx, Dx)
+    return texture(uTmp, uv).yz;    // (Sx, Dx)
 }
 
 void main()
@@ -31,12 +31,12 @@ void main()
     // d = [-1 -2 0 2 1]
 
     // Ix = vertical smoothing (g) applied to Dx
-    float Ix = (1.0 * m2.g + 4.0 * m1.g + 6.0 * c.b + 4.0 * p1.g + 1.0 * p2.g);
+    float Ix = (1.0 * m2.y + 4.0 * m1.y + 6.0 * c.z + 4.0 * p1.y + 1.0 * p2.y);
 
     // Iy = vertical derivative (d) applied to Sx
-    float Iy = (-1.0 * m2.r -2.0 * m1.r + 2.0 * p1.r + 1.0 * p2.r);
+    float Iy = (-1.0 * m2.x -2.0 * m1.x + 2.0 * p1.x + 1.0 * p2.x);
 
-    vec2 Iout = vec2(Ix, Iy) * (1.0 / 96.0) * c.w;
+    vec2 I = vec2(Ix, Iy) * (1.0 / 96.0) * c.w;
 
-    out0 = vec4(c.r, Iout.x, Iout.y, c.w);
+    out0 = vec4(c.r, I.x, I.y, c.w);
 }

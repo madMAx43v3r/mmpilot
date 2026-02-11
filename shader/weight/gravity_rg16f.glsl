@@ -43,9 +43,7 @@ void main()
     // cos(theta) between ray and gravity
     float c = dot(rw, g_w);
 
-    float w = c;
-    if(c < uLimit) {
-        w = 0;
-    }
+    float w = (c < uLimit ? 0.0 : c);
+
     imageStore(uOut, p, w);
 }
