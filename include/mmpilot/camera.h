@@ -12,6 +12,7 @@
 
 #include <libcamera/libcamera.h>
 
+#include <map>
 #include <mutex>
 #include <memory>
 #include <functional>
@@ -47,6 +48,13 @@ public:
 private:
 	void handle(libcamera::Request* req);
 
+	struct MappedPlane {
+		void*  addr = nullptr;      // pointer to the plane start (offset applied)
+		void*  base = nullptr;      // raw mmap base (for munmap)
+		size_t length = 0;          // plane length
+		size_t base_length = 0;     // raw mmap length
+	};
+
 private:
 	int camera_index = 0;
 	int stream_index = 0;
@@ -68,7 +76,7 @@ private:
 	int num_pending = 0;
 	std::condition_variable signal;
 	std::vector<std::unique_ptr<libcamera::Request>> requests;
-	std::map<libcamera::FrameBuffer*, std::vector<std::pair<void*, size_t>>> mappings;
+	std::map<libcamera::FrameBuffer*, std::vector<MappedPlane>> mappings;
 
 	static std::shared_ptr<libcamera::CameraManager> g_manager;
 

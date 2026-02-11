@@ -7,13 +7,11 @@
 
 #include <mmpilot/camera.h>
 
-#include <chrono>
-#include <exception>
-#include <iostream>
-#include <map>
 #include <memory>
 #include <string>
 #include <vector>
+#include <cstring>
+#include <stdexcept>
 #include <iostream>
 #include <sys/mman.h>
 
@@ -30,29 +28,52 @@ namespace mmpilot {
 std::shared_ptr<libcamera::CameraManager> Camera::g_manager;
 
 
-static std::vector<std::pair<void*, size_t>> mmapFrameBuffer(const FrameBuffer& buffer)
+static std::vector<Camera::MappedPlane> mmapFrameBuffer(const FrameBuffer& buffer)
 {
-	std::vector<std::pair<void*, size_t>> planes;
+	const size_t PAGE_SIZE = 4096;
+	std::vector<Camera::MappedPlane> planes;
 
-	for(const auto& p : buffer.planes()) {
-		if(p.fd.get() < 0) {
+	for(const auto& p : buffer.planes())
+	{
+		const int fd = p.fd.get();
+		if(fd < 0) {
 			throw std::runtime_error("plane has invalid fd");
 		}
-		void* addr = ::mmap(nullptr, p.length, PROT_READ | PROT_WRITE, MAP_SHARED, p.fd.get(), p.offset);
-		if(addr == MAP_FAILED) {
-			throw std::runtime_error("mmap() failed");
+		const size_t offset = p.offset;
+		const size_t length = p.length;
+
+		const size_t offset_aligned = offset & ~(PAGE_SIZE - 1);
+		const size_t delta = offset - offset_aligned;
+		const size_t map_len = length + delta;
+
+		void* base = ::mmap(nullptr, map_len,
+				PROT_READ | PROT_WRITE, MAP_SHARED, fd, offset_aligned);
+
+		if(base == MAP_FAILED) {
+			const auto e = errno;
+			throw std::runtime_error(
+					"mmap() failed: fd=" + std::to_string(fd) + " offset=" + std::to_string(offset) + " (aligned="
+							+ std::to_string(offset_aligned) + ", delta=" + std::to_string(delta) + ")" + " length="
+							+ std::to_string(length) + " map_len=" + std::to_string(map_len) + " errno="
+							+ std::to_string(e) + " (" + std::strerror(e) + ")");
 		}
-		planes.emplace_back(addr, p.length);
+
+		Camera::MappedPlane mp;
+		mp.base = base;
+		mp.base_length = map_len;
+		mp.addr = static_cast<unsigned char*>(base) + delta;
+		mp.length = length;
+		planes.emplace_back(mp);
 	}
 	return planes;
 }
 
-static void munmapFrameBuffer(std::vector<std::pair<void*, size_t>>& planes)
+static void munmapFrameBuffer(std::vector<Camera::MappedPlane>& planes)
 {
 	for(auto& p : planes) {
-		if(p.first && p.second) {
-			::munmap(p.first, p.second);
-			p.first = nullptr;
+		if(p.base && p.base_length) {
+			::munmap(p.base, p.base_length);
+			p.base = nullptr;
 		}
 	}
 }
