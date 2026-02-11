@@ -25,14 +25,13 @@ void main()
     bool xOdd = (p.x & 1) != 0;
     bool yOdd = (p.y & 1) != 0;
 
-    float R = 0.0, G = 0.0, B = 0.0;
-
-    // Clamp neighbor coords to image bounds (avoids border issues)
     ivec2 size = textureSize(uBayer, 0);
-    ivec2 pL = ivec2(max(p.x - 1, 0), p.y);
-    ivec2 pR = ivec2(min(p.x + 1, size.x - 1), p.y);
-    ivec2 pU = ivec2(p.x, max(p.y - 1, 0));
-    ivec2 pD = ivec2(p.x, min(p.y + 1, size.y - 1));
+
+    // Clamp neighbors to valid range (texelFetch out-of-bounds is undefined)
+    ivec2 pL  = ivec2(max(p.x - 1, 0), p.y);
+    ivec2 pR  = ivec2(min(p.x + 1, size.x - 1), p.y);
+    ivec2 pU  = ivec2(p.x, max(p.y - 1, 0));
+    ivec2 pD  = ivec2(p.x, min(p.y + 1, size.y - 1));
     ivec2 pUL = ivec2(pL.x, pU.y);
     ivec2 pUR = ivec2(pR.x, pU.y);
     ivec2 pDL = ivec2(pL.x, pD.y);
@@ -48,6 +47,10 @@ void main()
     float DL = f16(pDL);
     float DR = f16(pDR);
 
+    float R = 0.0, G = 0.0, B = 0.0;
+
+    // BGGR:
+    // (even,even)=B, (even,odd)=G, (odd,even)=G, (odd,odd)=R
     if(!yOdd && !xOdd) {
         // B pixel
         B = C;
