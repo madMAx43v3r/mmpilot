@@ -46,9 +46,11 @@ public:
 	static void cleanup();
 
 	struct MappedPlane {
-		void*  addr = nullptr;      // pointer to the plane start
+		void*  addr = nullptr;      // plane start = base + offset
+		void*  base = nullptr;      // fd mapping base (for munmap)
 		size_t length = 0;          // plane length
-		size_t base_length = 0;     // raw mmap length
+		size_t base_length = 0;     // fd mapping length (for munmap)
+		int    fd = -1;
 	};
 
 private:
