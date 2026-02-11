@@ -68,7 +68,7 @@ static void munmapFrameBuffer(std::vector<Camera::MappedPlane>& planes)
 	for(auto& p : planes) {
 		if(p.addr && p.base_length) {
 			::munmap(p.addr, p.base_length);
-			p.base = nullptr;
+			p.addr = nullptr;
 		}
 	}
 }
