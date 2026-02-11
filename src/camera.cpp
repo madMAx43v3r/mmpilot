@@ -262,9 +262,11 @@ void Camera::handle(Request* req)
 
 	// Find mapped buffer
 	auto mit = mappings.find(fb);
-	if(mit != mappings.end() && !mit->second.empty()) {
+	if(mit != mappings.end()) {
 		if(on_frame) {
-			out.data = mit->second;
+			for(const auto& entry : mit->second) {
+				out.data.emplace_back(entry.addr, entry.length);
+			}
 			on_frame(out);
 		}
 	}
