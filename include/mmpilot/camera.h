@@ -23,6 +23,8 @@ namespace mmpilot {
 
 class Camera {
 public:
+	bool show_meta = false;
+
 	std::function<void(const CameraFrame&)> on_frame;
 
 	Camera(int index, int stream, int width, int height, std::string pixel_format);

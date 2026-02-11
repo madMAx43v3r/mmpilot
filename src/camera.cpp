@@ -259,7 +259,7 @@ void Camera::handle(Request* req)
 	const auto& fm = fb->metadata();
 	const auto& meta = req->metadata();
 
-	if(fm.sequence == 0) {
+	if(show_meta) {
 		const auto* id_map = meta.idMap();
 		std::cout << "---- metadata (" << meta.size() << ") ----" << std::endl;
 		for(const auto& it : meta) {
