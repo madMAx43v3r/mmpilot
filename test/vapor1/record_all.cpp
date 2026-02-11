@@ -34,11 +34,6 @@ int main(int argc, char** argv)
 	{
 		std::lock_guard<std::mutex> lock(mutex);
 
-		std::cout << "Frame " << frame.sequence << ": ts = " << frame.timestamp
-				<< ", width = " << frame.width << ", height = " << frame.height
-				<< ", stride = " << frame.stride
-				<< ", format = " << frame.pixel_format << std::endl;
-
 		if(frame.data.size() != 3) {
 			return;
 		}
@@ -49,6 +44,11 @@ int main(int argc, char** argv)
 		Binary out;
 		out.data = encode_jpeg_i420(
 				Y, U, V, frame.width, frame.height, frame.stride, quality);
+
+		std::cout << "Frame " << frame.sequence << ": ts = " << frame.timestamp
+				<< ", width = " << frame.width << ", height = " << frame.height
+				<< ", stride = " << frame.stride << ", format = " << frame.pixel_format
+				<< ", size = " << out.data.size() << std::endl;
 
 		write_sample(rec, topic, out);
 	};
