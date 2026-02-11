@@ -41,28 +41,23 @@ static std::vector<Camera::MappedPlane> mmapFrameBuffer(const FrameBuffer& buffe
 		}
 		const size_t offset = p.offset;
 		const size_t length = p.length;
-
-		const size_t offset_aligned = offset & ~(PAGE_SIZE - 1);
-		const size_t delta = offset - offset_aligned;
-		const size_t map_len = length + delta;
+		const size_t map_len = length & ~(PAGE_SIZE - 1);
 
 		void* base = ::mmap(nullptr, map_len,
-				PROT_READ | PROT_WRITE, MAP_SHARED, fd, offset_aligned);
+				PROT_READ | PROT_WRITE, MAP_SHARED, fd, offset);
 
 		if(base == MAP_FAILED) {
 			const auto e = errno;
 			throw std::runtime_error(
-					"mmap() failed: fd=" + std::to_string(fd) + " offset=" + std::to_string(offset) + " (aligned="
-							+ std::to_string(offset_aligned) + ", delta=" + std::to_string(delta) + ")" + " length="
-							+ std::to_string(length) + " map_len=" + std::to_string(map_len) + " errno="
+					"mmap() failed: fd=" + std::to_string(fd) + " offset=" + std::to_string(offset)
+							+ " length=" + std::to_string(length) + " map_len=" + std::to_string(map_len) + " errno="
 							+ std::to_string(e) + " (" + std::strerror(e) + ")");
 		}
 
 		Camera::MappedPlane mp;
-		mp.base = base;
-		mp.base_length = map_len;
-		mp.addr = static_cast<unsigned char*>(base) + delta;
+		mp.addr = base;
 		mp.length = length;
+		mp.base_length = map_len;
 		planes.emplace_back(mp);
 	}
 	return planes;
@@ -71,8 +66,8 @@ static std::vector<Camera::MappedPlane> mmapFrameBuffer(const FrameBuffer& buffe
 static void munmapFrameBuffer(std::vector<Camera::MappedPlane>& planes)
 {
 	for(auto& p : planes) {
-		if(p.base && p.base_length) {
-			::munmap(p.base, p.base_length);
+		if(p.addr && p.base_length) {
+			::munmap(p.addr, p.base_length);
 			p.base = nullptr;
 		}
 	}
