@@ -46,45 +46,28 @@ int main(int argc, char** argv)
 
 	Thread gl_main(&gl_main_func);
 
-	DeBayer debayer_0;
-	DeBayer debayer_1;
-
-	debayer_0.gamma = 0.7;
-	debayer_1.gamma = 0.7;
-
 	std::unique_ptr<TexDisplay> display;
 
 	const auto on_frame = [&](std::shared_ptr<CameraFrame> frame)
 	{
+		size_t total_size = 0;
+		for(auto p : frame->data) {
+			total_size += p.second;
+		}
 		std::cout << "[" << frame->topic << "] ts = " << frame->timestamp
-				<< ", width = " << frame->width << ", height = " << frame->height << std::endl;
+				<< ", width = " << frame->width << ", height = " << frame->height
+				<< ", planes = " << frame->data.size() << ", total = " << total_size
+				<< ", exposure = " << frame->exposure << ", gain = " << frame->analog_gain << std::endl;
 	};
 
 	const auto on_frame_0 = [&](std::shared_ptr<CameraFrame> frame)
 	{
 		on_frame(frame);
-		debayer_0.handle(frame);
 	};
 
 	const auto on_frame_1 = [&](std::shared_ptr<CameraFrame> frame)
 	{
 		on_frame(frame);
-		debayer_1.handle(frame);
-	};
-
-	debayer_1.on_luma = [&](std::shared_ptr<GL_Tex2D> luma)
-	{
-		std::cout << "Got luma: width = " << luma->width << ", height = " << luma->height << std::endl;
-	};
-
-	debayer_1.on_rgba = [&](std::shared_ptr<GL_Tex2D> rgba)
-	{
-		std::cout << "Got rgba: width = " << rgba->width << ", height = " << rgba->height << std::endl;
-
-		if(!display) {
-			display = std::make_unique<TexDisplay>(rgba->width, rgba->height);
-		}
-		display->show(rgba);
 	};
 
 	Player player(file_name);
