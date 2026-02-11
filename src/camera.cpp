@@ -28,6 +28,10 @@ namespace mmpilot {
 std::shared_ptr<libcamera::CameraManager> Camera::g_manager;
 
 
+inline size_t align_up(size_t x, size_t a) {
+	return (x + (a - 1)) & ~(a - 1);
+}
+
 static std::vector<Camera::MappedPlane> mmapFrameBuffer(const FrameBuffer& buffer)
 {
 	const size_t PAGE_SIZE = 4096;
@@ -41,7 +45,7 @@ static std::vector<Camera::MappedPlane> mmapFrameBuffer(const FrameBuffer& buffe
 		}
 		const size_t offset = p.offset;
 		const size_t length = p.length;
-		const size_t map_len = length & ~(PAGE_SIZE - 1);
+		const size_t map_len = align_up(length, PAGE_SIZE);
 
 		void* base = ::mmap(nullptr, map_len,
 				PROT_READ | PROT_WRITE, MAP_SHARED, fd, offset);
