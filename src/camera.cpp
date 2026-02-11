@@ -219,11 +219,15 @@ void Camera::handle(Request* req)
 	const auto& meta = req->metadata();
 
 	if(fm.sequence == 0) {
+		const auto* id_map = meta.idMap();
 		std::cout << "---- metadata (" << meta.size() << ") ----" << std::endl;
-		for(const auto &it : meta) {
-			const libcamera::ControlId *id = it.first;
-			const libcamera::ControlValue &val = it.second;
-			std::cout << id->name() << " = " << val.toString() << std::endl;
+		for(const auto& it : meta) {
+			auto iter_id = id_map->find(it.first);
+			if(iter_id != id_map->end()) {
+				const auto* id = iter_id->second;
+				const auto& val = it.second;
+				std::cout << id->name() << " = " << val.toString() << std::endl;
+			}
 		}
 	}
 
