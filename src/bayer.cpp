@@ -18,8 +18,8 @@ void DeBayer::init(int width_, int height_, std::string format_)
 	format = format_;
 
 	if(format == "SBGGR16") {
-		fs_luma = GL_compile_shader_file(GL_FRAGMENT_SHADER, "shader/bayer/BGGR16_luma.glsl");
-		fs_rgba = GL_compile_shader_file(GL_FRAGMENT_SHADER, "shader/bayer/BGGR16_rgba.glsl");
+		fs_luma = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/bayer/BGGR16_luma.glsl");
+		fs_rgba = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/bayer/BGGR16_rgba.glsl");
 		input = std::make_shared<GL_Tex2D>(width, height, GL_R16UI, GL_RED_INTEGER, GL_UNSIGNED_SHORT);
 	} else {
 		throw std::runtime_error("DeBayer: invalid format: " + format);
@@ -69,9 +69,9 @@ void DeBayer::handle(std::shared_ptr<CameraFrame> frame)
 		glUseProgram(prog_rgba);
 		GL_bind_tex(prog_rgba, "uBayer", input->id, 0);
 
-		GL_set_uniform_1f(prog_rgba, "uBlack", black);
-		GL_set_uniform_1f(prog_rgba, "uGain", gain);
-		GL_set_uniform_1f(prog_rgba, "uGamma", gamma);
+		GL_uniform_1f(prog_rgba, "uBlack", black);
+		GL_uniform_1f(prog_rgba, "uGain", gain);
+		GL_uniform_1f(prog_rgba, "uGamma", gamma);
 
 		render::fullscreen(fbo_rgba, width, height);
 

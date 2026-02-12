@@ -81,7 +81,7 @@ void GL_finish(const char* where)
 	GL_check(where);
 }
 
-GLuint GL_compile_shader(GLenum type, const std::string& source, const std::string& name)
+GLuint GL_compile_shader_source(GLenum type, const std::string& source, const std::string& name)
 {
 	GLuint sh = glCreateShader(type);
 	const char* src = source.data();
@@ -109,9 +109,9 @@ GLuint GL_compile_shader(GLenum type, const std::string& source, const std::stri
 	return sh;
 }
 
-GLuint GL_compile_shader_file(GLenum type, const std::string& file_path)
+GLuint GL_compile_shader(GLenum type, const std::string& file_path)
 {
-	return GL_compile_shader(type, read_file_txt(file_path), file_path);
+	return GL_compile_shader_source(type, read_file_txt(file_path), file_path);
 }
 
 GLuint GL_link_program(GLuint vs, GLuint fs)
@@ -192,7 +192,7 @@ void GL_bind_tex(GLuint prog, const char* name, GLuint tex, GLint unit)
 	GL_check("GL_bind_tex");
 }
 
-void GL_set_uniform_1f(GLuint prog, const char* name, float x)
+void GL_uniform_1f(GLuint prog, const char* name, float x)
 {
 	auto loc = glGetUniformLocation(prog, name);
 	if(loc >= 0) {
@@ -200,7 +200,7 @@ void GL_set_uniform_1f(GLuint prog, const char* name, float x)
 	}
 }
 
-void GL_set_uniform_2f(GLuint prog, const char* name, float x, float y)
+void GL_uniform_2f(GLuint prog, const char* name, float x, float y)
 {
 	auto loc = glGetUniformLocation(prog, name);
 	if(loc >= 0) {
@@ -208,7 +208,7 @@ void GL_set_uniform_2f(GLuint prog, const char* name, float x, float y)
 	}
 }
 
-void GL_set_uniform_1i(GLuint prog, const char* name, int v)
+void GL_uniform_1i(GLuint prog, const char* name, int v)
 {
 	auto loc = glGetUniformLocation(prog, name);
 	if(loc >= 0) {
@@ -216,7 +216,7 @@ void GL_set_uniform_1i(GLuint prog, const char* name, int v)
 	}
 }
 
-void GL_set_uniform_2i(GLuint prog, const char* name, int x, int y)
+void GL_uniform_2i(GLuint prog, const char* name, int x, int y)
 {
 	auto loc = glGetUniformLocation(prog, name);
 	if(loc >= 0) {

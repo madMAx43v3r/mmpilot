@@ -88,8 +88,8 @@ void TexDisplay::main(int width, int height)
 		die("eglMakeCurrent failed");
 	EGL_check("Display:eglMakeCurrent");
 
-	GLuint vs = GL_compile_shader_file(GL_VERTEX_SHADER, "shader/vertex/display.glsl");
-	GLuint fs = GL_compile_shader_file(GL_FRAGMENT_SHADER, "shader/color/display.glsl");
+	GLuint vs = GL_compile_shader(GL_VERTEX_SHADER, "shader/vertex/display.glsl");
+	GLuint fs = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/color/display.glsl");
 	GLuint prog = GL_link_program(vs, fs);
 	glDeleteShader(vs);
 	glDeleteShader(fs);

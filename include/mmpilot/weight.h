@@ -34,7 +34,7 @@ public:
 			radius = width / 2;
 		}
 		const auto vs = render::get_fullscreen_vertex_shader();
-		const auto fs = GL_compile_shader_file(GL_FRAGMENT_SHADER, "shader/weight/radius.glsl");
+		const auto fs = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/weight/radius.glsl");
 		prog = GL_link_program(vs, fs);
 
 		out = std::make_shared<GL_Tex2D>(width, height, GL_RG8, GL_RG, GL_UNSIGNED_BYTE);
@@ -55,8 +55,8 @@ public:
 		glUseProgram(prog);
 		GL_bind_tex(prog, "uSrc", in->id, 0);
 
-		GL_set_uniform_2f(prog, "uCenter", width / 2, height / 2);
-		GL_set_uniform_1f(prog, "uRadiusSq", radius * radius);
+		GL_uniform_2f(prog, "uCenter", width / 2, height / 2);
+		GL_uniform_1f(prog, "uRadiusSq", radius * radius);
 
 		render::fullscreen(fbo, width, height);
 

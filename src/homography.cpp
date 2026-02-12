@@ -236,7 +236,7 @@ Params8 solve_homography(
 		glUseProgram(progJ);
 		GL_bind_tex(progJ, "uRef", texRef_R16F, 0);
 		GL_bind_tex(progJ, "uGrad", texGrad_RGBA16F, 1);
-		GL_set_uniform_2f(progJ, "uInvSize", 1.0f / float(W), 1.0f / float(H));
+		GL_uniform_2f(progJ, "uInvSize", 1.0f / float(W), 1.0f / float(H));
 		GL_set_uniform_array(progJ, "uParams", p);
 
 		render::fullscreen();
@@ -249,8 +249,8 @@ Params8 solve_homography(
 		GL_bind_tex(progRedGD, "uRes", texRw, 0);
 		GL_bind_tex(progRedGD, "uJ0", texJ0, 1);
 		GL_bind_tex(progRedGD, "uJ1", texJ1, 2);
-		GL_set_uniform_1i(progRedGD, "uHeight", H);
-		GL_set_uniform_1i(progRedGD, "uChunkSize", cfg.chunk_size);
+		GL_uniform_1i(progRedGD, "uHeight", H);
+		GL_uniform_1i(progRedGD, "uChunkSize", cfg.chunk_size);
 
 		render::fullscreen();
 
@@ -261,8 +261,8 @@ Params8 solve_homography(
 		glUseProgram(progRedOff);
 		GL_bind_tex(progRedOff, "uJ0", texJ0, 0);
 		GL_bind_tex(progRedOff, "uJ1", texJ1, 1);
-		GL_set_uniform_1i(progRedOff, "uHeight", H);
-		GL_set_uniform_1i(progRedOff, "uChunkSize", cfg.chunk_size);
+		GL_uniform_1i(progRedOff, "uHeight", H);
+		GL_uniform_1i(progRedOff, "uChunkSize", cfg.chunk_size);
 
 		render::fullscreen();
 
