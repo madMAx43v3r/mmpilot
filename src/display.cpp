@@ -30,6 +30,11 @@ void TexDisplay::main(int width, int height)
 	swa.event_mask = ExposureMask | KeyPressMask | StructureNotifyMask;
 	swa.background_pixel = BlackPixel(xdpy, screen);
 
+	while(width < 640 || height < 480) {
+		width *= 2;
+		height *= 2;
+	}
+
 	int win_w = width, win_h = height;
 	Window xwin = XCreateWindow(xdpy, root, 0, 0, win_w, win_h, 0,
 			CopyFromParent,
