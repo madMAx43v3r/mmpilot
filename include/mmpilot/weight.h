@@ -11,9 +11,11 @@
 #include <mmpilot/texture.h>
 #include <mmpilot/opengl.h>
 #include <mmpilot/render.h>
+#include <mmpilot/util.h>
 
 #include <memory>
 #include <vector>
+#include <iostream>
 
 
 namespace mmpilot {
@@ -51,6 +53,8 @@ public:
 		} else {
 			init(in->width, in->height);
 		}
+		const auto begin = get_time_micros();
+
 		glUseProgram(prog);
 
 		GL_bind_tex(prog, "uSrc", in->id, 0);
@@ -61,6 +65,9 @@ public:
 		render::fullscreen(fbo, width, height);
 
 		GL_finish("WeightRadius::handle()");
+
+		std::cerr << "WeightRadius[" << width << "x" << height << "]: took "
+				<< (get_time_micros() - begin) / 1000.f << " ms" << std::endl;
 	}
 
 private:
