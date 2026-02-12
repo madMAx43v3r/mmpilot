@@ -107,7 +107,7 @@ void TexDisplay::main(int width, int height)
 	glUniform1i(uTexLoc, 0);
 	GL_check("Display: setup");
 
-	GL_Tex2D tex(width, height, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE);
+	std::shared_ptr<GL_Tex2D> tex;
 
 	// ---------------- Main loop ----------------
 	bool running = true;
@@ -140,9 +140,8 @@ void TexDisplay::main(int width, int height)
 
 		if(do_update) {
 			std::lock_guard<std::mutex> lock(mutex);
-			if(buffer.size() == width * height * 4) {
-				tex.upload(buffer.data());
-			}
+			tex = std::make_shared<GL_Tex2D>(buf_width, buf_height, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE);
+			tex->upload(buffer.data());
 			do_update = false;
 		}
 
@@ -154,7 +153,9 @@ void TexDisplay::main(int width, int height)
 		glClear(GL_COLOR_BUFFER_BIT);
 
 		glActiveTexture(GL_TEXTURE0);
-		tex.bind();
+		if(tex) {
+			tex->bind();
+		}
 
 		glUseProgram(prog);
 		glBindVertexArray(vao);

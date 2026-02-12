@@ -241,7 +241,7 @@ void GL_read_FBO_R(GLuint fbo, int index, int w, int h, std::vector<uint8_t>& ou
 	glReadBuffer(GL_COLOR_ATTACHMENT0 + index);
 	glPixelStorei(GL_PACK_ALIGNMENT, 1);
 	glPixelStorei(GL_PACK_ROW_LENGTH, 0);
-	glReadPixels(0, 0, w, h, GL_RED_INTEGER, GL_UNSIGNED_BYTE, out.data());
+	glReadPixels(0, 0, w, h, GL_RED, GL_UNSIGNED_BYTE, out.data());
 }
 
 void GL_read_FBO_RG(GLuint fbo, int index, int w, int h, std::vector<float>& out)
@@ -252,6 +252,16 @@ void GL_read_FBO_RG(GLuint fbo, int index, int w, int h, std::vector<float>& out
 	glPixelStorei(GL_PACK_ALIGNMENT, 1);
 	glPixelStorei(GL_PACK_ROW_LENGTH, 0);
 	glReadPixels(0, 0, w, h, GL_RG, GL_FLOAT, out.data());
+}
+
+void GL_read_FBO_RG(GLuint fbo, int index, int w, int h, std::vector<uint8_t>& out)
+{
+	out.resize(w * h * 2);
+	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+	glReadBuffer(GL_COLOR_ATTACHMENT0 + index);
+	glPixelStorei(GL_PACK_ALIGNMENT, 1);
+	glPixelStorei(GL_PACK_ROW_LENGTH, 0);
+	glReadPixels(0, 0, w, h, GL_RG, GL_UNSIGNED_BYTE, out.data());
 }
 
 void GL_read_FBO_RGBA(GLuint fbo, int index, int w, int h, std::vector<float>& out)

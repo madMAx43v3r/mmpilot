@@ -59,6 +59,7 @@ void GL_read_FBO_R(GLuint fbo, int index, int w, int h, std::vector<float>& out)
 void GL_read_FBO_R(GLuint fbo, int index, int w, int h, std::vector<uint8_t>& out);
 
 void GL_read_FBO_RG(GLuint fbo, int index, int w, int h, std::vector<float>& out);
+void GL_read_FBO_RG(GLuint fbo, int index, int w, int h, std::vector<uint8_t>& out);
 
 void GL_read_FBO_RGBA(GLuint fbo, int index, int w, int h, std::vector<float>& out);
 void GL_read_FBO_RGBA(GLuint fbo, int index, int w, int h, std::vector<uint8_t>& out);

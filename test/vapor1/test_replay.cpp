@@ -39,11 +39,18 @@ void gl_main_func(Thread& self)
 	egl.terminate();
 }
 
-std::unique_ptr<TexDisplay> display;
-
 class Pipeline {
 public:
-	std::shared_ptr<GL_Tex2D> luma;
+	WeightRadius weight_radius;
+
+	std::unique_ptr<TexDisplay> display;
+
+	~Pipeline()
+	{
+		if(display) {
+			display->close();
+		}
+	}
 
 	void init(int width, int height)
 	{
@@ -51,6 +58,8 @@ public:
 		this->height = height;
 
 		luma = std::make_shared<GL_Tex2D>(width, height, GL_R8, GL_RED, GL_UNSIGNED_BYTE);
+
+		weight_radius.init(width, height);
 
 		have_init = true;
 	}
@@ -61,11 +70,17 @@ public:
 			init(w, h);
 		}
 		luma->upload(data.data(), stride);
+
+		weight_radius.handle(luma);
+
+		show(display, weight_radius.out);
 	}
 
 private:
 	int width = 0;
 	int height = 0;
+
+	std::shared_ptr<GL_Tex2D> luma;
 
 	bool have_init = false;
 };
@@ -102,10 +117,8 @@ int main(int argc, char** argv)
 			pipe_0.handle_luma(luma, w, h, w);
 		});
 
-		if(!display) {
-			display = std::make_unique<TexDisplay>(w, h);
-		}
-		display->show(rgba);
+//		show(display, luma, w, h, 1);
+//		show(display, rgba, w, h, 4);
 	};
 
 	const auto on_frame_1 = [&](std::shared_ptr<Image> frame)
@@ -121,10 +134,8 @@ int main(int argc, char** argv)
 			pipe_1.handle_luma(luma, w, h, w);
 		});
 
-//		if(!display) {
-//			display = std::make_unique<TexDisplay>(w, h);
-//		}
-//		display->show(luma);
+//		show(display, luma, w, h, 1);
+//		show(display, rgba, w, h, 4);
 	};
 
 	Player player(file_name);
@@ -137,9 +148,6 @@ int main(int argc, char** argv)
 
 	player.play();
 
-	if(display) {
-		display->close();
-	}
 	gl_main.close();
 
 	return 0;

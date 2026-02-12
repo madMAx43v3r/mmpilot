@@ -49,6 +49,35 @@ public:
 		GL_check("GL_Tex2D::upload()");
 	}
 
+	template<typename T>
+	void download(std::vector<T>& out) const
+	{
+		auto fbo = GL_create_FBO(id);
+		switch(format) {
+			case GL_RED:	GL_read_FBO_R(fbo, 0, width, height, out); break;
+			case GL_RG:		GL_read_FBO_RG(fbo, 0, width, height, out); break;
+			case GL_RGBA:	GL_read_FBO_RGBA(fbo, 0, width, height, out); break;
+			default:
+				throw std::runtime_error("unsupported texture type");
+		}
+		glDeleteFramebuffers(1, &fbo);
+		GL_check("GL_Tex2D::download()");
+	}
+
+	std::vector<uint8_t> download_u8() const
+	{
+		std::vector<uint8_t> out;
+		download(out);
+		return out;
+	}
+
+	std::vector<float> download_f32() const
+	{
+		std::vector<float> out;
+		download(out);
+		return out;
+	}
+
 };
 
 
