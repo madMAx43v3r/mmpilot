@@ -19,8 +19,8 @@
 
 std::shared_ptr<Image> convert(const CameraFrame& frame)
 {
-	if(frame.data.size() != 3) {
-		return nullptr;
+	if(frame.pixel_format != "YUV420") {
+		throw std::logic_error("invalid pixel format");
 	}
 	const auto& Y = frame.data[0];
 	const auto& U = frame.data[1];
@@ -34,7 +34,7 @@ std::shared_ptr<Image> convert(const CameraFrame& frame)
 	out->analog_gain = frame.analog_gain;
 	out->sequence = frame.sequence;
 	out->timestamp = frame.timestamp / 1000;
-	out->format = "YUV420";
+	out->format = frame.pixel_format;
 
 	out->data.emplace_back((const uint8_t*)Y.first, (const uint8_t*)Y.first + Y.second);
 	out->data.emplace_back((const uint8_t*)U.first, (const uint8_t*)U.first + U.second);
