@@ -8,6 +8,8 @@
 #include <mmpilot/egl.h>
 #include <mmpilot/util.h>
 
+#include <EGL/eglext.h>
+
 #include <vector>
 
 
@@ -34,9 +36,29 @@ void EglCtx::terminate()
 	}
 }
 
+
+static EGLDisplay EGL_get_display()
+{
+	// Prefer surfaceless on Mesa (headless-safe)
+	auto eglGetPlatformDisplayEXT =
+			(PFNEGLGETPLATFORMDISPLAYEXTPROC)eglGetProcAddress("eglGetPlatformDisplayEXT");
+
+	if(eglGetPlatformDisplayEXT) {
+		// Try Mesa surfaceless first
+		EGLDisplay dpy = eglGetPlatformDisplayEXT(EGL_PLATFORM_SURFACELESS_MESA, EGL_DEFAULT_DISPLAY, nullptr);
+
+		if(dpy != EGL_NO_DISPLAY) {
+			return dpy;
+		}
+		// If you want, you can add GBM here later.
+	}
+	// Fallback: whatever default platform is (X11/Wayland). Can fail headless/SSH.
+	return eglGetDisplay(EGL_DEFAULT_DISPLAY);
+}
+
 EglCtx EGL_create_context(int gles_major)
 {
-	const auto display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+	const auto display = EGL_get_display();
 	if(display == EGL_NO_DISPLAY) {
 		EGL_check("eglGetDisplay failed");
 	}

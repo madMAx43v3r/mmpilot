@@ -50,12 +50,6 @@ std::shared_ptr<Image> convert(const CameraFrame& frame)
 
 int main(int argc, char** argv)
 {
-	const int quality = argc > 1 ? atoi(argv[1]) : 95;
-	std::string file_name = argc > 2 ? argv[2] : "vapor1_record.dat";
-
-	std::cout << "quality = " << quality << std::endl;
-	std::cout << "file_name = " << file_name << std::endl;
-
 	Pipeline pipe_0;
 	Pipeline pipe_1;
 
