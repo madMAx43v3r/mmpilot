@@ -26,8 +26,9 @@ public:
 	int pyramid_depth = 6;
 
 	WeightRadius weight_radius;
-	GradientFilter gradient_filter;
 	PyramidFilter pyramid_filter;
+
+	std::vector<std::shared_ptr<GradientFilter>> gradient_filters;
 
 	std::shared_ptr<GL_Tex2D> input_luma;
 
@@ -64,14 +65,25 @@ protected:
 		this->width = width;
 		this->height = height;
 
-		gradient_filter.win_size = gradient_window;
 		pyramid_filter.depth = pyramid_depth;
 
 		input_luma = std::make_shared<GL_Tex2D>(width, height, GL_R8, GL_RED, GL_UNSIGNED_BYTE);
 
 		weight_radius.init(width, height);
-		gradient_filter.init(width, height);
+		pyramid_filter.init(width, height, GL_RG16F, GL_RG, GL_HALF_FLOAT);
 
+		int w = width;
+		int h = height;
+		for(int i = 0; i < pyramid_depth; ++i)
+		{
+			auto gradient = std::make_shared<GradientFilter>();
+			gradient->win_size = gradient_window;
+			gradient->init(w, h);
+			gradient_filters.push_back(gradient);
+
+			w /= 2;
+			h /= 2;
+		}
 		have_init = true;
 	}
 
@@ -84,11 +96,14 @@ protected:
 
 		weight_radius.exec(input_luma);
 
-		gradient_filter.exec(weight_radius.out);
+		pyramid_filter.exec(weight_radius.out);
 
-		pyramid_filter.exec(gradient_filter.out);
+		for(int i = 0; i < pyramid_depth; ++i)
+		{
+			gradient_filters[i]->exec(pyramid_filter.out[i]);
+		}
 
-//		show(display, pyramid_filter.out.back(), {0, 10, 10, 1});
+//		show(display, gradient_filters[3]->out, {1, 0, 0, 1});
 	}
 
 	void exec_image(std::shared_ptr<Image> img)

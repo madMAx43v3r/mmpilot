@@ -11,7 +11,6 @@
 #include <mmpilot/texture.h>
 #include <mmpilot/opengl.h>
 #include <mmpilot/render.h>
-#include <mmpilot/smooth.h>
 #include <mmpilot/util.h>
 
 #include <memory>
@@ -25,7 +24,6 @@ class PyramidFilter {
 public:
 	int depth = 4;
 
-	std::vector<std::shared_ptr<GL_Tex2D>> tmp;
 	std::vector<std::shared_ptr<GL_Tex2D>> out;
 
 	void init(int width_, int height_, GLenum int_format, GLenum format, GLenum type)
@@ -59,12 +57,7 @@ public:
 			w /= 2; h /= 2;
 			auto tex = std::make_shared<GL_Tex2D>(w, h, int_format, format, type);
 			fbo.push_back(GL_create_FBO(tex->id));
-			tmp.push_back(tex);
-
-			auto sm = std::make_shared<SmoothFilter>();
-			sm->init(w, h, int_format, format, type);
-			out.push_back(sm->out);
-			smooth.push_back(sm);
+			out.push_back(tex);
 		}
 		have_init = true;
 	}
@@ -93,8 +86,6 @@ public:
 			w /= 2; h /= 2;
 
 			render::fullscreen(fbo[i-1], w, h);
-
-			smooth[i-1]->exec(tmp[i-1], false);
 		}
 		GL_finish("PyramidFilter::exec()");
 
@@ -109,7 +100,6 @@ private:
 	GLuint prog = 0;
 
 	std::vector<GLuint> fbo;
-	std::vector<std::shared_ptr<SmoothFilter>> smooth;
 
 	bool have_init = false;
 

@@ -3,7 +3,7 @@ precision highp float;
 
 uniform sampler2D uSrc;         // R (e.g., R16F)
 
-layout(location = 0) out vec4 out0;
+layout(location = 0) out float out0;
 
 uniform vec2 uInvSrcSize;       // (1/W, 1/H)
 
