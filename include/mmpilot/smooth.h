@@ -1,12 +1,12 @@
 /*
- * weight.h
+ * smooth.h
  *
- *  Created on: Feb 11, 2026
+ *  Created on: Feb 12, 2026
  *      Author: mad
  */
 
-#ifndef INCLUDE_MMPILOT_WEIGHT_H_
-#define INCLUDE_MMPILOT_WEIGHT_H_
+#ifndef INCLUDE_MMPILOT_SMOOTH_H_
+#define INCLUDE_MMPILOT_SMOOTH_H_
 
 #include <mmpilot/texture.h>
 #include <mmpilot/opengl.h>
@@ -20,13 +20,13 @@
 
 namespace mmpilot {
 
-class WeightRadius {
+class SmoothFilter {
 public:
-	float radius = -1;
+	int win_size = 5;
 
 	std::shared_ptr<GL_Tex2D> out;
 
-	void init(int width_, int height_)
+	void init(int width_, int height_, GLenum int_format, GLenum format, GLenum type)
 	{
 		if(have_init) {
 			throw std::logic_error("already initialized");
@@ -34,14 +34,25 @@ public:
 		width = width_;
 		height = height_;
 
-		if(radius < 0) {
-			radius = width / 2;
+		std::string shader = "smooth";
+		switch(win_size) {
+			case 5: shader += "55"; break;
+			default:
+				throw std::logic_error("SmoothFilter: invalid win_size");
 		}
+		switch(format) {
+			case GL_RED:  shader += "_r"; break;
+			case GL_RG:   shader += "_rg"; break;
+			case GL_RGBA: shader += "_rgba"; break;
+			default:
+				throw std::runtime_error("SmoothFilter: invalid format");
+		}
+
 		const auto vs = render::get_fullscreen_vertex_shader();
-		const auto fs = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/weight/radius.glsl");
+		const auto fs = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/smooth/" + shader + ".glsl");
 		prog = GL_link_program(vs, fs);
 
-		out = std::make_shared<GL_Tex2D>(width, height, GL_RG8, GL_RG, GL_UNSIGNED_BYTE);
+		out = std::make_shared<GL_Tex2D>(width, height, int_format, format, type);
 		fbo = GL_create_FBO(out->id);
 
 		have_init = true;
@@ -50,7 +61,7 @@ public:
 	void exec(std::shared_ptr<GL_Tex2D> in)
 	{
 		if(!have_init) {
-			init(in->width, in->height);
+			init(in->width, in->height, in->internal_fmt, in->format, in->type);
 		}
 		const auto begin = get_time_micros();
 
@@ -61,14 +72,11 @@ public:
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
-		GL_uniform_2f(prog, "uCenter", width / 2, height / 2);
-		GL_uniform_1f(prog, "uRadiusSq", radius * radius);
-
 		render::fullscreen(fbo, width, height);
 
-		GL_finish("WeightRadius::exec()");
+		GL_finish("SmoothFilter::exec()");
 
-		std::cerr << "WeightRadius[" << width << "x" << height << "]: took "
+		std::cerr << "SmoothFilter[" << width << "x" << height << "]: took "
 				<< (get_time_micros() - begin) / 1000.f << " ms" << std::endl;
 	}
 
@@ -86,4 +94,6 @@ private:
 
 } // mmpilot
 
-#endif /* INCLUDE_MMPILOT_WEIGHT_H_ */
+
+
+#endif /* INCLUDE_MMPILOT_SMOOTH_H_ */

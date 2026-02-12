@@ -83,7 +83,7 @@ public:
 
 		render::fullscreen(fbo, width, height);
 
-		GL_finish("GradientFilter::handle()");
+		GL_finish("GradientFilter::exec()");
 
 		std::cerr << "GradientFilter[" << width << "x" << height << "]: took "
 				<< (get_time_micros() - begin) / 1000.f << " ms" << std::endl;

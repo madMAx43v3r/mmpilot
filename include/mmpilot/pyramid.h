@@ -11,6 +11,7 @@
 #include <mmpilot/texture.h>
 #include <mmpilot/opengl.h>
 #include <mmpilot/render.h>
+#include <mmpilot/smooth.h>
 #include <mmpilot/util.h>
 
 #include <memory>
@@ -24,9 +25,10 @@ class PyramidFilter {
 public:
 	int depth = 4;
 
+	std::vector<std::shared_ptr<GL_Tex2D>> tmp;
 	std::vector<std::shared_ptr<GL_Tex2D>> out;
 
-	void init(int width_, int height_, GLenum format)
+	void init(int width_, int height_, GLenum int_format, GLenum format, GLenum type)
 	{
 		if(have_init) {
 			throw std::logic_error("already initialized");
@@ -40,20 +42,10 @@ public:
 		out.resize(1);
 
 		std::string shader;
-		GLenum internal_format;
 		switch(format) {
-			case GL_RED:
-				internal_format = GL_R16F;
-				shader = "downscale_r16f.glsl";
-				break;
-			case GL_RG:
-				internal_format = GL_RG16F;
-				shader = "downscale_rg16f.glsl";
-				break;
-			case GL_RGBA:
-				internal_format = GL_RGBA16F;
-				shader = "downscale_rgba16f.glsl";
-				break;
+			case GL_RED:  shader = "downscale_r.glsl"; break;
+			case GL_RG:   shader = "downscale_rg.glsl"; break;
+			case GL_RGBA: shader = "downscale_rgba.glsl"; break;
 			default:
 				throw std::runtime_error("PyramidFilter: invalid format");
 		}
@@ -65,9 +57,14 @@ public:
 		int h = height;
 		for(int i = 1; i < depth; ++i) {
 			w /= 2; h /= 2;
-			auto tex = std::make_shared<GL_Tex2D>(w, h, internal_format, format, GL_HALF_FLOAT);
-			out.push_back(tex);
+			auto tex = std::make_shared<GL_Tex2D>(w, h, int_format, format, type);
 			fbo.push_back(GL_create_FBO(tex->id));
+			tmp.push_back(tex);
+
+			auto sm = std::make_shared<SmoothFilter>();
+			sm->init(w, h, int_format, format, type);
+			out.push_back(sm->out);
+			smooth.push_back(sm);
 		}
 		have_init = true;
 	}
@@ -75,18 +72,17 @@ public:
 	void exec(std::shared_ptr<GL_Tex2D> in)
 	{
 		if(!have_init) {
-			init(in->width, in->height, in->format);
+			init(in->width, in->height, in->internal_fmt, in->format, in->type);
 		}
 		const auto begin = get_time_micros();
-
-		glUseProgram(prog);
 
 		out[0] = in;
 
 		int w = width;
 		int h = height;
-		for(int i = 1; i < depth; ++i)
-		{
+		for(int i = 1; i < depth; ++i) {
+			glUseProgram(prog);
+
 			GL_bind_tex(prog, "uSrc", out[i-1]->id, 0);
 
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -97,8 +93,10 @@ public:
 			w /= 2; h /= 2;
 
 			render::fullscreen(fbo[i-1], w, h);
+
+			smooth[i-1]->exec(tmp[i-1]);
 		}
-		GL_finish("PyramidFilter::handle()");
+		GL_finish("PyramidFilter::exec()");
 
 		std::cerr << "PyramidFilter[" << width << "x" << height << "]: took "
 				<< (get_time_micros() - begin) / 1000.f << " ms" << std::endl;
@@ -111,6 +109,7 @@ private:
 	GLuint prog = 0;
 
 	std::vector<GLuint> fbo;
+	std::vector<std::shared_ptr<SmoothFilter>> smooth;
 
 	bool have_init = false;
 

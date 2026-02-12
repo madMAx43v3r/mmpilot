@@ -30,10 +30,13 @@ void main()
     float p12 = texture(uSrc, c      + dy).x;
     float p22 = texture(uSrc, c + dx + dy).x;
 
-    // 3x3 Gaussian weights: 1 2 1 / 2 4 2 / 1 2 1, normalized by 1/16
+    // 3x3 weights:
+    //      1 2 1
+    //      2 2 2
+    //      1 2 1
     float sum =  (p00 + 2.0 * p10 + p20)
-         + 2.0 * (p01 + 2.0 * p11 + p21)
+         + 2.0 * (p01 + 1.0 * p11 + p21)
                + (p02 + 2.0 * p12 + p22);
 
-    out0 = sum * (1.0 / 16.0);
+    out0 = sum * (1.0 / 14.0);
 }

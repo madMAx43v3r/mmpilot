@@ -23,7 +23,7 @@ using namespace mmpilot;
 class Pipeline {
 public:
 	int gradient_window = 7;
-	int pyramid_depth = 4;
+	int pyramid_depth = 6;
 
 	WeightRadius weight_radius;
 	GradientFilter gradient_filter;
@@ -36,6 +36,8 @@ public:
 	Pipeline()
 		:	gl_main(&Pipeline::gl_main_func)
 	{
+		gl_main.post([]{});
+		sync();
 	}
 
 	~Pipeline()
@@ -86,7 +88,7 @@ protected:
 
 		pyramid_filter.exec(gradient_filter.out);
 
-//		show(display, pyramid_filter.out.back(), {0, 5, 5, 1});
+//		show(display, pyramid_filter.out.back(), {0, 10, 10, 1});
 	}
 
 	void exec_image(std::shared_ptr<Image> img)
@@ -117,12 +119,8 @@ private:
 	static void gl_main_func(Thread& self)
 	{
 		auto egl = EGL_create_context();
-		{
-			static std::mutex mutex;
-			std::lock_guard<std::mutex> lock(mutex);
-			GL_print_version();
-			GL_print_precision();
-		}
+
+		GL_print_version();
 
 		render::init();
 
