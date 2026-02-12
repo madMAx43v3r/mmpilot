@@ -107,7 +107,7 @@ private:
 	{
 		auto egl = EGL_create_context();
 
-//		GL_print_version();
+		GL_print_version();
 
 		render::init();
 
