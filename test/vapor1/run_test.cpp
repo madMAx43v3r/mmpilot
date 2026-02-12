@@ -14,7 +14,38 @@
 #include "pipeline.h"
 
 #include <string>
+#include <memory>
 #include <iostream>
+
+std::shared_ptr<Image> convert(const CameraFrame& frame)
+{
+	if(frame.data.size() != 3) {
+		return nullptr;
+	}
+	const auto& Y = frame.data[0];
+	const auto& U = frame.data[1];
+	const auto& V = frame.data[2];
+
+	auto out = std::make_shared<Image>();
+	out->width = frame.width;
+	out->height = frame.height;
+	out->stride = frame.width;
+	out->exposure = frame.exposure;
+	out->analog_gain = frame.analog_gain;
+	out->sequence = frame.sequence;
+	out->timestamp = frame.timestamp / 1000;
+	out->format = "YUV420";
+
+	out->data.emplace_back((const uint8_t*)Y.first, (const uint8_t*)Y.first + Y.second);
+	out->data.emplace_back((const uint8_t*)U.first, (const uint8_t*)U.first + U.second);
+	out->data.emplace_back((const uint8_t*)V.first, (const uint8_t*)V.first + V.second);
+
+	std::cout << "Frame " << frame.sequence << ": ts = " << frame.timestamp
+			<< ", width = " << frame.width << ", height = " << frame.height
+			<< ", stride = " << frame.stride << ", format = " << frame.pixel_format
+			<< ", planes = " << out->data.size() << std::endl;
+	return out;
+};
 
 
 int main(int argc, char** argv)
@@ -24,8 +55,6 @@ int main(int argc, char** argv)
 
 	std::cout << "quality = " << quality << std::endl;
 	std::cout << "file_name = " << file_name << std::endl;
-
-	Thread gl_main(&gl_main_func);
 
 	Pipeline pipe_0;
 	Pipeline pipe_1;
@@ -39,10 +68,10 @@ int main(int argc, char** argv)
 	cam_1->open();
 
 	cam_0->on_frame = [&](const CameraFrame& frame) {
-		gl_main.post(std::bind(&Pipeline::exec_frame, &pipe_0, frame));
+		pipe_0.handle(frame);
 	};
 	cam_1->on_frame = [&](const CameraFrame& frame) {
-		gl_main.post(std::bind(&Pipeline::exec_frame, &pipe_1, frame));
+		pipe_1.handle(frame);
 	};
 
 	cam_0->set_interval(500);
@@ -60,8 +89,6 @@ int main(int argc, char** argv)
 	cam_1 = nullptr;
 
 	Camera::cleanup();
-
-	rec.close();
 
 	return 0;
 }

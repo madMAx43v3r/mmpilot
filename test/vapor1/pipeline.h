@@ -47,6 +47,11 @@ public:
 		gl_main.post(std::bind(&Pipeline::exec_image, this, img));
 	}
 
+	void sync()
+	{
+		// TODO
+	}
+
 protected:
 	void init(int width, int height)
 	{
@@ -70,7 +75,7 @@ protected:
 
 		gradient_filter.exec(weight_radius.out);
 
-		show(display, gradient_filter.out, {0, 1, 1, 1});
+//		show(display, gradient_filter.out, {0, 1, 1, 1});
 	}
 
 	void exec_image(std::shared_ptr<Image> img)
@@ -78,12 +83,15 @@ protected:
 		if(img->format == "JPEG") {
 			int w, h;
 			const auto& data = img->data[0];
-			const auto img_y = decode_jpeg_y(data.data(), data.size(), w, h);
+			const auto img_luma = decode_jpeg_y(data.data(), data.size(), w, h);
+			const auto img_rgba = decode_jpeg_rgba(data.data(), data.size(), w, h);
 
 			if(!have_init) {
 				init(w, h);
 			}
-			input_luma->upload(img_y.data(), w);
+			input_luma->upload(img_luma.data(), w);
+
+//			show(display, img_rgba, w, h, 4);
 		}
 		else if(img->format == "YUV420") {
 			if(!have_init) {
@@ -99,7 +107,7 @@ private:
 	{
 		auto egl = EGL_create_context();
 
-		GL_print_version();
+//		GL_print_version();
 
 		render::init();
 
