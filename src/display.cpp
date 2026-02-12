@@ -150,7 +150,12 @@ void TexDisplay::main(int width, int height)
 			resized = false;
 		}
 
+		glClearColor(0.8, 0.4, 0.8, 1);
 		glClear(GL_COLOR_BUFFER_BIT);
+
+		glEnable(GL_BLEND);
+		glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA,
+							GL_ONE,       GL_ONE_MINUS_SRC_ALPHA);
 
 		glActiveTexture(GL_TEXTURE0);
 		if(tex) {

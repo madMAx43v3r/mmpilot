@@ -13,6 +13,7 @@
 #include <mmpilot/texture.h>
 #include <mmpilot/util.h>
 
+#include <array>
 #include <thread>
 #include <atomic>
 #include <mutex>
@@ -79,7 +80,24 @@ public:
 		}
 	}
 
-	void show(std::shared_ptr<GL_Tex2D> tex)
+	void show(const std::vector<float>& img, const int w, const int h, const int N, const std::array<float, 4>& scale)
+	{
+		if(img.size() != w * h * N) {
+			throw std::logic_error("TexDisplay::show(): dimension mismatch");
+		}
+		std::vector<uint8_t> tmp(img.size());
+
+		for(size_t i = 0; i < img.size(); ++i)
+		{
+			auto v = img[i] * scale[i % 4] * 255.f;
+			if(v < 0) v = 0;
+			if(v > 255) v = 255;
+			tmp[i] = v;
+		}
+		show(tmp, w, h, N);
+	}
+
+	void show(std::shared_ptr<GL_Tex2D> tex, const std::array<float, 4>& scale = {1, 1, 1, 1})
 	{
 		int N = 1;
 		switch(tex->format) {
@@ -87,7 +105,17 @@ public:
 			case GL_RGB:	N = 3; break;
 			case GL_RGBA:	N = 4; break;
 		}
-		show(tex->download_u8(), tex->width, tex->height, N);
+		switch(tex->type) {
+			case GL_UNSIGNED_BYTE:
+				show(tex->download_u8(), tex->width, tex->height, N);
+				break;
+			case GL_FLOAT:
+			case GL_HALF_FLOAT:
+				show(tex->download_f32(), tex->width, tex->height, N, scale);
+				break;
+			default:
+				throw std::logic_error("unsupported texture type");
+		}
 	}
 
 	void close()
@@ -114,12 +142,12 @@ private:
 };
 
 
-inline void show(std::unique_ptr<TexDisplay>& display, std::shared_ptr<GL_Tex2D> tex)
+inline void show(std::unique_ptr<TexDisplay>& display, std::shared_ptr<GL_Tex2D> tex, const std::array<float, 4>& scale = {1, 1, 1, 1})
 {
 	if(!display) {
 		display = std::make_unique<TexDisplay>(tex->width, tex->height);
 	}
-	display->show(tex);
+	display->show(tex, scale);
 }
 
 inline void show(std::unique_ptr<TexDisplay>& display, const std::vector<uint8_t>& img, int w, int h, int N)

@@ -15,6 +15,7 @@
 #include <mmpilot/jpeg.h>
 #include <mmpilot/image.h>
 #include <mmpilot/weight.h>
+#include <mmpilot/gradient.h>
 
 #include <mutex>
 #include <memory>
@@ -41,7 +42,11 @@ void gl_main_func(Thread& self)
 
 class Pipeline {
 public:
+	std::shared_ptr<GL_Tex2D> input_luma;
+
 	WeightRadius weight_radius;
+
+	GradientFilter gradient_filter;
 
 	std::unique_ptr<TexDisplay> display;
 
@@ -57,9 +62,10 @@ public:
 		this->width = width;
 		this->height = height;
 
-		luma = std::make_shared<GL_Tex2D>(width, height, GL_R8, GL_RED, GL_UNSIGNED_BYTE);
+		input_luma = std::make_shared<GL_Tex2D>(width, height, GL_R8, GL_RED, GL_UNSIGNED_BYTE);
 
 		weight_radius.init(width, height);
+		gradient_filter.init(width, height);
 
 		have_init = true;
 	}
@@ -69,28 +75,30 @@ public:
 		if(!have_init) {
 			throw std::logic_error("!have_init");
 		}
-		weight_radius.exec(luma);
+		weight_radius.exec(input_luma);
 
-		show(display, weight_radius.out);
+		gradient_filter.exec(weight_radius.out);
+
+		show(display, gradient_filter.out, {0, 1, 1, 1});
 	}
 
-	void exec_jpeg(std::shared_ptr<Image> frame)
+	void exec_image(std::shared_ptr<Image> frame)
 	{
-		int w, h;
-		const auto img_y = decode_jpeg_y(frame->data.data(), frame->data.size(), w, h);
+		if(frame->format == "JPEG") {
+			int w, h;
+			const auto img_y = decode_jpeg_y(frame->data.data(), frame->data.size(), w, h);
 
-		if(!have_init) {
-			init(w, h);
+			if(!have_init) {
+				init(w, h);
+			}
+			input_luma->upload(img_y.data(), w);
 		}
-		luma->upload(img_y.data(), w);
 		exec();
 	}
 
 private:
 	int width = 0;
 	int height = 0;
-
-	std::shared_ptr<GL_Tex2D> luma;
 
 	bool have_init = false;
 };
@@ -117,31 +125,13 @@ int main(int argc, char** argv)
 	const auto on_frame_0 = [&](std::shared_ptr<Image> frame)
 	{
 		on_frame(frame);
-
-		int w, h;
-		const auto& data = frame->data;
-		const auto luma = decode_jpeg_y(data.data(), data.size(), w, h);
-		const auto rgba = decode_jpeg_rgba(data.data(), data.size(), w, h);
-
-		gl_main.post(std::bind(&Pipeline::exec_jpeg, &pipe_0, frame));
-
-//		show(display, luma, w, h, 1);
-//		show(display, rgba, w, h, 4);
+		gl_main.post(std::bind(&Pipeline::exec_image, &pipe_0, frame));
 	};
 
 	const auto on_frame_1 = [&](std::shared_ptr<Image> frame)
 	{
 		on_frame(frame);
-
-		int w, h;
-		const auto& data = frame->data;
-		const auto luma = decode_jpeg_y(data.data(), data.size(), w, h);
-		const auto rgba = decode_jpeg_rgba(data.data(), data.size(), w, h);
-
-		gl_main.post(std::bind(&Pipeline::exec_jpeg, &pipe_1, frame));
-
-//		show(display, luma, w, h, 1);
-//		show(display, rgba, w, h, 4);
+		gl_main.post(std::bind(&Pipeline::exec_image, &pipe_1, frame));
 	};
 
 	Player player(file_name);

@@ -10,6 +10,7 @@
 
 #include <mmpilot/texture.h>
 #include <mmpilot/opengl.h>
+#include <mmpilot/render.h>
 
 #include <memory>
 #include <vector>
