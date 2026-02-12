@@ -63,7 +63,7 @@ public:
 			}
 			_queue.emplace_back(std::move(task));
 		}
-		_cv.notify_one();
+		_cv.notify_all();
 		return true;
 	}
 
@@ -88,6 +88,10 @@ public:
 			Task task;
 			{
 				std::unique_lock<std::mutex> lk(_mtx);
+
+				_busy = false;
+				_cv.notify_all();
+
 				_cv.wait(lk, [&] {
 					return _shutdown || !_queue.empty();
 				});
@@ -95,11 +99,21 @@ public:
 				if(_queue.empty()) {
 					return;
 				}
+				_busy = true;
+
 				task = std::move(_queue.front());
 				_queue.pop_front();
 			}
 			task();
 		}
+	}
+
+	void sync()
+	{
+		std::unique_lock<std::mutex> lk(_mtx);
+		_cv.wait(lk, [&] {
+			return (!_busy && _queue.empty()) || _shutdown;
+		});
 	}
 
 	void join()
@@ -120,6 +134,7 @@ private:
 	std::condition_variable _cv;
 	std::deque<Task> _queue;
 
+	bool _busy = false;
 	bool _shutdown = false;
 	std::thread _thr;
 
