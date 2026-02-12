@@ -64,16 +64,26 @@ public:
 		have_init = true;
 	}
 
-	void handle_luma(const std::vector<uint8_t>& data, int w, int h, int stride)
+	void exec()
 	{
+		if(!have_init) {
+			throw std::logic_error("!have_init");
+		}
+		weight_radius.exec(luma);
+
+		show(display, weight_radius.out);
+	}
+
+	void exec_jpeg(std::shared_ptr<Image> frame)
+	{
+		int w, h;
+		const auto img_y = decode_jpeg_y(frame->data.data(), frame->data.size(), w, h);
+
 		if(!have_init) {
 			init(w, h);
 		}
-		luma->upload(data.data(), stride);
-
-		weight_radius.handle(luma);
-
-		show(display, weight_radius.out);
+		luma->upload(img_y.data(), w);
+		exec();
 	}
 
 private:
@@ -113,9 +123,7 @@ int main(int argc, char** argv)
 		const auto luma = decode_jpeg_y(data.data(), data.size(), w, h);
 		const auto rgba = decode_jpeg_rgba(data.data(), data.size(), w, h);
 
-		gl_main.post([&pipe_0, luma, w, h]() {
-			pipe_0.handle_luma(luma, w, h, w);
-		});
+		gl_main.post(std::bind(&Pipeline::exec_jpeg, &pipe_0, frame));
 
 //		show(display, luma, w, h, 1);
 //		show(display, rgba, w, h, 4);
@@ -130,9 +138,7 @@ int main(int argc, char** argv)
 		const auto luma = decode_jpeg_y(data.data(), data.size(), w, h);
 		const auto rgba = decode_jpeg_rgba(data.data(), data.size(), w, h);
 
-		gl_main.post([&pipe_1, luma, w, h]() {
-			pipe_1.handle_luma(luma, w, h, w);
-		});
+		gl_main.post(std::bind(&Pipeline::exec_jpeg, &pipe_1, frame));
 
 //		show(display, luma, w, h, 1);
 //		show(display, rgba, w, h, 4);

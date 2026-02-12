@@ -23,8 +23,6 @@ public:
 
 	std::shared_ptr<GL_Tex2D> out;
 
-	std::function<void(std::shared_ptr<GL_Tex2D>)> next;
-
 	void init(int width_, int height_)
 	{
 		width = width_;
@@ -43,7 +41,7 @@ public:
 		have_init = true;
 	}
 
-	void handle(std::shared_ptr<GL_Tex2D> in)
+	void exec(std::shared_ptr<GL_Tex2D> in)
 	{
 		if(have_init) {
 			if(in->width != width || in->height != height) {
@@ -53,6 +51,7 @@ public:
 			init(in->width, in->height);
 		}
 		glUseProgram(prog);
+
 		GL_bind_tex(prog, "uSrc", in->id, 0);
 
 		GL_uniform_2f(prog, "uCenter", width / 2, height / 2);
@@ -61,10 +60,6 @@ public:
 		render::fullscreen(fbo, width, height);
 
 		GL_finish("WeightRadius::handle()");
-
-		if(next) {
-			next(out);
-		}
 	}
 
 private:
