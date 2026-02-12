@@ -94,7 +94,7 @@ public:
 
 			render::fullscreen(fbo[i-1], w, h);
 
-			smooth[i-1]->exec(tmp[i-1]);
+			smooth[i-1]->exec(tmp[i-1], false);
 		}
 		GL_finish("PyramidFilter::exec()");
 
