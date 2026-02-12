@@ -191,6 +191,20 @@ GLuint GL_create_FBO(const std::vector<GLuint>& tex_list)
 	return fbo;
 }
 
+void GL_blit_FBO(GLuint dst, GLuint src, int width, int height)
+{
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, src);
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, dst);
+
+	glBlitFramebuffer(
+		0, 0, width, height,
+		0, 0, width, height,
+		GL_COLOR_BUFFER_BIT,
+		GL_NEAREST   // or GL_LINEAR if scaling
+	);
+	GL_check("GL_blit_FBO");
+}
+
 void GL_bind_tex(GLuint prog, const char* name, GLuint tex, GLint unit)
 {
 	auto loc = glGetUniformLocation(prog, name);

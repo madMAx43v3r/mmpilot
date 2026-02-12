@@ -28,6 +28,9 @@ public:
 
 	void init(int width_, int height_)
 	{
+		if(have_init) {
+			throw std::logic_error("already initialized");
+		}
 		width = width_;
 		height = height_;
 
@@ -46,11 +49,7 @@ public:
 
 	void exec(std::shared_ptr<GL_Tex2D> in)
 	{
-		if(have_init) {
-			if(in->width != width || in->height != height) {
-				throw std::runtime_error("WeightRadius: dimension mismatch");
-			}
-		} else {
+		if(!have_init) {
 			init(in->width, in->height);
 		}
 		const auto begin = get_time_micros();
@@ -58,6 +57,9 @@ public:
 		glUseProgram(prog);
 
 		GL_bind_tex(prog, "uSrc", in->id, 0);
+
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
 		GL_uniform_2f(prog, "uCenter", width / 2, height / 2);
 		GL_uniform_1f(prog, "uRadiusSq", radius * radius);

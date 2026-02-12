@@ -15,17 +15,21 @@
 #include <mmpilot/image.h>
 #include <mmpilot/weight.h>
 #include <mmpilot/gradient.h>
+#include <mmpilot/pyramid.h>
 
 using namespace mmpilot;
 
 
 class Pipeline {
 public:
-	std::shared_ptr<GL_Tex2D> input_luma;
+	int gradient_window = 7;
+	int pyramid_depth = 4;
 
 	WeightRadius weight_radius;
-
 	GradientFilter gradient_filter;
+	PyramidFilter pyramid_filter;
+
+	std::shared_ptr<GL_Tex2D> input_luma;
 
 	std::unique_ptr<TexDisplay> display;
 
@@ -58,6 +62,9 @@ protected:
 		this->width = width;
 		this->height = height;
 
+		gradient_filter.win_size = gradient_window;
+		pyramid_filter.depth = pyramid_depth;
+
 		input_luma = std::make_shared<GL_Tex2D>(width, height, GL_R8, GL_RED, GL_UNSIGNED_BYTE);
 
 		weight_radius.init(width, height);
@@ -77,7 +84,9 @@ protected:
 
 		gradient_filter.exec(weight_radius.out);
 
-//		show(display, gradient_filter.out, {0, 1, 1, 1});
+		pyramid_filter.exec(gradient_filter.out);
+
+//		show(display, pyramid_filter.out.back(), {0, 5, 5, 1});
 	}
 
 	void exec_image(std::shared_ptr<Image> img)
