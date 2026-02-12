@@ -52,7 +52,7 @@ void main()
       + ( 4.0) * p2.x
       + ( 1.0) * p3.x;
 
-    vec2 I = vec2(Ix, Iy) * (1.0 / 640.0);
+    vec2 I = vec2(Ix, Iy) * (1.0 / 1024.0);
 
     out0 = vec4(c.x, I.x, I.y, c.w);
 }

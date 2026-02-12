@@ -37,7 +37,7 @@ void main()
     // Iy = vertical derivative (d) applied to Sx
     float Iy = (-1.0 * m2.x -2.0 * m1.x + 2.0 * p1.x + 1.0 * p2.x);
 
-    vec2 I = vec2(Ix, Iy) * (1.0 / 96.0);
+    vec2 I = vec2(Ix, Iy) * (1.0 / 48.0);
 
     out0 = vec4(c.x, I.x, I.y, c.w);
 }
