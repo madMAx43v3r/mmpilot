@@ -1,5 +1,5 @@
 #version 310 es
-precision mediump float;
+precision highp float;
 
 layout(location = 0) out vec4 out0;   // RGBA16F (Y, Sx, Dx, w)
 
