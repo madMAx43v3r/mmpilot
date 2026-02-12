@@ -53,14 +53,8 @@ EglCtx EGL_create_context(int gles_major)
 	// For surfaceless, EGL_SURFACE_TYPE can be 0; but many drivers expect PBUFFER_BIT,
 	// so we request PBUFFER_BIT to keep config selection robust.
 	const EGLint cfg_attribs[] = {
-		EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT,
 		EGL_SURFACE_TYPE, EGL_PBUFFER_BIT,
-		EGL_RED_SIZE, 8,
-		EGL_GREEN_SIZE, 8,
-		EGL_BLUE_SIZE, 8,
-		EGL_ALPHA_SIZE, 0,
-		EGL_DEPTH_SIZE, 0,
-		EGL_STENCIL_SIZE, 0,
+		EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT,
 		EGL_NONE
 	};
 
