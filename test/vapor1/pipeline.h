@@ -71,6 +71,8 @@ protected:
 		if(!have_init) {
 			throw std::logic_error("!have_init");
 		}
+		GL_finish();
+
 		weight_radius.exec(input_luma);
 
 		gradient_filter.exec(weight_radius.out);
