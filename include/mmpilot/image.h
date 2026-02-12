@@ -18,12 +18,13 @@ class Image : public Sample {
 public:
 	int width = 0;
 	int height = 0;
+	int stride = 0;
 	int exposure = 0;			// [us]
 	float analog_gain = 1;
 	uint64_t sequence = 0;
 	uint64_t timestamp = 0;		// [us]
 	std::string format;
-	std::vector<uint8_t> data;
+	std::vector<std::vector<uint8_t>> data;
 
 	void write(Recorder& out) const
 	{
@@ -31,12 +32,17 @@ public:
 		out.write_u32(0);
 		out.write_u32(width);
 		out.write_u32(height);
+		out.write_u32(stride);
 		out.write_u32(exposure);
 		out.write_u32(analog_gain * 1000);
 		out.write_u64(sequence);
 		out.write_u64(timestamp);
 		out.write(format);
-		out.write(data.data(), data.size());
+
+		out.write_u32(data.size());
+		for(const auto& v : data) {
+			out.write(v.data(), v.size());
+		}
 	}
 
 	static std::shared_ptr<Sample> read(Player& in)
@@ -52,15 +58,23 @@ public:
 		auto out = std::make_shared<Image>();
 		out->width = in.read_u32();
 		out->height = in.read_u32();
+		out->stride = in.read_u32();
 		out->exposure = in.read_u32();
 		out->analog_gain = in.read_u32() / 1000.f;
 		out->sequence = in.read_u64();
 		out->timestamp = in.read_u64();
 		out->format = in.read_string();
 
-		const auto size = in.read_binary_size();
-		out->data.resize(size);
-		in.read(out->data.data(), size);
+		const auto N = in.read_u32();
+		if(N > 64) {
+			throw std::runtime_error("Image: N > 64");
+		}
+		for(uint32_t i = 0; i < N; ++i) {
+			const auto size = in.read_binary_size();
+			std::vector<uint8_t> tmp(size);
+			in.read(tmp.data(), size);
+			out->data.push_back(std::move(tmp));
+		}
 		return out;
 	}
 

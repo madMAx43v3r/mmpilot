@@ -37,7 +37,6 @@ add_library(mmpilot_opengl STATIC
 	src/egl.cpp
 	src/opengl.cpp
 	src/render.cpp
-	src/bayer.cpp
 )
 
 target_include_directories(mmpilot_opengl

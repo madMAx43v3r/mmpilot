@@ -39,12 +39,12 @@ void write_sample(Recorder& out, const std::string& topic, const T& data)
 }
 
 template<typename T>
-auto dispatch(Thread& thread, const std::function<void(std::shared_ptr<T>)>& handler)
+auto dispatch(const std::function<void(std::shared_ptr<T>)>& handler)
 {
-	return [t = &thread, h = handler](const std::shared_ptr<Sample>& sample)
+	return [handler](const std::shared_ptr<Sample>& sample)
 	{
 		if(auto out = std::dynamic_pointer_cast<T>(sample)) {
-			t->post(std::bind(h, out));
+			handler(out);
 		}
 	};
 }

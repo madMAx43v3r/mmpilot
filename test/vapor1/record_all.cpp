@@ -44,13 +44,14 @@ int main(int argc, char** argv)
 		Image out;
 		out.width = frame.width;
 		out.height = frame.height;
+		out.stride = frame.width;
 		out.exposure = frame.exposure;
 		out.analog_gain = frame.analog_gain;
 		out.sequence = frame.sequence;
 		out.timestamp = frame.timestamp / 1000;
 		out.format = "JPEG";
-		out.data = encode_jpeg_i420(
-				Y, U, V, frame.width, frame.height, frame.stride, quality);
+		out.data.push_back(encode_jpeg_i420(
+				Y, U, V, frame.width, frame.height, frame.stride, quality));
 
 		std::cout << "Frame " << frame.sequence << ": ts = " << frame.timestamp
 				<< ", width = " << frame.width << ", height = " << frame.height
