@@ -45,11 +45,11 @@ public:
 	void handle(std::shared_ptr<Image> img)
 	{
 		gl_main.post(std::bind(&Pipeline::exec_image, this, img));
+		sync();
 	}
 
-	void sync()
-	{
-		// TODO
+	void sync() {
+		gl_main.sync();
 	}
 
 protected:
