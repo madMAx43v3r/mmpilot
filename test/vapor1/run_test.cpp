@@ -68,10 +68,10 @@ int main(int argc, char** argv)
 	cam_1->open();
 
 	cam_0->on_frame = [&](const CameraFrame& frame) {
-		pipe_0.handle(frame);
+		pipe_0.handle(convert(frame));
 	};
 	cam_1->on_frame = [&](const CameraFrame& frame) {
-		pipe_1.handle(frame);
+		pipe_1.handle(convert(frame));
 	};
 
 	cam_0->set_interval(500);
