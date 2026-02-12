@@ -108,8 +108,12 @@ private:
 	static void gl_main_func(Thread& self)
 	{
 		auto egl = EGL_create_context();
-
-		GL_print_version();
+		{
+			static std::mutex mutex;
+			std::lock_guard<std::mutex> lock(mutex);
+			GL_print_version();
+			GL_print_precision();
+		}
 
 		render::init();
 

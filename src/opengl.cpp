@@ -69,6 +69,18 @@ void GL_print_version()
 	GL_check("glGetString()");
 }
 
+void GL_print_precision()
+{
+	GLint range[2], precision;
+	glGetShaderPrecisionFormat(GL_FRAGMENT_SHADER, GL_HIGH_FLOAT, range, &precision);
+	std::cout << "GL_HIGH_FLOAT = " << precision << std::endl;
+	glGetShaderPrecisionFormat(GL_FRAGMENT_SHADER, GL_MEDIUM_FLOAT, range, &precision);
+	std::cout << "GL_MEDIUM_FLOAT = " << precision << std::endl;
+	glGetShaderPrecisionFormat(GL_FRAGMENT_SHADER, GL_LOW_FLOAT, range, &precision);
+	std::cout << "GL_LOW_FLOAT = " << precision << std::endl;
+	GL_check("GL_print_precision()");
+}
+
 void GL_finish()
 {
 	glFinish();

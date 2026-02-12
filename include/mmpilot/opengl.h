@@ -24,6 +24,7 @@ std::string GL_FBO_status_name(GLenum s);
 void GL_check(const char* where);
 
 void GL_print_version();
+void GL_print_precision();
 
 void GL_finish();
 void GL_finish(const char* where);
