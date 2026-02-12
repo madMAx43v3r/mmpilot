@@ -42,7 +42,7 @@ public:
 		prog = GL_link_program(vs, fs);
 		prog_tmp = GL_link_program(vs, fs_tmp);
 
-		tmp = std::make_shared<GL_Tex2D>(width, height, GL_RGBA32F, GL_RGBA, GL_FLOAT);
+		tmp = std::make_shared<GL_Tex2D>(width, height, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT);
 		out = std::make_shared<GL_Tex2D>(width, height, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT);
 
 		fbo = GL_create_FBO(out->id);
