@@ -31,6 +31,8 @@ public:
 	std::string pixel_format;
 	std::vector<std::pair<void*, size_t>> data;
 
+	CameraFrame() = default;
+
 	CameraFrame(CameraFrame&) = delete;
 	CameraFrame& operator=(CameraFrame&) = delete;
 
