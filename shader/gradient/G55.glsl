@@ -1,5 +1,5 @@
 #version 310 es
-precision highp float;
+precision mediump float;
 
 layout(location = 0) out vec4 out0;   // (Y, Ix, Iy, w)
 
