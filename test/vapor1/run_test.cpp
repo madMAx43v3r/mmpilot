@@ -29,7 +29,7 @@ std::shared_ptr<Image> convert(const CameraFrame& frame)
 	auto out = std::make_shared<Image>();
 	out->width = frame.width;
 	out->height = frame.height;
-	out->stride = frame.width;
+	out->stride = frame.stride;
 	out->exposure = frame.exposure;
 	out->analog_gain = frame.analog_gain;
 	out->sequence = frame.sequence;
