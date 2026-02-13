@@ -87,9 +87,11 @@ public:
 		}
 		std::vector<uint8_t> tmp(img.size());
 
+		const int mask = N - 1;
+
 		for(size_t i = 0; i < img.size(); ++i)
 		{
-			auto v = img[i] * scale[i % 4] * 255.f;
+			auto v = img[i] * scale[i & mask] * 255.f;
 			if(v < 0) v = 0;
 			if(v > 255) v = 255;
 			tmp[i] = v;
