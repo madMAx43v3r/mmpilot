@@ -75,8 +75,9 @@ public:
 				}
 //				p_init.shift(1, 1);		// TODO: testing only
 
-				auto p = solver.solve(prev_img, img, p_init);
-				std::cout << "params[" << level << "][" << solver.num_iters << "] = " << to_string(p) << std::endl;
+				H_out = solver.solve(prev_img, img, p_init);
+
+				std::cout << "params[" << level << "][" << solver.num_iters << "] = " << to_string(H_out) << std::endl;
 			}
 
 			GL_blit_FBO(fbo_tmp[0], fbo_tmp[1], prev_img, gradient.out);
