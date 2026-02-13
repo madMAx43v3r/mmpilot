@@ -81,6 +81,33 @@ public:
 };
 
 
+inline void GL_blit_FBO(
+		GLuint fbo_dst, GLuint fbo_src,
+		std::shared_ptr<GL_Tex2D> dst, std::shared_ptr<GL_Tex2D> src)
+{
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo_src);
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo_dst);
+
+	glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, src->id, 0);
+	glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, dst->id, 0);
+
+	const GLenum buf = GL_COLOR_ATTACHMENT0;
+	glDrawBuffers(1, &buf);
+
+	GLenum mode = GL_NEAREST;
+	if(dst->width != src->width || dst->height != src->height) {
+		mode = GL_LINEAR;
+	}
+	glBlitFramebuffer(
+		0, 0, src->width, src->height,
+		0, 0, dst->width, dst->height,
+		GL_COLOR_BUFFER_BIT,
+		mode
+	);
+	GL_finish("GL_blit_FBO()");
+}
+
+
 } // mmpilot
 
 #endif /* INCLUDE_MMPILOT_TEXTURE_H_ */

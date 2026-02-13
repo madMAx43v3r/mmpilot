@@ -13,6 +13,7 @@
 #include <array>
 #include <string>
 #include <vector>
+#include <stdexcept>
 
 
 namespace mmpilot {
@@ -40,8 +41,6 @@ GLuint GL_create_tex(GLsizei w, GLsizei h, GLenum internal_fmt, GLenum fmt, GLen
 GLuint GL_create_FBO(const GLuint tex);
 GLuint GL_create_FBO(const std::vector<GLuint>& tex_list);
 
-void GL_blit_FBO(GLuint dst, GLuint src, int width, int height);
-
 void GL_bind_tex(GLuint prog, const char* name, GLuint tex, GLint unit);
 
 void GL_uniform_1f(GLuint prog, const char* name, float x);
@@ -55,6 +54,8 @@ void GL_uniform_fv(GLuint prog, const char* name, const std::array<float, N>& v)
 	auto loc = glGetUniformLocation(prog, name);
 	if(loc >= 0) {
 		glUniform1fv(loc, N, v.data());
+	} else {
+		throw std::logic_error("unknown uniform: " + std::string(name));
 	}
 }
 

@@ -12,10 +12,12 @@
 #include <mmpilot/opengl.h>
 #include <mmpilot/display.h>
 #include <mmpilot/jpeg.h>
+#include <mmpilot/util.h>
 #include <mmpilot/image.h>
 #include <mmpilot/weight.h>
 #include <mmpilot/gradient.h>
 #include <mmpilot/pyramid.h>
+#include <mmpilot/homography.h>
 
 using namespace mmpilot;
 
@@ -28,9 +30,13 @@ public:
 	WeightRadius weight_radius;
 	PyramidFilter pyramid_filter;
 
-	std::vector<std::shared_ptr<GradientFilter>> gradient_filters;
+	std::vector<std::shared_ptr<GradientFilter>> gradient_filter;
+
+	std::vector<std::shared_ptr<Homography>> solver;
 
 	std::shared_ptr<GL_Tex2D> input_luma;
+
+	std::vector<std::shared_ptr<GL_Tex2D>> prev;
 
 	std::unique_ptr<TexDisplay> display;
 
@@ -79,11 +85,20 @@ protected:
 			auto gradient = std::make_shared<GradientFilter>();
 			gradient->win_size = gradient_window;
 			gradient->init(w, h);
-			gradient_filters.push_back(gradient);
+			gradient_filter.push_back(gradient);
+
+			auto sol = std::make_shared<Homography>();
+			sol->init(w, h);
+			solver.push_back(sol);
+
+			prev.push_back(std::make_shared<GL_Tex2D>(w, h, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT));
 
 			w /= 2;
 			h /= 2;
 		}
+
+		glGenFramebuffers(2, fbo_tmp);
+
 		have_init = true;
 	}
 
@@ -100,10 +115,21 @@ protected:
 
 		for(int i = 0; i < pyramid_depth; ++i)
 		{
-			gradient_filters[i]->exec(pyramid_filter.out[i]);
+			auto& gradient = gradient_filter[i];
+			gradient->exec(pyramid_filter.out[i]);
+
+			auto img = gradient->out;
+
+			if(sequence) {
+				auto p = solver[i]->solve(prev[i], img);
+				std::cout << "params[" << solver[i]->num_iters << "] = " << to_string(p) << std::endl;
+			}
+			GL_blit_FBO(fbo_tmp[0], fbo_tmp[1], prev[i], img);
 		}
 
-//		show(display, gradient_filters[3]->out, {1, 0, 0, 1});
+		sequence++;
+
+		show(display, solver[3]->tex_residual, {1, 1, 1, 1});
 	}
 
 	void exec_image(std::shared_ptr<Image> img)
@@ -149,6 +175,10 @@ private:
 private:
 	int width = 0;
 	int height = 0;
+
+	uint64_t sequence = 0;
+
+	GLuint fbo_tmp[2] = {};
 
 	Thread gl_main;
 

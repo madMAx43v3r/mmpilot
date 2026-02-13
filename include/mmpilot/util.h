@@ -11,6 +11,7 @@
 #include <string>
 #include <chrono>
 #include <thread>
+#include <iostream>
 #include <stdexcept>
 
 
@@ -43,6 +44,16 @@ inline int64_t get_time_nanos() {
 }
 
 std::string read_file_txt(const std::string& path);
+
+template<typename T, size_t N>
+std::string to_string(const std::array<T, N>& v)
+{
+	std::string out = "[";
+	for(size_t i = 0; i < N; ++i) {
+		out += (i > 0 ? " " : "") + std::to_string(v[i]);
+	}
+	return out + "]";
+}
 
 
 

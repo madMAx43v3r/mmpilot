@@ -32,15 +32,15 @@ void main()
     outR  = vec2(0);
     outUV = vec2(uv.x, uv.y);
 
-    if(uv.x < 0 || uv.y < 0 || uv.x > 1 || uv.y > 1) {
+    if(uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) {
         return;
     }
-    vec4 ref = texelFetch(uRef, gl_FragCoord.xy, 0);  // (Y, Ix, Iy, w)
+    vec4 ref = texelFetch(uRef, ivec2(gl_FragCoord.xy), 0);  // (Y, Ix, Iy, w)
 
     vec4 proj = texture(uImg, uv);   // (Y, Ix, Iy, w)
 
     float w  = ref.w * proj.w;
-    if(w <= 0) {
+    if(w <= 0.0) {
         return;
     }
     float R = (proj.x - ref.x) * w;

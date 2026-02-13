@@ -33,7 +33,7 @@ public:
 	std::shared_ptr<GL_Tex2D> tex_jacobian[2];
 	std::vector<std::shared_ptr<GL_Tex2D>> tex_hessian;
 
-	Homography();
+	Homography() = default;
 
 	~Homography();
 

@@ -150,7 +150,7 @@ void apply_damping(Mat8& H, float lambda)
 
 Homography::Params8 Homography::solve(std::shared_ptr<GL_Tex2D> ref, std::shared_ptr<GL_Tex2D> img)
 {
-	Params8 p;
+	Params8 p = {};
 	p[0] = 1;
 	p[4] = 1;
 	return solve(ref, img, p);
@@ -164,7 +164,7 @@ Homography::Params8 Homography::solve(
 	}
 	const auto begin = get_time_micros();
 
-	Params8 p = init_p;
+	Params8 params = init_p;
 
 	// CPU readback buffers
 	std::vector<float> G0_rgba, G1_rgba, D0_rgba, D1_rgba;
@@ -177,7 +177,7 @@ Homography::Params8 Homography::solve(
 		GL_bind_tex(prog_jacobian, "uRef", ref->id, 0);
 		GL_bind_tex(prog_jacobian, "uImg", img->id, 1);
 		GL_uniform_2f(prog_jacobian, "uInvSize", 1.f / width, 1.f / height);
-		GL_uniform_fv(prog_jacobian, "uParams", p);
+		GL_uniform_fv(prog_jacobian, "uParams", params);
 
 		render::fullscreen(fbo_jacobian, width, height);
 
@@ -241,19 +241,19 @@ Homography::Params8 Homography::solve(
 			throw std::logic_error("solver failed");
 		}
 		for(int i = 0; i < 8; ++i) {
-			p[i] += delta[i];
+			params[i] += delta[i];
 		}
 
 		// renormalize homography scale to keep numbers sane
 		// Here, keep p2 / p5 roughly on the same scale by normalizing by (p6,p7,1) magnitude.
-		const auto s = std::sqrt(p[6]*p[6] + p[7]*p[7] + 1);
-		for(float& v : p) {
+		const auto s = std::sqrt(params[6]*params[6] + params[7]*params[7] + 1);
+		for(float& v : params) {
 			v /= s;
 		}
 	}
 	std::cerr << "Homography[" << width << "x" << height << "]: took "
 				<< (get_time_micros() - begin) / 1000.f << " ms" << std::endl;
-	return p;
+	return params;
 }
 
 void Homography::init(int width_, int height_)

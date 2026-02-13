@@ -191,20 +191,6 @@ GLuint GL_create_FBO(const std::vector<GLuint>& tex_list)
 	return fbo;
 }
 
-void GL_blit_FBO(GLuint dst, GLuint src, int width, int height)
-{
-	glBindFramebuffer(GL_READ_FRAMEBUFFER, src);
-	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, dst);
-
-	glBlitFramebuffer(
-		0, 0, width, height,
-		0, 0, width, height,
-		GL_COLOR_BUFFER_BIT,
-		GL_NEAREST   // or GL_LINEAR if scaling
-	);
-	GL_check("GL_blit_FBO");
-}
-
 void GL_bind_tex(GLuint prog, const char* name, GLuint tex, GLint unit)
 {
 	auto loc = glGetUniformLocation(prog, name);
@@ -274,13 +260,18 @@ void GL_read_FBO_R(GLuint fbo, int index, int w, int h, std::vector<uint8_t>& ou
 
 void GL_read_FBO_RG(GLuint fbo, int index, int w, int h, std::vector<float>& out)
 {
-	out.resize(w * h * 2);
+	std::vector<float> tmp(w * h * 4);
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 	glReadBuffer(GL_COLOR_ATTACHMENT0 + index);
 	glPixelStorei(GL_PACK_ALIGNMENT, 1);
 	glPixelStorei(GL_PACK_ROW_LENGTH, 0);
-	glReadPixels(0, 0, w, h, GL_RG, GL_FLOAT, out.data());
+	glReadPixels(0, 0, w, h, GL_RGBA, GL_FLOAT, tmp.data());
 	GL_check("GL_read_FBO_RG(GL_FLOAT)");
+
+	out.resize(w * h * 2);
+	for(size_t i = 0; i < out.size(); ++i) {
+		out[i] = tmp[(i / 2) * 4 + (i % 2)];
+	}
 }
 
 void GL_read_FBO_RG(GLuint fbo, int index, int w, int h, std::vector<uint8_t>& out)
