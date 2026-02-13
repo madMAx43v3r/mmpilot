@@ -28,6 +28,8 @@ public:
 	int gradient_window = 7;
 	int pyramid_depth = 6;
 
+	std::vector<int> num_iters = {1, 2, 4, 10, 20};
+
 	WeightRadius weight_radius;
 	PyramidFilter pyramid_filter;
 
@@ -35,7 +37,7 @@ public:
 	public:
 		int level = 0;
 
-		SmoothFilter smooth;
+		SmoothFilter smooth[2];
 		GradientFilter gradient;
 		Homography solver;
 
@@ -48,7 +50,8 @@ public:
 		{
 			this->level = level;
 
-			smooth.init(width, height, GL_RG16F, GL_RG, GL_HALF_FLOAT);
+			smooth[0].init(width, height, GL_RG16F, GL_RG, GL_HALF_FLOAT);
+			smooth[1].init(width, height, GL_RG16F, GL_RG, GL_HALF_FLOAT);
 
 			gradient.win_size = pipe->gradient_window;
 			gradient.init(width, height);
@@ -62,8 +65,10 @@ public:
 
 		void exec(std::shared_ptr<GL_Tex2D> img)
 		{
-			smooth.exec(img);
-			gradient.exec(smooth.out);
+			smooth[0].exec(img);
+			smooth[1].exec(smooth[0].out);
+
+			gradient.exec(smooth[1].out);
 
 			if(sequence) {
 				Homography::Params8 p_init;
@@ -71,9 +76,9 @@ public:
 					p_init = prev->H_out;
 					p_init.scale(2);
 				} else {
-					p_init.shift(1, 1);		// TODO: testing only
+//					p_init.shift(7, 7);		// TODO: testing only
 				}
-//				p_init.shift(1, 1);		// TODO: testing only
+//				p_init.shift(-1, -1);		// TODO: testing only
 
 				H_out = solver.solve(prev_img, img, p_init);
 
@@ -136,9 +141,10 @@ protected:
 
 		int w = width;
 		int h = height;
-		for(int i = 0; i < pyramid_depth; ++i)
+		for(size_t i = 0; i < pyramid_depth; ++i)
 		{
 			auto lvl = std::make_shared<Level>();
+			lvl->solver.num_iters = num_iters[std::min(i, num_iters.size() - 1)];
 			lvl->init(this, i, w, h);
 			stage.push_back(lvl);
 			w /= 2; h /= 2;
@@ -168,8 +174,8 @@ protected:
 			stage[i]->exec(pyramid_filter.out[i]);
 		}
 
-//		show(display, stage[4]->smooth.out, {1, 0.2, 1, 1});
-//		show(display, stage[3]->solver.tex_residual, {1, 0, 1, 1});
+//		show(display, stage[3]->smooth[1].out, {1, 0.2, 1, 1});
+//		show(display, stage[2]->solver.tex_residual, {1, 0, 1, 1});
 	}
 
 	void exec_image(std::shared_ptr<Image> img)
