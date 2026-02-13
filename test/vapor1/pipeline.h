@@ -33,11 +33,16 @@ public:
 
 	class Level {
 	public:
+		int level = 0;
+
 		SmoothFilter smooth;
 		GradientFilter gradient;
 		Homography solver;
 
-		std::shared_ptr<GL_Tex2D> prev;
+		Homography::Params8 H_out;
+
+		std::shared_ptr<Level> prev;			// lower scale (upper level)
+		std::shared_ptr<GL_Tex2D> prev_img;
 
 		void init(Pipeline* pipe, int level, int width, int height)
 		{
@@ -50,7 +55,7 @@ public:
 
 			solver.init(width, height);
 
-			prev = std::make_shared<GL_Tex2D>(width, height, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT);
+			prev_img = std::make_shared<GL_Tex2D>(width, height, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT);
 
 			glGenFramebuffers(2, fbo_tmp);
 		}
@@ -61,22 +66,25 @@ public:
 			gradient.exec(smooth.out);
 
 			if(sequence) {
-				Homography::Params8 p_init = {};
-				p_init[0] = 1;
-//				p_init[2] = 1;
-				p_init[4] = 1;
-//				p_init[5] = -1;
-				auto p = solver.solve(prev, img, p_init);
+				Homography::Params8 p_init;
+				if(prev) {
+					p_init = prev->H_out;
+					p_init.scale(2);
+				} else {
+					p_init.shift(1, 1);		// TODO: testing only
+				}
+//				p_init.shift(1, 1);		// TODO: testing only
+
+				auto p = solver.solve(prev_img, img, p_init);
 				std::cout << "params[" << level << "][" << solver.num_iters << "] = " << to_string(p) << std::endl;
 			}
 
-			GL_blit_FBO(fbo_tmp[0], fbo_tmp[1], prev, gradient.out);
+			GL_blit_FBO(fbo_tmp[0], fbo_tmp[1], prev_img, gradient.out);
 
 			sequence++;
 		}
 
 	private:
-		int level = 0;
 		uint64_t sequence = 0;
 		GLuint fbo_tmp[2] = {};
 	};
@@ -135,6 +143,11 @@ protected:
 			w /= 2; h /= 2;
 		}
 
+		for(int i = 0; i + 1 < pyramid_depth; ++i)
+		{
+			stage[i]->prev = stage[i + 1];
+		}
+
 		have_init = true;
 	}
 
@@ -149,13 +162,13 @@ protected:
 
 		pyramid_filter.exec(weight_radius.out);
 
-		for(int i = 0; i < pyramid_depth; ++i)
+		for(int i = pyramid_depth - 1; i >= 0; --i)
 		{
 			stage[i]->exec(pyramid_filter.out[i]);
 		}
 
 //		show(display, stage[4]->smooth.out, {1, 0.2, 1, 1});
-//		show(display, stage[5]->solver.tex_residual, {1, 0, 1, 1});
+//		show(display, stage[3]->solver.tex_residual, {1, 0, 1, 1});
 	}
 
 	void exec_image(std::shared_ptr<Image> img)

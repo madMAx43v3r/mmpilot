@@ -21,7 +21,22 @@ public:
 	// [0 1 2]
 	// [3 4 5]
 	// [6 7 X]
-	typedef std::array<float, 8> Params8;
+	class Params8 : public std::array<float, 8> {
+	public:
+		Params8() {
+			for(int i = 0; i < 8; ++i) (*this)[i] = 0;
+			(*this)[0] = 1;
+			(*this)[4] = 1;
+		}
+		void scale(float s) {
+			(*this)[2] *= s;
+			(*this)[5] *= s;
+		}
+		void shift(float x, float y) {
+			(*this)[2] += x;
+			(*this)[5] += y;
+		}
+	};
 
 	float damping = 1;				// H diag factor
 	int num_iters = 8;

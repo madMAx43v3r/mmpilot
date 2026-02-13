@@ -163,6 +163,9 @@ Homography::Params8 Homography::solve(std::shared_ptr<GL_Tex2D> ref, std::shared
 Homography::Params8 Homography::solve(
 		std::shared_ptr<GL_Tex2D> ref, std::shared_ptr<GL_Tex2D> img, const Params8& init_p)
 {
+	if(!have_init) {
+		init(img->width, img->height);
+	}
 	if(img->width != width || img->height != height) {
 		throw std::runtime_error("Homography::solve(): dimension mismatch");
 	}
@@ -242,6 +245,7 @@ Homography::Params8 Homography::solve(
 
 		apply_damping(hessian, damping);
 
+		// Extra damping for projective params
 		hessian(6, 6) *= 10;
 		hessian(7, 7) *= 10;
 
@@ -299,6 +303,7 @@ Homography::Params8 Homography::solve(
 		// Here, keep p2 / p5 roughly on the same scale by normalizing by (p6,p7,1) magnitude.
 		const auto s = std::sqrt(params[6]*params[6] + params[7]*params[7] + 1);
 		for(auto& v : params) {
+			// TODO: needed?
 //			v /= s;
 		}
 	}
@@ -369,30 +374,3 @@ Homography::~Homography()
 
 
 } // mmpilot
-
-// ------------------------ Example usage ------------------------
-//
-// You’d call solveHomographyGN(...) from your app after you’ve created
-// texRef_R16F and texGrad_RGBA16F and loaded your fragment sources.
-//
-/*
- int main() {
- // 1) Create EGL context + make current
- // 2) Upload textures texRef_R16F, texGrad_RGBA16F
- // 3) Provide fragment shader strings fsJ, fsRedGD, fsRedOff
-
- Params8 p0 = {1,0,0, 0,1,0, 0,0}; // identity in your 8-param form
- GNConfig cfg;
- cfg.maxIters = 20;
- cfg.chunkSize = 32;
- cfg.epsStep = 1e-6f;
- cfg.lambda = 1e-3f;
-
- Params8 p = solveHomographyGN(W,H, texRef, texGrad, fsJ, fsRedGD, fsRedOff, p0, cfg);
-
- // p defines:
- // u = (p0 x + p1 y + p2) / (p6 x + p7 y + 1)
- // v = (p3 x + p4 y + p5) / (p6 x + p7 y + 1)
- }
- */
-
