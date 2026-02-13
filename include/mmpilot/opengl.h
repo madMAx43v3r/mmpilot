@@ -49,7 +49,7 @@ void GL_uniform_2f(GLuint prog, const char* name, float x, float y);
 void GL_uniform_1i(GLuint prog, const char* name, int v);
 void GL_uniform_2i(GLuint prog, const char* name, int x, int y);
 
-template<int N>
+template<size_t N>
 void GL_uniform_fv(GLuint prog, const char* name, const std::array<float, N>& v)
 {
 	auto loc = glGetUniformLocation(prog, name);

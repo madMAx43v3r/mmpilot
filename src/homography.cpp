@@ -28,11 +28,11 @@
 //
 // NOTE: Use glGetError / KHR_debug in your real code.
 
+#include <mmpilot/homography.h>
 #include <mmpilot/opengl.h>
 #include <mmpilot/render.h>
-#include <mmpilot/homography.h>
+#include <mmpilot/util.h>
 
-#include <GLES3/gl31.h>
 #include <Eigen/Dense>
 
 #include <array>
@@ -49,28 +49,18 @@ namespace mmpilot {
 
 using Mat8 = Eigen::Matrix<float, 8, 8, Eigen::RowMajor>;
 using Vec8 = Eigen::Matrix<float, 8, 1>;
-using Params8 = std::array<float, 8>;
 
 // ------------------------ Solver Assembly ------------------------
 
-struct NormalEquations {
-	Vec8 g;
-	Mat8 H;
-	NormalEquations() {
-		g.setZero();
-		H.setZero();
-	}
-};
-
-static NormalEquations assemble_equations(
+static void assemble_equations(
+		Vec8& g,
+		Mat8& H,
 		const std::vector<float>& G0_rgba, // b0..b3
 		const std::vector<float>& G1_rgba, // b4..b7
 		const std::vector<float>& D0_rgba, // d0..d3
 		const std::vector<float>& D1_rgba, // d4..d7
 		const std::array<std::vector<float>, 7>& S_rgba)
 {
-	NormalEquations ne;
-
 	auto sumRGBA = [&](const std::vector<float>& v, float out[4]) {
 		out[0] = out[1] = out[2] = out[3] = 0;
 		const auto N = v.size() / 4;
@@ -91,14 +81,14 @@ static NormalEquations assemble_equations(
 	// Gradient g = sum(J^T r). Your shader accumulates G += J * R.
 	// Normal equations: H * delta = -g.
 	for(int i = 0; i < 4; ++i) {
-		ne.g(i)		= b0_3[i];
-		ne.g(i + 4)	= b4_7[i];
+		g(i)		= b0_3[i];
+		g(i + 4)	= b4_7[i];
 	}
 
 	// Diagonal of H: sum(Jk^2)
 	for(int i = 0; i < 4; ++i) {
-		ne.H(i, i)			= d0_3[i];
-		ne.H(i + 4, i + 4)	= d4_7[i];
+		H(i, i)			= d0_3[i];
+		H(i + 4, i + 4)	= d4_7[i];
 	}
 
 	// Off-diagonals mapping from your MRT packing:
@@ -115,8 +105,8 @@ static NormalEquations assemble_equations(
 	}
 
 	auto setH = [&](int i, int j, float v) {
-		ne.H(i, j) = v;
-		ne.H(j, i) = v;
+		H(i, j) = v;
+		H(j, i) = v;
 	};
 
 	setH(0, 1, s[0][0]);
@@ -147,7 +137,6 @@ static NormalEquations assemble_equations(
 	setH(5, 6, s[6][1]);
 	setH(5, 7, s[6][2]);
 	setH(6, 7, s[6][3]);
-	return ne;
 }
 
 void apply_damping(Mat8& H, float lambda)
@@ -159,144 +148,89 @@ void apply_damping(Mat8& H, float lambda)
 
 // ------------------------ Main entry for one solve ------------------------
 
-struct GNConfig {
-	int num_iters = 10;
-	int chunk_size = 32;	// output height for reduction passes
-	float lambda = 0;		// damping
-};
-
-// Provide your fragment shader sources (as C strings) for:
-//  - fsJ: your first kernel (J + R + UV)
-//  - fsRedGD: your second kernel (G + H diag)
-//  - fsRedOff: your third kernel (off-diagonals)
-
-Params8 solve_homography(
-		int W, int H, GLuint texRef_R16F, GLuint texGrad_RGBA16F, const char* fsJ,
-		const char* fsRedGD, const char* fsRedOff, Params8 p0, const GNConfig& cfg)
+Homography::Params8 Homography::solve(std::shared_ptr<GL_Tex2D> ref, std::shared_ptr<GL_Tex2D> img)
 {
-	// ---- Programs
-	GLuint vs = GL_compile_shader(GL_VERTEX_SHADER, kFullscreenVS);
-	GLuint fs1 = GL_compile_shader(GL_FRAGMENT_SHADER, fsJ);
-	GLuint fs2 = GL_compile_shader(GL_FRAGMENT_SHADER, fsRedGD);
-	GLuint fs3 = GL_compile_shader(GL_FRAGMENT_SHADER, fsRedOff);
+	Params8 p;
+	p[0] = 1;
+	p[4] = 1;
+	return solve(ref, img, p);
+}
 
-	GLuint progJ = GL_link_program(vs, fs1);
-	GLuint progRedGD = GL_link_program(vs, fs2);
-	GLuint progRedOff = GL_link_program(vs, fs3);
+Homography::Params8 Homography::solve(
+		std::shared_ptr<GL_Tex2D> ref, std::shared_ptr<GL_Tex2D> img, const Params8& init_p)
+{
+	if(img->width != width || img->height != height) {
+		throw std::runtime_error("Homography::solve(): dimension mismatch");
+	}
+	const auto begin = get_time_micros();
 
-	// ---- First pass MRT textures (W x H)
-	GLuint texJ0 = GL_create_tex(W, H, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT);
-	GLuint texJ1 = GL_create_tex(W, H, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT);
-	GLuint texRw = GL_create_tex(W, H, GL_RG16F, GL_RG, GL_HALF_FLOAT);
-	GLuint texUV = GL_create_tex(W, H, GL_RG16F, GL_RG, GL_HALF_FLOAT);
-
-	GLuint fboJ = GL_create_FBO( {texJ0, texJ1, texRw, texUV});
-
-	// ---- Reduction pass outputs (W x chunkSize)
-	const int rW = W;
-	const int rH = cfg.chunk_size;
-
-	GLuint texG0 = GL_create_tex(rW, rH, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT);
-	GLuint texG1 = GL_create_tex(rW, rH, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT);
-	GLuint texD0 = GL_create_tex(rW, rH, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT);
-	GLuint texD1 = GL_create_tex(rW, rH, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT);
-
-	GLuint fboGD = GL_create_FBO( {texG0, texG1, texD0, texD1});
-
-	// Off-diagonal textures (7 MRTs)
-	GLuint texS0 = GL_create_tex(rW, rH, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT);
-	GLuint texS1 = GL_create_tex(rW, rH, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT);
-	GLuint texS2 = GL_create_tex(rW, rH, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT);
-	GLuint texS3 = GL_create_tex(rW, rH, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT);
-	GLuint texS4 = GL_create_tex(rW, rH, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT);
-	GLuint texS5 = GL_create_tex(rW, rH, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT);
-	GLuint texS6 = GL_create_tex(rW, rH, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT);
-
-	GLuint fboOff = GL_create_FBO( {texS0, texS1, texS2, texS3, texS4, texS5, texS6});
-
-	// ---- A dummy VAO is required in core-ish profiles; ES typically too.
-	GLuint vao = 0;
-	glGenVertexArrays(1, &vao);
-	glBindVertexArray(vao);
-
-	Params8 p = p0;
+	Params8 p = init_p;
 
 	// CPU readback buffers
 	std::vector<float> G0_rgba, G1_rgba, D0_rgba, D1_rgba;
 	std::array<std::vector<float>, 7> S_rgba;
 
-	for(int iter = 0; iter < cfg.num_iters; ++iter)
+	for(int iter = 0; iter < num_iters; ++iter)
 	{
 		// ---------- (1) Per-pixel J + residual
-		glBindFramebuffer(GL_FRAMEBUFFER, fboJ);
-		glViewport(0, 0, W, H);
-		glDisable(GL_DEPTH_TEST);
-		glDisable(GL_BLEND);
+		glUseProgram(prog_jacobian);
+		GL_bind_tex(prog_jacobian, "uRef", ref->id, 0);
+		GL_bind_tex(prog_jacobian, "uImg", img->id, 1);
+		GL_uniform_2f(prog_jacobian, "uInvSize", 1.f / width, 1.f / height);
+		GL_uniform_fv(prog_jacobian, "uParams", p);
 
-		glUseProgram(progJ);
-		GL_bind_tex(progJ, "uRef", texRef_R16F, 0);
-		GL_bind_tex(progJ, "uGrad", texGrad_RGBA16F, 1);
-		GL_uniform_2f(progJ, "uInvSize", 1.0f / float(W), 1.0f / float(H));
-		GL_set_uniform_array(progJ, "uParams", p);
-
-		render::fullscreen();
+		render::fullscreen(fbo_jacobian, width, height);
 
 		// ---------- (2) Reduce over Y chunks: G + diag(D)
-		glBindFramebuffer(GL_FRAMEBUFFER, fboGD);
-		glViewport(0, 0, rW, rH);
+		glUseProgram(prog_gradient);
+		GL_bind_tex(prog_gradient, "uRes", tex_residual->id, 0);
+		GL_bind_tex(prog_gradient, "uJ0", tex_jacobian[0]->id, 1);
+		GL_bind_tex(prog_gradient, "uJ1", tex_jacobian[1]->id, 2);
+		GL_uniform_1i(prog_gradient, "uHeight", height);
+		GL_uniform_1i(prog_gradient, "uChunkSize", reduction_chunk);
 
-		glUseProgram(progRedGD);
-		GL_bind_tex(progRedGD, "uRes", texRw, 0);
-		GL_bind_tex(progRedGD, "uJ0", texJ0, 1);
-		GL_bind_tex(progRedGD, "uJ1", texJ1, 2);
-		GL_uniform_1i(progRedGD, "uHeight", H);
-		GL_uniform_1i(progRedGD, "uChunkSize", cfg.chunk_size);
-
-		render::fullscreen();
+		render::fullscreen(fbo_gradient, width, height);
 
 		// ---------- (3) Reduce off-diagonals
-		glBindFramebuffer(GL_FRAMEBUFFER, fboOff);
-		glViewport(0, 0, rW, rH);
+		glUseProgram(prog_hessian);
+		GL_bind_tex(prog_hessian, "uJ0", tex_jacobian[0]->id, 0);
+		GL_bind_tex(prog_hessian, "uJ1", tex_jacobian[1]->id, 1);
+		GL_uniform_1i(prog_hessian, "uHeight", height);
+		GL_uniform_1i(prog_hessian, "uChunkSize", reduction_chunk);
 
-		glUseProgram(progRedOff);
-		GL_bind_tex(progRedOff, "uJ0", texJ0, 0);
-		GL_bind_tex(progRedOff, "uJ1", texJ1, 1);
-		GL_uniform_1i(progRedOff, "uHeight", H);
-		GL_uniform_1i(progRedOff, "uChunkSize", cfg.chunk_size);
-
-		render::fullscreen();
+		render::fullscreen(fbo_hessian, width, height);
 
 		// Ensure rendering finished before readback (simple path).
 		GL_finish("Homography::solve()");
 
 		// ---------- Read back partials (W * chunkSize pixels)
-		GL_read_FBO_RGBA(fboGD, 0, rW, rH, G0_rgba);
-		GL_read_FBO_RGBA(fboGD, 1, rW, rH, G1_rgba);
-		GL_read_FBO_RGBA(fboGD, 2, rW, rH, D0_rgba);
-		GL_read_FBO_RGBA(fboGD, 3, rW, rH, D1_rgba);
+		GL_read_FBO_RGBA(fbo_gradient, 0, width, reduction_chunk, G0_rgba);
+		GL_read_FBO_RGBA(fbo_gradient, 1, width, reduction_chunk, G1_rgba);
+		GL_read_FBO_RGBA(fbo_gradient, 2, width, reduction_chunk, D0_rgba);
+		GL_read_FBO_RGBA(fbo_gradient, 3, width, reduction_chunk, D1_rgba);
 
-		GL_read_FBO_RGBA(fboOff, 0, rW, rH, S_rgba[0]);
-		GL_read_FBO_RGBA(fboOff, 1, rW, rH, S_rgba[1]);
-		GL_read_FBO_RGBA(fboOff, 2, rW, rH, S_rgba[2]);
-		GL_read_FBO_RGBA(fboOff, 3, rW, rH, S_rgba[3]);
-		GL_read_FBO_RGBA(fboOff, 4, rW, rH, S_rgba[4]);
-		GL_read_FBO_RGBA(fboOff, 5, rW, rH, S_rgba[5]);
-		GL_read_FBO_RGBA(fboOff, 6, rW, rH, S_rgba[6]);
+		GL_read_FBO_RGBA(fbo_hessian, 0, width, reduction_chunk, S_rgba[0]);
+		GL_read_FBO_RGBA(fbo_hessian, 1, width, reduction_chunk, S_rgba[1]);
+		GL_read_FBO_RGBA(fbo_hessian, 2, width, reduction_chunk, S_rgba[2]);
+		GL_read_FBO_RGBA(fbo_hessian, 3, width, reduction_chunk, S_rgba[3]);
+		GL_read_FBO_RGBA(fbo_hessian, 4, width, reduction_chunk, S_rgba[4]);
+		GL_read_FBO_RGBA(fbo_hessian, 5, width, reduction_chunk, S_rgba[5]);
+		GL_read_FBO_RGBA(fbo_hessian, 6, width, reduction_chunk, S_rgba[6]);
 
 		// ---------- Assemble and solve
-		NormalEquations ne = assemble_equations(rW, rH, G0_rgba, G1_rgba, D0_rgba, D1_rgba, S_rgba);
+		Mat8 hessian;
+		Vec8 gradient;
 
-		Mat8 Hmat = ne.H;
-		Vec8 gvec = ne.g;
+		assemble_equations(gradient, hessian, G0_rgba, G1_rgba, D0_rgba, D1_rgba, S_rgba);
 
-		apply_damping(Hmat, cfg.lambda);
+		apply_damping(hessian, damping);
 
 		// Solve H * delta = -g
-		Eigen::LDLT<Mat8> ldlt(Hmat);
+		Eigen::LDLT<Mat8> ldlt(hessian);
 		if(ldlt.info() != Eigen::Success) {
 			throw std::logic_error("LDLT failed");
 		}
-		const Vec8 delta = ldlt.solve(-gvec);
+		const Vec8 delta = ldlt.solve(-gradient);
 
 		// Update params
 		const auto step_norm = delta.norm();
@@ -317,51 +251,69 @@ Params8 solve_homography(
 			v /= s;
 		}
 	}
-
-	// Cleanup (trim as you like)
-	glDeleteFramebuffers(1, &fboJ);
-	glDeleteFramebuffers(1, &fboGD);
-	glDeleteFramebuffers(1, &fboOff);
-
-	GLuint texs[] = {texJ0, texJ1, texRw, texUV, texG0, texG1, texD0, texD1, texS0, texS1, texS2, texS3, texS4, texS5,
-			texS6};
-	glDeleteTextures((GLsizei)(sizeof(texs) / sizeof(texs[0])), texs);
-
-	glDeleteProgram(progJ);
-	glDeleteProgram(progRedGD);
-	glDeleteProgram(progRedOff);
-
-	glDeleteShader(vs);
-	glDeleteShader(fs1);
-	glDeleteShader(fs2);
-	glDeleteShader(fs3);
-
-	glDeleteVertexArrays(1, &vao);
-
+	std::cerr << "Homography[" << width << "x" << height << "]: took "
+				<< (get_time_micros() - begin) / 1000.f << " ms" << std::endl;
 	return p;
 }
 
-void Homography::init()
+void Homography::init(int width_, int height_)
 {
-	fs_jacobian = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/homographic/jacobian.glsl");
-	fs_gradient = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/homographic/gradient.glsl");
-	fs_hessian  = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/homographic/hessian.glsl");
+	if(have_init) {
+		throw std::logic_error("already initialized");
+	}
+	width = width_;
+	height = height_;
+
+	auto fs_jacobian = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/homographic/jacobian.glsl");
+	auto fs_gradient = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/homographic/gradient.glsl");
+	auto fs_hessian  = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/homographic/hessian.glsl");
 
 	const auto vs = render::get_fullscreen_vertex_shader();
 	prog_jacobian = GL_link_program(vs, fs_jacobian);
 	prog_gradient = GL_link_program(vs, fs_gradient);
 	prog_hessian  = GL_link_program(vs, fs_hessian);
+
+	glDeleteShader(fs_jacobian);
+	glDeleteShader(fs_gradient);
+	glDeleteShader(fs_hessian);
+
+	tex_uv       = std::make_shared<GL_Tex2D>(width, height, GL_RG16F, GL_RG, GL_HALF_FLOAT);
+	tex_residual = std::make_shared<GL_Tex2D>(width, height, GL_RG16F, GL_RG, GL_HALF_FLOAT);
+
+	for(int i = 0; i < 2; ++i) {
+		tex_jacobian[i] = std::make_shared<GL_Tex2D>(width, height, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT);
+		tex_gradient[i] = std::make_shared<GL_Tex2D>(width, reduction_chunk, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT);
+	}
+	for(int i = 0; i < 9; ++i) {
+		tex_hessian.push_back(
+				std::make_shared<GL_Tex2D>(width, reduction_chunk, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT));
+	}
+
+	fbo_jacobian = GL_create_FBO(
+			{tex_jacobian[0]->id, tex_jacobian[1]->id, tex_residual->id, tex_uv->id});
+	fbo_gradient = GL_create_FBO(
+			{tex_gradient[0]->id, tex_gradient[1]->id, tex_hessian[0]->id, tex_hessian[1]->id});
+
+	std::vector<GLuint> hessian_off;
+	for(size_t i = 2; i < tex_hessian.size(); ++i) {
+		hessian_off.push_back(tex_hessian[i]->id);
+	}
+	if(hessian_off.size()) {
+		fbo_hessian = GL_create_FBO(hessian_off);
+	}
+
+	have_init = true;
 }
 
-void Homography::cleanup()
+Homography::~Homography()
 {
 	glDeleteProgram(prog_jacobian);
 	glDeleteProgram(prog_gradient);
 	glDeleteProgram(prog_hessian);
 
-	glDeleteShader(fs_jacobian);
-	glDeleteShader(fs_gradient);
-	glDeleteShader(fs_hessian);
+	glDeleteFramebuffers(1, &fbo_jacobian);
+	glDeleteFramebuffers(1, &fbo_gradient);
+	glDeleteFramebuffers(1, &fbo_hessian);
 }
 
 

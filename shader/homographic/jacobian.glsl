@@ -1,4 +1,5 @@
 #version 310 es
+precision highp float;
 
 layout(location = 0) out vec4 outJ0;
 layout(location = 1) out vec4 outJ1;
@@ -6,7 +7,7 @@ layout(location = 2) out vec2 outR;     // (R, w)
 layout(location = 3) out vec2 outUV;    // (u, v)
 
 uniform sampler2D uRef;         // RGBA16F, (Y, Ix, Iy, w)
-uniform sampler2D uNext;        // RGBA16F, (Y, Ix, Iy, w)
+uniform sampler2D uImg;         // RGBA16F, (Y, Ix, Iy, w)
 
 uniform vec2 uInvSize;
 
@@ -36,7 +37,7 @@ void main()
     }
     vec4 ref = texelFetch(uRef, gl_FragCoord.xy, 0);  // (Y, Ix, Iy, w)
 
-    vec4 proj = texture(uNext, uv);   // (Y, Ix, Iy, w)
+    vec4 proj = texture(uImg, uv);   // (Y, Ix, Iy, w)
 
     float w  = ref.w * proj.w;
     if(w <= 0) {

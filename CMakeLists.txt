@@ -9,6 +9,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(PkgConfig)
 find_package(Threads REQUIRED)
+find_package(Eigen3 3.3 REQUIRED NO_MODULE)
 
 if(PkgConfig_FOUND)
     pkg_check_modules(LIBCAMERA libcamera)
@@ -39,6 +40,10 @@ add_library(mmpilot_opengl STATIC
 	src/render.cpp
 )
 
+add_library(mmpilot_vision STATIC
+	src/homography.cpp
+)
+
 target_include_directories(mmpilot_opengl
 	PUBLIC ${EGL_INCLUDE_DIRS} ${GLESv3_INCLUDE_DIRS}
 )
@@ -54,6 +59,11 @@ target_link_libraries(mmpilot_opengl
 
 target_link_libraries(mmpilot_jpeg
 	PRIVATE turbojpeg
+)
+
+target_link_libraries(mmpilot_vision
+	PUBLIC mmpilot_opengl mmpilot_util
+	PRIVATE Eigen3::Eigen
 )
 
 if(LIBCAMERA_FOUND)
