@@ -340,11 +340,12 @@ void Homography::init(int width_, int height_)
 
 	for(int i = 0; i < 2; ++i) {
 		tex_jacobian[i] = std::make_shared<GL_Tex2D>(width, height, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT);
-		tex_gradient[i] = std::make_shared<GL_Tex2D>(width, reduction_chunk, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT);
+		tex_gradient[i] = std::make_shared<GL_Tex2D>(width, reduction_chunk, GL_RGBA32F, GL_RGBA, GL_FLOAT);
 	}
+	// TODO: only need 2
 	for(int i = 0; i < 9; ++i) {
 		tex_hessian.push_back(
-				std::make_shared<GL_Tex2D>(width, reduction_chunk, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT));
+				std::make_shared<GL_Tex2D>(width, reduction_chunk, GL_RGBA32F, GL_RGBA, GL_FLOAT));
 	}
 
 	fbo_jacobian = GL_create_FBO(
