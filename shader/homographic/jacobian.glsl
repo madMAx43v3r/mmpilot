@@ -7,7 +7,7 @@ layout(location = 2) out vec2 outR;     // (R, w)
 layout(location = 3) out vec2 outUV;    // (u, v)
 
 uniform sampler2D uRef;         // RGBA16F, (Y, Ix, Iy, w)
-uniform sampler2D uImg;         // RGBA16F, (Y, Ix, Iy, w)
+uniform sampler2D uImg;         // RG16F, (Y, w)
 
 uniform vec2 uCenter;           // uImg (pixels)
 uniform vec2 uInvSize;          // uImg (1/pixels)
@@ -39,11 +39,11 @@ void main()
     if(uv.x < 0.0 || uv.y < 0.0 || uv.x >= 1.0 || uv.y >= 1.0) {
         return;
     }
-    vec4 pix = texelFetch(uImg, ivec2(gl_FragCoord.xy), 0);  // (Y, Ix, Iy, w)
+    vec2 pix = texelFetch(uImg, ivec2(gl_FragCoord.xy), 0).xy;  // (Y, w)
 
     vec4 proj = texture(uRef, uv);   // (Y, Ix, Iy, w)
 
-    float w = sqrt(pix.w * proj.w);
+    float w = sqrt(pix.y * proj.w);
     if(w <= 0.0) {
         return;
     }
