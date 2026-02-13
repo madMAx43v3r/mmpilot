@@ -68,7 +68,7 @@ public:
 
 		GL_finish("WeightRadius::exec()");
 
-		std::cerr << "WeightRadius[" << width << "x" << height << "]: took "
+		std::cout << "WeightRadius[" << width << "x" << height << "]: took "
 				<< (get_time_micros() - begin) / 1000.f << " ms" << std::endl;
 	}
 

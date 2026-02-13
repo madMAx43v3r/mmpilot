@@ -89,7 +89,7 @@ public:
 		}
 		GL_finish("PyramidFilter::exec()");
 
-		std::cerr << "PyramidFilter[" << width << "x" << height << "]: took "
+		std::cout << "PyramidFilter[" << width << "x" << height << "]: took "
 				<< (get_time_micros() - begin) / 1000.f << " ms" << std::endl;
 	}
 

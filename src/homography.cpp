@@ -240,8 +240,8 @@ Homography::Params8 Homography::solve(
 
 		assemble_equations(gradient, hessian, G0_rgba, G1_rgba, D0_rgba, D1_rgba, S_rgba);
 
-//		std::cerr << "G = " << std::endl << gradient.transpose() << std::endl;
-//		std::cerr << "H = " << std::endl << hessian.diagonal().transpose() << std::endl;
+//		std::cout << "G = " << std::endl << gradient.transpose() << std::endl;
+//		std::cout << "H = " << std::endl << hessian.diagonal().transpose() << std::endl;
 
 		apply_damping(hessian, damping);
 
@@ -261,7 +261,7 @@ Homography::Params8 Homography::solve(
 		// Update params
 		const auto step_norm = delta.norm();
 
-		std::cerr << "iter " << iter << ": delta = " << step_norm << std::endl;
+		std::cout << "iter " << iter << ": delta = " << step_norm << std::endl;
 
 		if(!std::isfinite(step_norm)) {
 			throw std::logic_error("solver failed");
@@ -309,7 +309,7 @@ Homography::Params8 Homography::solve(
 //			v /= s;
 		}
 	}
-	std::cerr << "Homography[" << width << "x" << height << "]: took "
+	std::cout << "Homography[" << width << "x" << height << "]: took "
 				<< (get_time_micros() - begin) / 1000.f << " ms" << std::endl;
 	return params;
 }

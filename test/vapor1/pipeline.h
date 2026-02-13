@@ -80,6 +80,7 @@ public:
 				}
 //				p_init.shift(-1, -1);		// TODO: testing only
 
+				// TODO: handle exceptions
 				H_out = solver.solve(prev_img, img, p_init);
 
 				std::cout << "params[" << level << "][" << solver.num_iters << "] = " << to_string(H_out) << std::endl;

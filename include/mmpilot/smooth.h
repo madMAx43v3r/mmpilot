@@ -77,7 +77,7 @@ public:
 		if(sync) {
 			GL_finish("SmoothFilter::exec()");
 
-			std::cerr << "SmoothFilter[" << width << "x" << height << "]: took "
+			std::cout << "SmoothFilter[" << width << "x" << height << "]: took "
 					<< (get_time_micros() - begin) / 1000.f << " ms" << std::endl;
 		}
 	}
