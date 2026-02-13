@@ -47,8 +47,9 @@
 
 namespace mmpilot {
 
-using Mat8 = Eigen::Matrix<float, 8, 8, Eigen::RowMajor>;
-using Vec8 = Eigen::Matrix<float, 8, 1>;
+using Mat3 = Eigen::Matrix<double, 3, 3>;
+using Mat8 = Eigen::Matrix<double, 8, 8, Eigen::RowMajor>;
+using Vec8 = Eigen::Matrix<double, 8, 1>;
 
 // ------------------------ Solver Assembly ------------------------
 
@@ -61,7 +62,10 @@ static void assemble_equations(
 		const std::vector<float>& D1_rgba, // d4..d7
 		const std::array<std::vector<float>, 7>& S_rgba)
 {
-	auto sumRGBA = [&](const std::vector<float>& v, float out[4]) {
+	g.setZero();
+	H.setZero();
+
+	auto sumRGBA = [&](const std::vector<float>& v, double out[4]) {
 		out[0] = out[1] = out[2] = out[3] = 0;
 		const auto N = v.size() / 4;
 		for(size_t i = 0; i < N; ++i) {
@@ -72,7 +76,7 @@ static void assemble_equations(
 		}
 	};
 
-	float b0_3[4], b4_7[4], d0_3[4], d4_7[4];
+	double b0_3[4], b4_7[4], d0_3[4], d4_7[4];
 	sumRGBA(G0_rgba, b0_3);
 	sumRGBA(G1_rgba, b4_7);
 	sumRGBA(D0_rgba, d0_3);
@@ -99,50 +103,50 @@ static void assemble_equations(
 	// S4: (2,6),(2,7),(3,4),(3,5)
 	// S5: (3,6),(3,7),(4,5),(4,6)
 	// S6: (4,7),(5,6),(5,7),(6,7)
-	float s[7][4];
+	double s[7][4];
 	for(int i = 0; i < 7; ++i) {
 		sumRGBA(S_rgba[i], s[i]);
 	}
 
-	auto setH = [&](int i, int j, float v) {
+	auto setH = [&](int i, int j, double v) {
 		H(i, j) = v;
 		H(j, i) = v;
 	};
 
-	setH(0, 1, s[0][0]);
-	setH(0, 2, s[0][1]);
-	setH(0, 3, s[0][2]);
-	setH(0, 4, s[0][3]);
-	setH(0, 5, s[1][0]);
-	setH(0, 6, s[1][1]);
-	setH(0, 7, s[1][2]);
-	setH(1, 2, s[1][3]);
-	setH(1, 3, s[2][0]);
-	setH(1, 4, s[2][1]);
-	setH(1, 5, s[2][2]);
-	setH(1, 6, s[2][3]);
-	setH(1, 7, s[3][0]);
-	setH(2, 3, s[3][1]);
-	setH(2, 4, s[3][2]);
-	setH(2, 5, s[3][3]);
-	setH(2, 6, s[4][0]);
-	setH(2, 7, s[4][1]);
-	setH(3, 4, s[4][2]);
-	setH(3, 5, s[4][3]);
-	setH(3, 6, s[5][0]);
-	setH(3, 7, s[5][1]);
-	setH(4, 5, s[5][2]);
-	setH(4, 6, s[5][3]);
-	setH(4, 7, s[6][0]);
-	setH(5, 6, s[6][1]);
-	setH(5, 7, s[6][2]);
-	setH(6, 7, s[6][3]);
+//	setH(0, 1, s[0][0]);
+//	setH(0, 2, s[0][1]);
+//	setH(0, 3, s[0][2]);
+//	setH(0, 4, s[0][3]);
+//	setH(0, 5, s[1][0]);
+//	setH(0, 6, s[1][1]);
+//	setH(0, 7, s[1][2]);
+//	setH(1, 2, s[1][3]);
+//	setH(1, 3, s[2][0]);
+//	setH(1, 4, s[2][1]);
+//	setH(1, 5, s[2][2]);
+//	setH(1, 6, s[2][3]);
+//	setH(1, 7, s[3][0]);
+//	setH(2, 3, s[3][1]);
+//	setH(2, 4, s[3][2]);
+//	setH(2, 5, s[3][3]);
+//	setH(2, 6, s[4][0]);
+//	setH(2, 7, s[4][1]);
+//	setH(3, 4, s[4][2]);
+//	setH(3, 5, s[4][3]);
+//	setH(3, 6, s[5][0]);
+//	setH(3, 7, s[5][1]);
+//	setH(4, 5, s[5][2]);
+//	setH(4, 6, s[5][3]);
+//	setH(4, 7, s[6][0]);
+//	setH(5, 6, s[6][1]);
+//	setH(5, 7, s[6][2]);
+//	setH(6, 7, s[6][3]);
 }
 
 void apply_damping(Mat8& H, float lambda)
 {
 	for(int i = 0; i < 8; ++i) {
-		H(i, i) += lambda;
+		H(i, i) = H(i, i) * lambda + 1;
 	}
 }
 
@@ -174,8 +178,14 @@ Homography::Params8 Homography::solve(
 	{
 		// ---------- (1) Per-pixel J + residual
 		glUseProgram(prog_jacobian);
+
 		GL_bind_tex(prog_jacobian, "uRef", ref->id, 0);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
 		GL_bind_tex(prog_jacobian, "uImg", img->id, 1);
+
+		GL_uniform_2f(prog_jacobian, "uCenter", width / 2, height / 2);
 		GL_uniform_2f(prog_jacobian, "uInvSize", 1.f / width, 1.f / height);
 		GL_uniform_fv(prog_jacobian, "uParams", params);
 
@@ -183,22 +193,26 @@ Homography::Params8 Homography::solve(
 
 		// ---------- (2) Reduce over Y chunks: G + diag(D)
 		glUseProgram(prog_gradient);
+
 		GL_bind_tex(prog_gradient, "uRes", tex_residual->id, 0);
 		GL_bind_tex(prog_gradient, "uJ0", tex_jacobian[0]->id, 1);
 		GL_bind_tex(prog_gradient, "uJ1", tex_jacobian[1]->id, 2);
+
 		GL_uniform_1i(prog_gradient, "uHeight", height);
 		GL_uniform_1i(prog_gradient, "uChunkSize", reduction_chunk);
 
 		render::fullscreen(fbo_gradient, width, height);
 
 		// ---------- (3) Reduce off-diagonals
-		glUseProgram(prog_hessian);
-		GL_bind_tex(prog_hessian, "uJ0", tex_jacobian[0]->id, 0);
-		GL_bind_tex(prog_hessian, "uJ1", tex_jacobian[1]->id, 1);
-		GL_uniform_1i(prog_hessian, "uHeight", height);
-		GL_uniform_1i(prog_hessian, "uChunkSize", reduction_chunk);
-
-		render::fullscreen(fbo_hessian, width, height);
+//		glUseProgram(prog_hessian);
+//
+//		GL_bind_tex(prog_hessian, "uJ0", tex_jacobian[0]->id, 0);
+//		GL_bind_tex(prog_hessian, "uJ1", tex_jacobian[1]->id, 1);
+//
+//		GL_uniform_1i(prog_hessian, "uHeight", height);
+//		GL_uniform_1i(prog_hessian, "uChunkSize", reduction_chunk);
+//
+//		render::fullscreen(fbo_hessian, width, height);
 
 		// Ensure rendering finished before readback (simple path).
 		GL_finish("Homography::solve()");
@@ -209,13 +223,13 @@ Homography::Params8 Homography::solve(
 		GL_read_FBO_RGBA(fbo_gradient, 2, width, reduction_chunk, D0_rgba);
 		GL_read_FBO_RGBA(fbo_gradient, 3, width, reduction_chunk, D1_rgba);
 
-		GL_read_FBO_RGBA(fbo_hessian, 0, width, reduction_chunk, S_rgba[0]);
-		GL_read_FBO_RGBA(fbo_hessian, 1, width, reduction_chunk, S_rgba[1]);
-		GL_read_FBO_RGBA(fbo_hessian, 2, width, reduction_chunk, S_rgba[2]);
-		GL_read_FBO_RGBA(fbo_hessian, 3, width, reduction_chunk, S_rgba[3]);
-		GL_read_FBO_RGBA(fbo_hessian, 4, width, reduction_chunk, S_rgba[4]);
-		GL_read_FBO_RGBA(fbo_hessian, 5, width, reduction_chunk, S_rgba[5]);
-		GL_read_FBO_RGBA(fbo_hessian, 6, width, reduction_chunk, S_rgba[6]);
+//		GL_read_FBO_RGBA(fbo_hessian, 0, width, reduction_chunk, S_rgba[0]);
+//		GL_read_FBO_RGBA(fbo_hessian, 1, width, reduction_chunk, S_rgba[1]);
+//		GL_read_FBO_RGBA(fbo_hessian, 2, width, reduction_chunk, S_rgba[2]);
+//		GL_read_FBO_RGBA(fbo_hessian, 3, width, reduction_chunk, S_rgba[3]);
+//		GL_read_FBO_RGBA(fbo_hessian, 4, width, reduction_chunk, S_rgba[4]);
+//		GL_read_FBO_RGBA(fbo_hessian, 5, width, reduction_chunk, S_rgba[5]);
+//		GL_read_FBO_RGBA(fbo_hessian, 6, width, reduction_chunk, S_rgba[6]);
 
 		// ---------- Assemble and solve
 		Mat8 hessian;
@@ -223,7 +237,13 @@ Homography::Params8 Homography::solve(
 
 		assemble_equations(gradient, hessian, G0_rgba, G1_rgba, D0_rgba, D1_rgba, S_rgba);
 
+//		std::cerr << "G = " << std::endl << gradient.transpose() << std::endl;
+//		std::cerr << "H = " << std::endl << hessian.diagonal().transpose() << std::endl;
+
 		apply_damping(hessian, damping);
+
+		hessian(6, 6) *= 10;
+		hessian(7, 7) *= 10;
 
 		// Solve H * delta = -g
 		Eigen::LDLT<Mat8> ldlt(hessian);
@@ -244,11 +264,42 @@ Homography::Params8 Homography::solve(
 			params[i] += delta[i];
 		}
 
+//		auto params_to_Hc = [&](const Params8& p) {
+//			Mat3 H;
+//			H << p[0], p[1], p[2],
+//				 p[3], p[4], p[5],
+//				 p[6], p[7], 1.0;
+//			return H;
+//		};
+//
+//		auto Hc_to_params = [&](const Mat3& H) {
+//			// Normalize so H(2,2)=1
+//			const auto s = H(2,2);
+//			const auto N = H / s;
+//			Params8 p;
+//			p[0] = N(0,0); p[1] = N(0,1); p[2] = N(0,2);
+//			p[3] = N(1,0); p[4] = N(1,1); p[5] = N(1,2);
+//			p[6] = N(2,0); p[7] = N(2,1);
+//			return p;
+//		};
+//
+//		Mat3 Hc = params_to_Hc(params);
+//
+//		Mat3 dH;
+//		dH << 1.0 + delta[0], delta[1],       delta[2],
+//			  delta[3],       1.0 + delta[4], delta[5],
+//			  delta[6],       delta[7],       1.0;
+//
+//		// Left-multiply composition
+//		Hc = dH * Hc;
+//
+//		params = Hc_to_params(Hc);
+
 		// renormalize homography scale to keep numbers sane
 		// Here, keep p2 / p5 roughly on the same scale by normalizing by (p6,p7,1) magnitude.
 		const auto s = std::sqrt(params[6]*params[6] + params[7]*params[7] + 1);
-		for(float& v : params) {
-			v /= s;
+		for(auto& v : params) {
+//			v /= s;
 		}
 	}
 	std::cerr << "Homography[" << width << "x" << height << "]: took "

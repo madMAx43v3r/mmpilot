@@ -9,22 +9,26 @@ layout(location = 3) out vec2 outUV;    // (u, v)
 uniform sampler2D uRef;         // RGBA16F, (Y, Ix, Iy, w)
 uniform sampler2D uImg;         // RGBA16F, (Y, Ix, Iy, w)
 
-uniform vec2 uInvSize;
+uniform vec2 uCenter;           // uImg (pixels)
+uniform vec2 uInvSize;          // uImg (1/pixels)
 
 uniform float uParams[8];      // p0..p7
 
 void main()
 {
-    vec2 p = vec2(gl_FragCoord.xy);
+    vec2 p = gl_FragCoord.xy - uCenter;
+    vec2 q = p * uInvSize;     // (x/W, y/H)
 
     float p0 = uParams[0], p1 = uParams[1], p2 = uParams[2], p3 = uParams[3];
     float p4 = uParams[4], p5 = uParams[5], p6 = uParams[6], p7 = uParams[7];
 
     float uN = p0 * p.x + p1 * p.y + p2;
     float vN = p3 * p.x + p4 * p.y + p5;
-    float d  = p6 * p.x + p7 * p.y + 1.0;
+    float d  = p6 * q.x + p7 * q.y + 1.0;
 
-    vec2 wp = vec2(uN, vN) / d;
+    float invD = 1.0 / d;
+
+    vec2 wp = vec2(uN, vN) * invD + uCenter;
     vec2 uv = wp * uInvSize;
 
     outJ0 = vec4(0);
@@ -32,40 +36,39 @@ void main()
     outR  = vec2(0);
     outUV = vec2(uv.x, uv.y);
 
-    if(uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) {
+    if(uv.x < 0.0 || uv.y < 0.0 || uv.x >= 1.0 || uv.y >= 1.0) {
         return;
     }
-    vec4 ref = texelFetch(uRef, ivec2(gl_FragCoord.xy), 0);  // (Y, Ix, Iy, w)
+    vec4 pix = texelFetch(uImg, ivec2(gl_FragCoord.xy), 0);  // (Y, Ix, Iy, w)
 
-    vec4 proj = texture(uImg, uv);   // (Y, Ix, Iy, w)
+    vec4 proj = texture(uRef, uv);   // (Y, Ix, Iy, w)
 
-    float w  = ref.w * proj.w;
+    float w = sqrt(pix.w * proj.w);
     if(w <= 0.0) {
         return;
     }
-    float R = (proj.x - ref.x) * w;
+    float R = (proj.x - pix.x) * w;
 
     outR = vec2(R, w);
 
     float Ix = proj.y * w;
     float Iy = proj.z * w;
 
-    float invD  = 1.0 / d;
     float invD2 = invD * invD;
 
     float du0 = p.x * invD;
     float du1 = p.y * invD;
     float du2 = invD;
     float du3 = 0.0, du4 = 0.0, du5 = 0.0;
-    float du6 = -(uN * p.x) * invD2;
-    float du7 = -(uN * p.y) * invD2;
+    float du6 = -(uN * q.x) * invD2;
+    float du7 = -(uN * q.y) * invD2;
 
     float dv0 = 0.0, dv1 = 0.0, dv2 = 0.0;
     float dv3 = p.x * invD;
     float dv4 = p.y * invD;
     float dv5 = invD;
-    float dv6 = -(vN * p.x) * invD2;
-    float dv7 = -(vN * p.y) * invD2;
+    float dv6 = -(vN * q.x) * invD2;
+    float dv7 = -(vN * q.y) * invD2;
 
     float J0 = (Ix * du0 + Iy * dv0);
     float J1 = (Ix * du1 + Iy * dv1);

@@ -23,8 +23,8 @@ public:
 	// [6 7 X]
 	typedef std::array<float, 8> Params8;
 
-	float damping = 0;
-	int num_iters = 9;
+	float damping = 1;				// H diag factor
+	int num_iters = 8;
 	int reduction_chunk = 32;
 
 	std::shared_ptr<GL_Tex2D> tex_uv;					// (u, v)
