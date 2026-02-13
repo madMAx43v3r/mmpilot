@@ -252,6 +252,8 @@ Homography::Params8 Homography::solve(
 		// Solve H * delta = -g
 		Eigen::LDLT<Mat8> ldlt(hessian);
 		if(ldlt.info() != Eigen::Success) {
+			std::cerr << "G = " << std::endl << gradient.transpose() << std::endl;
+			std::cerr << "H = " << std::endl << hessian.diagonal().transpose() << std::endl;
 			throw std::logic_error("LDLT failed");
 		}
 		const Vec8 delta = ldlt.solve(-gradient);
