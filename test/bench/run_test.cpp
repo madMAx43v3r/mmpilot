@@ -49,26 +49,36 @@ std::shared_ptr<Image> convert(const CameraFrame& frame)
 int main(int argc, char** argv)
 {
 	Pipeline pipe_0;
+	Pipeline pipe_1;
 
 	Camera::init();
 
-	auto cam_0 = std::make_unique<Camera>(0, 0, 1640, 1232, "YUV420");
+	auto cam_0 = std::make_unique<Camera>(0, 0, 2304, 1296, "YUV420");
+//	auto cam_1 = std::make_unique<Camera>(1, 0, 1640, 1232, "YUV420");
 
 	cam_0->open();
+//	cam_1->open();
 
 	cam_0->on_frame = [&](const CameraFrame& frame) {
 		pipe_0.handle(convert(frame));
 	};
+//	cam_1->on_frame = [&](const CameraFrame& frame) {
+//		pipe_1.handle(convert(frame));
+//	};
 
 	cam_0->set_interval(500);
+//	cam_1->set_interval(500);
 
 	cam_0->start();
+//	cam_1->start();
 
 	wait_for_exit();
 
 	cam_0->stop();
+//	cam_1->stop();
 
 	cam_0 = nullptr;
+//	cam_1 = nullptr;
 
 	Camera::cleanup();
 
