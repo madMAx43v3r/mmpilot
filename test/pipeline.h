@@ -14,6 +14,7 @@
 #include <mmpilot/jpeg.h>
 #include <mmpilot/util.h>
 #include <mmpilot/image.h>
+#include <mmpilot/flip.h>
 #include <mmpilot/weight.h>
 #include <mmpilot/gradient.h>
 #include <mmpilot/pyramid.h>
@@ -25,11 +26,17 @@ using namespace mmpilot;
 
 class Pipeline {
 public:
+	bool src_flip_x = false;
+	bool src_flip_y = false;
+
+	float radius_mask = 1;			// proportional to width / 2
+
 	int gradient_window = 7;
 	int pyramid_depth = 6;
 
 	std::vector<int> num_iters = {1, 2, 4, 10, 20};
 
+	FlipImage flip_image;
 	WeightRadius weight_radius;
 	PyramidFilter pyramid_filter;
 
@@ -133,10 +140,17 @@ protected:
 		this->width = width;
 		this->height = height;
 
+		flip_image.flip_x = src_flip_x;
+		flip_image.flip_y = src_flip_y;
+
+		if(radius_mask > 0) {
+			weight_radius.radius = (width / 2) * radius_mask;
+		}
 		pyramid_filter.depth = pyramid_depth;
 
 		input_luma = std::make_shared<GL_Tex2D>(width, height, GL_R8, GL_RED, GL_UNSIGNED_BYTE);
 
+		flip_image.init(width, height, GL_R8, GL_RED, GL_UNSIGNED_BYTE);
 		weight_radius.init(width, height);
 		pyramid_filter.init(width, height, GL_RG16F, GL_RG, GL_HALF_FLOAT);
 
@@ -166,7 +180,9 @@ protected:
 		}
 		GL_finish();
 
-		weight_radius.exec(input_luma);
+		flip_image.exec(input_luma);
+
+		weight_radius.exec(flip_image.out);
 
 		pyramid_filter.exec(weight_radius.out);
 
@@ -175,8 +191,9 @@ protected:
 			stage[i]->exec(pyramid_filter.out[i]);
 		}
 
+//		show(display, flip_image.out, {1, 1, 1, 1});
 //		show(display, stage[3]->smooth[1].out, {1, 0.2, 1, 1});
-//		show(display, stage[1]->solver.tex_residual, {1, 0, 1, 1});
+//		show(display, stage[0]->solver.tex_residual, {1, 0, 1, 1});
 	}
 
 	void exec_image(std::shared_ptr<Image> img)

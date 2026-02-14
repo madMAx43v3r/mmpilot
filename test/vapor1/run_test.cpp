@@ -49,6 +49,8 @@ std::shared_ptr<Image> convert(const CameraFrame& frame)
 int main(int argc, char** argv)
 {
 	Pipeline pipe_0;
+	pipe_0.src_flip_y = true;
+	pipe_0.radius_mask = 0.9;
 
 	Camera::init();
 

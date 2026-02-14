@@ -20,6 +20,8 @@ int main(int argc, char** argv)
 	std::cout << "file_name = " << file_name << std::endl;
 
 	Pipeline pipe_0;
+	pipe_0.src_flip_x = true;
+
 //	Pipeline pipe_1;
 
 	const auto on_frame = [&](std::shared_ptr<Image> frame)
