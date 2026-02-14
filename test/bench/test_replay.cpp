@@ -33,7 +33,7 @@ int main(int argc, char** argv)
 	const auto on_frame_0 = [&](std::shared_ptr<Image> frame)
 	{
 		on_frame(frame);
-//		pipe_0.handle(frame);
+		pipe_0.handle(frame);
 	};
 
 //	const auto on_frame_1 = [&](std::shared_ptr<Image> frame)
