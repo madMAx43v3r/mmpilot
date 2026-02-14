@@ -176,7 +176,7 @@ protected:
 		}
 
 //		show(display, stage[3]->smooth[1].out, {1, 0.2, 1, 1});
-		show(display, stage[1]->solver.tex_residual, {1, 0, 1, 1});
+//		show(display, stage[1]->solver.tex_residual, {1, 0, 1, 1});
 	}
 
 	void exec_image(std::shared_ptr<Image> img)
