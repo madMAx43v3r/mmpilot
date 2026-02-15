@@ -32,11 +32,14 @@ int main(int argc, char** argv) try
 				<< " roll=" << att.roll << " pitch=" << att.pitch << " yaw=" << att.yaw << std::endl;
 	};
 
-	msp.on_raw_imu = [](const MSP2Client::RawImu& imu) {
+	int64_t last_imu = 0;
+
+	msp.on_raw_imu = [&](const MSP2Client::RawImu& imu) {
 		std::cout << "imu: ts=" << imu.ts
 				<< " gyro=[" << imu.gyro[0] << "," << imu.gyro[1] << "," << imu.gyro[2] << "]" << " acc=["
 				<< imu.acc[0] << "," << imu.acc[1] << "," << imu.acc[2] << "]" << " mag=[" << imu.mag[0] << ","
-				<< imu.mag[1] << "," << imu.mag[2] << "]" << std::endl;
+				<< imu.mag[1] << "," << imu.mag[2] << "] delta=" << imu.ts - last_imu << std::endl;
+		last_imu = imu.ts;
 	};
 
 	msp.on_rc = [](const MSP2Client::RcPacket& rc) {
