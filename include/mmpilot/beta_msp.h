@@ -122,7 +122,7 @@ public:
 		static std::shared_ptr<Sample> read(Player& in) {
 			const auto magic = in.read_u32();
 			if(magic != MAGIC) {
-				throw std::runtime_error("RawImu: invalid magic");
+				throw std::runtime_error("RcPacket: invalid magic");
 			}
 			auto out = std::make_shared<RcPacket>();
 			out->ch.resize(in.read_u16());
@@ -144,8 +144,23 @@ public:
 		int16_t  alt = 0;		// centimeters
 		uint16_t speed = 0;		// cm/s
 		uint16_t course = 0;	// deg * 10
-	};
 
+		void write(Recorder& out) const {
+			// TODO
+		}
+
+		static std::shared_ptr<Sample> read(Player& in) {
+			const auto magic = in.read_u32();
+			if(magic != MAGIC) {
+				throw std::runtime_error("RawGPS: invalid magic");
+			}
+			auto out = std::make_shared<RawGPS>();
+			// TODO
+			return out;
+		}
+	private:
+		static constexpr uint32_t MAGIC = 0x5c2332bd;
+	};
 
 
 	std::chrono::milliseconds timeout = std::chrono::milliseconds(500);
@@ -339,13 +354,13 @@ public:
 			if(on_raw_imu) {
 				check_send(MSP_RAW_IMU);
 			}
-			if(on_attitude) {
+			if(on_attitude && pending.size() < 2) {
 				check_send(MSP_ATTITUDE, interval * 2);
 			}
-			if(on_rc) {
+			if(on_rc && pending.size() < 2) {
 				check_send(MSP_RC, std::chrono::milliseconds(100));
 			}
-			if(on_gps) {
+			if(on_gps && pending.size() < 2) {
 				check_send(MSP_RAW_GPS, std::chrono::milliseconds(200));
 			}
 
