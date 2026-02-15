@@ -38,6 +38,7 @@ public:
 	static constexpr uint16_t MSP_ATTITUDE = 108;
 	static constexpr uint16_t MSP_RAW_IMU  = 102;
 	static constexpr uint16_t MSP_RC = 105;
+	static constexpr uint16_t MSP_RAW_GPS = 106;
 
 	// MSP_ATTITUDE (108 / 0x006C): "2 angles 1 heading"
 	// Payload is typically 3x int16: roll, pitch, yaw/heading in decidegrees (0.1°) in MW/BF lineage.
@@ -134,6 +135,18 @@ public:
 		static constexpr uint32_t MAGIC = 0x8c208142;
 	};
 
+	class RawGPS : public Sample {
+	public:
+		uint8_t  fixType = 0;
+		uint8_t  numSats = 0;
+		int32_t  lat = 0;		// degrees * 1e7
+		int32_t  lon = 0;		// degrees * 1e7
+		int16_t  alt = 0;		// centimeters
+		uint16_t speed = 0;		// cm/s
+		uint16_t course = 0;	// deg * 10
+	};
+
+
 
 	std::chrono::milliseconds timeout = std::chrono::milliseconds(500);
 	std::chrono::milliseconds interval = std::chrono::milliseconds(10);		// update rate for run()
@@ -141,6 +154,7 @@ public:
 	std::function<void(const RawImu&)> on_raw_imu;
 	std::function<void(const Attitude&)> on_attitude;
 	std::function<void(const RcPacket&)> on_rc;
+	std::function<void(const RawGPS&)> on_gps;
 
 
 	MSP2Client(const std::string& path, int baud = 115200)
@@ -311,10 +325,10 @@ public:
 				throw std::runtime_error("MSP2Client::run(): timeout");
 			}
 
-			const auto check_send = [&](const uint16_t func, const int divider = 1)
+			const auto check_send = [&](const uint16_t func, std::chrono::milliseconds min_interval = {})
 			{
 				if(!pending.count(func) || now - pending[func] > timeout / 2) {
-					if(!last_send.count(func) || now - last_send[func] > interval * divider) {
+					if(!last_send.count(func) || now - last_send[func] > std::max(interval, min_interval)) {
 						send_request(func);
 						pending[func] = now;
 						last_send[func] = now;
@@ -326,19 +340,23 @@ public:
 				check_send(MSP_RAW_IMU);
 			}
 			if(on_attitude) {
-				check_send(MSP_ATTITUDE);
+				check_send(MSP_ATTITUDE, interval * 2);
 			}
 			if(on_rc) {
-				check_send(MSP_RC);
+				check_send(MSP_RC, std::chrono::milliseconds(100));
+			}
+			if(on_gps) {
+				check_send(MSP_RAW_GPS, std::chrono::milliseconds(200));
 			}
 
 			for(auto& f : poll()) {
 				const auto now = std::chrono::steady_clock::now();
 				if(f.type == '>') {
 					switch(f.func) {
-						case MSP_RAW_IMU: if(on_raw_imu) on_raw_imu(parse_raw_imu(f)); break;
-						case MSP_ATTITUDE: if(on_attitude) on_attitude(parse_attitude(f)); break;
-						case MSP_RC: if(on_rc) on_rc(parse_rc(f)); break;
+						case MSP_RAW_IMU: 	if(on_raw_imu) on_raw_imu(parse_raw_imu(f)); break;
+						case MSP_ATTITUDE: 	if(on_attitude) on_attitude(parse_attitude(f)); break;
+						case MSP_RC: 		if(on_rc) on_rc(parse_rc(f)); break;
+						case MSP_RAW_GPS: 	if(on_gps) on_gps(parse_raw_gps(f)); break;
 					}
 					pending.erase(f.func);
 					last_reply = now;
@@ -435,6 +453,25 @@ private:
 		return rc;
 	}
 
+	RawGPS parse_raw_gps(const Frame& f)
+	{
+		// Classic RAW_GPS layout: 1 + 1 + 4 + 4 + 2 + 2 + 2 = 16 bytes
+		const auto& p = f.payload;
+		if(p.size() < 16)
+			throw std::runtime_error("MSP_RAW_GPS payload too short");
+
+		RawGPS gps;
+		gps.ts = get_time_micros();
+		gps.fixType = p[0];
+		gps.numSats = p[1];
+		gps.lat = read_i32_le(p, 2);
+		gps.lon = read_i32_le(p, 6);
+		gps.alt = read_i16_le(p, 10);
+		gps.speed = read_u16_le(p, 12);
+		gps.course = read_u16_le(p, 14);
+		return gps;
+	}
+
 	static int16_t read_i16_le(const std::vector<uint8_t>& p, size_t off)
 	{
 		if(off + 2 > p.size())
@@ -447,6 +484,15 @@ private:
 		if(off + 2 > p.size())
 			throw std::runtime_error("payload too short");
 		return uint16_t(p[off]) | (uint16_t(p[off + 1]) << 8);
+	}
+
+	static int32_t read_i32_le(const std::vector<uint8_t>& p, size_t off)
+	{
+		if(off + 4 > p.size())
+			throw std::runtime_error("payload too short");
+		return int32_t(
+				uint32_t(p[off]) | (uint32_t(p[off + 1]) << 8) | (uint32_t(p[off + 2]) << 16)
+						| (uint32_t(p[off + 3]) << 24));
 	}
 
 	static uint8_t crc8_dvb_s2_update(uint8_t crc, uint8_t a)
