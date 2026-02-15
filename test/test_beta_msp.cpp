@@ -25,7 +25,7 @@ int main(int argc, char** argv) try
 
 	MSP2Client msp(dev, baud);
 
-	msp.interval = std::chrono::milliseconds(10);
+	msp.interval = std::chrono::milliseconds(50);
 
 	msp.on_attitude = [](const MSP2Client::Attitude& att) {
 		std::cout << "att: ts=" << att.ts
@@ -37,6 +37,14 @@ int main(int argc, char** argv) try
 				<< " gyro=[" << imu.gyro[0] << "," << imu.gyro[1] << "," << imu.gyro[2] << "]" << " acc=["
 				<< imu.acc[0] << "," << imu.acc[1] << "," << imu.acc[2] << "]" << " mag=[" << imu.mag[0] << ","
 				<< imu.mag[1] << "," << imu.mag[2] << "]" << std::endl;
+	};
+
+	msp.on_rc = [](const MSP2Client::RcPacket& rc) {
+		std::cout << "rc:  ts=" << rc.ts;
+		for(size_t i = 0; i < rc.ch.size(); ++i) {
+			std::cout << " ch" << i << "=" << rc.ch[i];
+		}
+		std::cout << std::endl;
 	};
 
 	msp.run();

@@ -41,18 +41,22 @@ public:
 		write_data(v.data(), v.size());
 	}
 
+	void write_i16(const int16_t& v) {
+		write_pod(v);
+	}
 	void write_i32(const int32_t& v) {
 		write_pod(v);
 	}
-
 	void write_i64(const int64_t& v) {
 		write_pod(v);
 	}
 
+	void write_u16(const uint16_t& v) {
+		write_pod(v);
+	}
 	void write_u32(const uint32_t& v) {
 		write_pod(v);
 	}
-
 	void write_u64(const uint64_t& v) {
 		write_pod(v);
 	}

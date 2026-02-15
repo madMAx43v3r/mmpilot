@@ -45,10 +45,14 @@ int main(int argc, char** argv)
 		write_sample(rec, "msp.attitude", att);
 	};
 
-	auto on_frame = [&](const std::string& topic, const CameraFrame& frame)
+	msp.on_rc = [&](const MSP2Client::RcPacket& rc)
 	{
 		std::lock_guard<std::mutex> lock(mutex);
+		write_sample(rec, "msp.rc", rc);
+	};
 
+	auto on_frame = [&](const std::string& topic, const CameraFrame& frame)
+	{
 		if(frame.data.size() != 3) {
 			return;
 		}
@@ -67,6 +71,8 @@ int main(int argc, char** argv)
 		out.format = "JPEG";
 		out.data.push_back(encode_jpeg_i420(
 				Y, U, V, frame.width, frame.height, frame.stride, quality));
+
+		std::lock_guard<std::mutex> lock(mutex);
 
 		std::cout << "Frame " << frame.sequence << ": ts = " << frame.timestamp
 				<< ", width = " << frame.width << ", height = " << frame.height

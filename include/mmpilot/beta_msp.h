@@ -35,10 +35,11 @@ public:
 		std::vector<uint8_t> payload;
 	};
 
-	static constexpr uint16_t MSP_ATTITUDE = 108; // 0x006C :contentReference[oaicite:8]{index=8}
-	static constexpr uint16_t MSP_RAW_IMU  = 102; // 0x0066
+	static constexpr uint16_t MSP_ATTITUDE = 108;
+	static constexpr uint16_t MSP_RAW_IMU  = 102;
+	static constexpr uint16_t MSP_RC = 105;
 
-	// MSP_ATTITUDE (108 / 0x006C): "2 angles 1 heading" :contentReference[oaicite:7]{index=7}
+	// MSP_ATTITUDE (108 / 0x006C): "2 angles 1 heading"
 	// Payload is typically 3x int16: roll, pitch, yaw/heading in decidegrees (0.1°) in MW/BF lineage.
 	// (Betaflight uses the same message ID; if you see swapped roll/pitch, just swap in the unpack.)
 	class Attitude : public Sample {
@@ -49,21 +50,20 @@ public:
 
 		void write(Recorder& out) const {
 			out.write_u32(MAGIC);
-			out.write_i32(roll);
-			out.write_i32(pitch);
-			out.write_i32(yaw);
+			out.write_i16(roll);
+			out.write_i16(pitch);
+			out.write_i16(yaw);
 		}
 
-		static std::shared_ptr<Sample> read(Player& in)
-		{
+		static std::shared_ptr<Sample> read(Player& in) {
 			const auto magic = in.read_u32();
 			if(magic != MAGIC) {
 				throw std::runtime_error("Attitude: invalid magic");
 			}
 			auto out = std::make_shared<Attitude>();
-			out->roll = in.read_i32();
-			out->pitch = in.read_i32();
-			out->yaw = in.read_i32();
+			out->roll = in.read_i16();
+			out->pitch = in.read_i16();
+			out->yaw = in.read_i16();
 			return out;
 		}
 	private:
@@ -79,32 +79,68 @@ public:
 
 		void write(Recorder& out) const {
 			out.write_u32(MAGIC);
-			for(int i = 0; i < 3; ++i) out.write_i32(acc[i]);
-			for(int i = 0; i < 3; ++i) out.write_i32(gyro[i]);
-			for(int i = 0; i < 3; ++i) out.write_i32(mag[i]);
+			for(int i = 0; i < 3; ++i) out.write_i16(acc[i]);
+			for(int i = 0; i < 3; ++i) out.write_i16(gyro[i]);
+			for(int i = 0; i < 3; ++i) out.write_i16(mag[i]);
 		}
 
-		static std::shared_ptr<Sample> read(Player& in)
-		{
+		static std::shared_ptr<Sample> read(Player& in) {
 			const auto magic = in.read_u32();
 			if(magic != MAGIC) {
 				throw std::runtime_error("RawImu: invalid magic");
 			}
 			auto out = std::make_shared<RawImu>();
-			for(int i = 0; i < 3; ++i) out->acc[i] = in.read_i32();
-			for(int i = 0; i < 3; ++i) out->gyro[i] = in.read_i32();
-			for(int i = 0; i < 3; ++i) out->mag[i] = in.read_i32();
+			for(int i = 0; i < 3; ++i) out->acc[i] = in.read_i16();
+			for(int i = 0; i < 3; ++i) out->gyro[i] = in.read_i16();
+			for(int i = 0; i < 3; ++i) out->mag[i] = in.read_i16();
 			return out;
 		}
 	private:
 		static constexpr uint32_t MAGIC = 0x40f0ef3d;
 	};
 
+	class RcPacket : public Sample {
+	public:
+		std::vector<uint16_t> ch;
+
+		uint16_t roll() const     { return ch.size() > 0 ? ch[0] : 0; }
+		uint16_t pitch() const    { return ch.size() > 1 ? ch[1] : 0; }
+		uint16_t yaw() const      { return ch.size() > 2 ? ch[2] : 0; }
+		uint16_t throttle() const { return ch.size() > 3 ? ch[3] : 0; }
+		uint16_t aux(size_t i) const { return ch.size() > 4 + i ? ch[4 + i] : 0; }
+		size_t num_aux() const    { return ch.size() - 4; }
+
+		void write(Recorder& out) const {
+			out.write_u32(MAGIC);
+			out.write_u16(ch.size());
+			for(auto v : ch) {
+				out.write_u16(v);
+			}
+		}
+
+		static std::shared_ptr<Sample> read(Player& in) {
+			const auto magic = in.read_u32();
+			if(magic != MAGIC) {
+				throw std::runtime_error("RawImu: invalid magic");
+			}
+			auto out = std::make_shared<RcPacket>();
+			out->ch.resize(in.read_u16());
+			for(auto& v : out->ch) {
+				v = in.read_u16();
+			}
+			return out;
+		}
+	private:
+		static constexpr uint32_t MAGIC = 0x8c208142;
+	};
+
+
 	std::chrono::milliseconds timeout = std::chrono::milliseconds(500);
 	std::chrono::milliseconds interval = std::chrono::milliseconds(10);		// update rate for run()
 
 	std::function<void(const RawImu&)> on_raw_imu;
 	std::function<void(const Attitude&)> on_attitude;
+	std::function<void(const RcPacket&)> on_rc;
 
 
 	MSP2Client(const std::string& path, int baud = 115200)
@@ -275,10 +311,10 @@ public:
 				throw std::runtime_error("MSP2Client::run(): timeout");
 			}
 
-			const auto check_send = [&](const uint16_t func)
+			const auto check_send = [&](const uint16_t func, const int divider = 1)
 			{
 				if(!pending.count(func) || now - pending[func] > timeout / 2) {
-					if(!last_send.count(func) || now - last_send[func] > interval) {
+					if(!last_send.count(func) || now - last_send[func] > interval * divider) {
 						send_request(func);
 						pending[func] = now;
 						last_send[func] = now;
@@ -292,6 +328,9 @@ public:
 			if(on_attitude) {
 				check_send(MSP_ATTITUDE);
 			}
+			if(on_rc) {
+				check_send(MSP_RC);
+			}
 
 			for(auto& f : poll()) {
 				const auto now = std::chrono::steady_clock::now();
@@ -299,35 +338,20 @@ public:
 					switch(f.func) {
 						case MSP_RAW_IMU: if(on_raw_imu) on_raw_imu(parse_raw_imu(f)); break;
 						case MSP_ATTITUDE: if(on_attitude) on_attitude(parse_attitude(f)); break;
+						case MSP_RC: if(on_rc) on_rc(parse_rc(f)); break;
 					}
 					pending.erase(f.func);
 					last_reply = now;
 				}
 				// If you want to surface errors: (f.type == '!' && f.func == func)
 			}
-			std::this_thread::sleep_until(now + interval / 50);
+			std::this_thread::sleep_until(now + std::chrono::microseconds(500));
 		}
 	}
 
 	void shutdown() {
 		std::lock_guard<std::mutex> lock(mutex);
 		do_run = false;
-	}
-
-	Attitude req_attitude()
-	{
-		if(auto f = request(MSP_ATTITUDE, timeout)) {
-			return parse_attitude(*f);
-		}
-		throw std::runtime_error("MSP2Client: timeout");
-	}
-
-	RawImu req_raw_imu()
-	{
-		if(auto f = request(MSP_RAW_IMU, timeout)) {
-			return parse_raw_imu(*f);
-		}
-		throw std::runtime_error("MSP2Client: timeout");
 	}
 
 private:
@@ -393,11 +417,36 @@ private:
 		return imu;
 	}
 
+	RcPacket parse_rc(const Frame& f)
+	{
+		if(f.payload.size() < 8) { // at least 4 channels
+			throw std::runtime_error("MSP_RC payload too short");
+		}
+		if((f.payload.size() & 1) != 0) {
+			throw std::runtime_error("MSP_RC payload odd length");
+		}
+		RcPacket rc;
+		rc.ts = get_time_micros();
+		const size_t n = f.payload.size() / 2;
+		rc.ch.resize(n);
+		for(size_t i = 0; i < n; ++i) {
+			rc.ch[i] = read_u16_le(f.payload, 2 * i);
+		}
+		return rc;
+	}
+
 	static int16_t read_i16_le(const std::vector<uint8_t>& p, size_t off)
 	{
 		if(off + 2 > p.size())
 			throw std::runtime_error("payload too short");
 		return int16_t(uint16_t(p[off]) | (uint16_t(p[off + 1]) << 8));
+	}
+
+	static uint16_t read_u16_le(const std::vector<uint8_t>& p, size_t off)
+	{
+		if(off + 2 > p.size())
+			throw std::runtime_error("payload too short");
+		return uint16_t(p[off]) | (uint16_t(p[off + 1]) << 8);
 	}
 
 	static uint8_t crc8_dvb_s2_update(uint8_t crc, uint8_t a)

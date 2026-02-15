@@ -61,18 +61,22 @@ public:
 		return std::string(tmp.data(), tmp.size());
 	}
 
+	int16_t read_i16() {
+		return read_pod<int16_t>();
+	}
 	int32_t read_i32() {
 		return read_pod<int32_t>();
 	}
-
 	int64_t read_i64() {
 		return read_pod<int64_t>();
 	}
 
+	uint16_t read_u16() {
+		return read_pod<uint16_t>();
+	}
 	uint32_t read_u32() {
 		return read_pod<uint32_t>();
 	}
-
 	uint64_t read_u64() {
 		return read_pod<uint64_t>();
 	}
