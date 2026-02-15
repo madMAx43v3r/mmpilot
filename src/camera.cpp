@@ -156,7 +156,7 @@ void Camera::open()
 		throw std::runtime_error("no cameras found");
 	}
 	if(camera_index >= cameras.size()) {
-		throw std::runtime_error("camera index out of bounds");
+		throw std::runtime_error("camera index out of bounds: " + std::to_string(camera_index));
 	}
 	cam = cameras.at(camera_index);
 	std::cout << "Using camera: " << cam->id() << "\n";
