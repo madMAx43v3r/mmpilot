@@ -10,6 +10,7 @@
 #include <mmpilot/util.h>
 #include <mmpilot/jpeg.h>
 #include <mmpilot/image.h>
+#include <mmpilot/beta_msp.h>
 
 #include <string>
 #include <iostream>
@@ -29,6 +30,20 @@ int main(int argc, char** argv)
 	std::mutex mutex;
 
 	Recorder rec(file_name);
+
+	MSP2Client msp("/dev/ttyACM0");
+
+	msp.on_raw_imu = [&](const MSP2Client::RawImu& imu)
+	{
+		std::lock_guard<std::mutex> lock(mutex);
+		write_sample(rec, "msp.raw_imu", imu);
+	};
+
+	msp.on_attitude = [&](const MSP2Client::Attitude& att)
+	{
+		std::lock_guard<std::mutex> lock(mutex);
+		write_sample(rec, "msp.attitude", att);
+	};
 
 	auto on_frame = [&](const std::string& topic, const CameraFrame& frame)
 	{
@@ -66,17 +81,21 @@ int main(int argc, char** argv)
 	auto cam_0 = std::make_unique<Camera>(0, 0, 1640, 1232, "YUV420");
 
 	cam_0->open();
-
 	cam_0->on_frame = std::bind(on_frame, "camera.wide", std::placeholders::_1);
 
 	cam_0->set_interval(500);
-
 	cam_0->start();
+
+	std::thread msp_thread([&]() {
+		msp.run();
+	});
 
 	wait_for_exit();
 
-	cam_0->stop();
+	msp.shutdown();
+	msp_thread.join();
 
+	cam_0->stop();
 	cam_0 = nullptr;
 
 	Camera::cleanup();
