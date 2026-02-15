@@ -29,6 +29,9 @@ public:
 
 	Camera(int index, int stream, int width, int height, std::string pixel_format);
 
+	Camera(const Camera&) = delete;
+	Camera& operator=(const Camera&) = delete;
+
 	void open();
 
 	void start();
