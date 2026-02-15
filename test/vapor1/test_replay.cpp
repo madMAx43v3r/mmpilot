@@ -15,8 +15,10 @@
 
 int main(int argc, char** argv)
 {
-	const std::string file_name = argc > 1 ? argv[1] : "vapor1_record.dat";
+	const int64_t offset_sec = argc > 1 ? atoi(argv[1]) : 0;
+	const std::string file_name = argc > 2 ? argv[2] : "vapor1_record.dat";
 
+	std::cout << "offset = " << offset_sec << " sec" << std::endl;
 	std::cout << "file_name = " << file_name << std::endl;
 
 	Pipeline pipe_0;
@@ -42,6 +44,10 @@ int main(int argc, char** argv)
 	player.decode["camera.wide"] = &Image::read;
 
 	player.handle["camera.wide"] = dispatch<Image>(on_frame_0);
+
+	if(offset_sec > 0) {
+		player.seek(offset_sec * 1000);
+	}
 
 	player.play();
 
