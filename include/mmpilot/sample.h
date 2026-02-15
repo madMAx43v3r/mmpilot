@@ -20,6 +20,7 @@ namespace mmpilot {
 
 class Sample {
 public:
+	int64_t ts;				// [us]
 	std::string topic;
 
 	virtual ~Sample() {}

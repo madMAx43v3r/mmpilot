@@ -93,11 +93,11 @@ public:
 		}
 	}
 
-	bool read_sample()
+	std::shared_ptr<Sample> read_sample()
 	{
 		const auto magic = read_u32();
 		if(magic == eof_magic) {
-			return false;
+			return nullptr;
 		}
 		if(magic != 0x3d171f57) {
 			throw std::runtime_error("bad sample magic: " + std::to_string(magic));
@@ -110,8 +110,6 @@ public:
 		const auto topic = read_string();
 
 		const auto f_decode = decode[topic];
-		const auto f_handle = handle[topic];
-
 		if(!f_decode) {
 			throw std::runtime_error("missing decoder for " + topic);
 		}
@@ -119,31 +117,30 @@ public:
 		if(!sample) {
 			throw std::runtime_error("decode failed");
 		}
+		sample->ts = ts;
 		sample->topic = topic;
-
-		const auto now_us = get_time_micros();
-
-		if(have_init) {
-			const int64_t delay_us = (ts + ts_delta) - now_us;
-			if(real_time && delay_us > 0) {
-				sleep_us(delay_us);		// sleep to match real time
-			}
-		} else {
-			ts_delta = now_us - ts;		// initialize time delta
-			have_init = true;
-		}
-
-		if(f_handle) {
-			f_handle(sample);
-		}
-		return true;
+		return sample;
 	}
 
 	void play()
 	{
+		bool have_init = false;
+		int64_t ts_delta = 0;
 		while(true) {
 			try {
-				if(!read_sample()) {
+				if(auto sample = read_sample()) {
+					const auto now_us = get_time_micros();
+					if(have_init) {
+						const int64_t delay_us = (sample->ts + ts_delta) - now_us;
+						if(real_time && delay_us > 0) {
+							sleep_us(delay_us);		// sleep to match real time
+						}
+					} else {
+						ts_delta = now_us - sample->ts;		// initialize time delta
+						have_init = true;
+					}
+					dispatch(sample);
+				} else {
 					break;
 				}
 			} catch(std::exception& ex) {
@@ -155,10 +152,26 @@ public:
 		}
 	}
 
+	void seek(const int64_t offset_ms)
+	{
+		if(offset_ms <= 0) {
+			return;
+		}
+		int64_t base_ts = -1;
+		while(auto sample = read_sample())
+		{
+			if(base_ts < 0) {
+				base_ts = sample->ts;
+			}
+			if((sample->ts - base_ts) / 1000 >= offset_ms) {
+				dispatch(sample);
+				break;
+			}
+		}
+	}
+
 private:
-	bool have_init = false;
 	std::ifstream stream;
-	int64_t ts_delta = 0;
 
 	template<class T>
 	T read_pod()
@@ -167,6 +180,14 @@ private:
 		T out = 0;
 		read(&out, sizeof(T));
 		return out;
+	}
+
+	void dispatch(std::shared_ptr<Sample> sample)
+	{
+		const auto f_handle = handle[sample->topic];
+		if(f_handle) {
+			f_handle(sample);
+		}
 	}
 
 	static constexpr uint32_t eof_magic = 0x90ce9e5b;
