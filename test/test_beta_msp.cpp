@@ -28,11 +28,13 @@ int main(int argc, char** argv) try
 	msp.interval = std::chrono::milliseconds(10);
 
 	msp.on_attitude = [](const MspV2Client::Attitude& att) {
-		std::cout << "att: roll=" << att.roll << " pitch=" << att.pitch << " yaw=" << att.yaw << std::endl;
+		std::cout << "att: ts=" << att.ts
+				<< " roll=" << att.roll << " pitch=" << att.pitch << " yaw=" << att.yaw << std::endl;
 	};
 
 	msp.on_raw_imu = [](const MspV2Client::RawImu& imu) {
-		std::cout << "imu: gyro=[" << imu.gyro[0] << "," << imu.gyro[1] << "," << imu.gyro[2] << "]" << " acc=["
+		std::cout << "imu: ts=" << imu.ts
+				<< " gyro=[" << imu.gyro[0] << "," << imu.gyro[1] << "," << imu.gyro[2] << "]" << " acc=["
 				<< imu.acc[0] << "," << imu.acc[1] << "," << imu.acc[2] << "]" << " mag=[" << imu.mag[0] << ","
 				<< imu.mag[1] << "," << imu.mag[2] << "]" << std::endl;
 	};

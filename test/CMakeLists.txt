@@ -7,6 +7,7 @@ endif()
 add_executable(test_beta_msp test_beta_msp.cpp)
 add_executable(test_opengl_fbo test_opengl_fbo.cpp)
 
+target_link_libraries(test_beta_msp Threads::Threads)
 target_link_libraries(test_opengl_fbo EGL GLESv2)
 
 add_subdirectory(bench)

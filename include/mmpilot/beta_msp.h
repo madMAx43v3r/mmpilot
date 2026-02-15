@@ -14,6 +14,7 @@
 
 #include <deque>
 #include <mutex>
+#include <thread>
 #include <functional>
 
 
@@ -99,7 +100,7 @@ public:
 		static constexpr uint32_t MAGIC = 0x40f0ef3d;
 	};
 
-	std::chrono::milliseconds timeout = std::chrono::milliseconds(100);
+	std::chrono::milliseconds timeout = std::chrono::milliseconds(500);
 	std::chrono::milliseconds interval = std::chrono::milliseconds(10);		// update rate for run()
 
 	std::function<void(const RawImu&)> on_raw_imu;
@@ -109,6 +110,14 @@ public:
 	MspV2Client(const std::string& path, int baud = 115200)
 	{
 		_serial.open(path, baud);
+	}
+
+	~MspV2Client()
+	{
+		shutdown();
+		if(send_thread.joinable()) {
+			send_thread.join();
+		}
 	}
 
 	// Send an MSPv2 request (type '<'), flags usually 0. :contentReference[oaicite:5]{index=5}
@@ -137,6 +146,8 @@ public:
 		size_t crc_len = pkt.size() - 3;                    // flags..payload
 		pkt.push_back(crc8_dvb_s2(crc_begin, crc_len));
 
+		std::lock_guard<std::mutex> lock(send_mutex);
+
 		_serial.writeAll(pkt.data(), pkt.size());
 	}
 
@@ -144,7 +155,9 @@ public:
 	// Returns all newly decoded frames (responses/errors).
 	std::vector<Frame> poll()
 	{
-		readIntoBuffer();
+		std::lock_guard<std::mutex> lock(mutex);
+
+		read_serial();
 
 		std::vector<Frame> out;
 
@@ -162,7 +175,7 @@ public:
 			while(start < _rx.size() && _rx[start] != uint8_t('$'))
 				start++;
 			if(start > 0) {
-				popFront(start);
+				consume(start);
 				if(_rx.size() < 9)
 					break;
 			}
@@ -171,17 +184,17 @@ public:
 			if(_rx.size() < 3)
 				break;
 			if(_rx[0] != uint8_t('$')) {
-				popFront(1);
+				consume(1);
 				continue;
 			}
 			if(_rx[1] != uint8_t('X')) {
-				popFront(1);
+				consume(1);
 				continue;
 			}
 			char type = char(_rx[2]);
 			if(type != '>' && type != '!') {
 				// Not an incoming frame we care about; could be our own echo or noise. Drop '$' and rescan.
-				popFront(1);
+				consume(1);
 				continue;
 			}
 
@@ -207,7 +220,7 @@ public:
 
 			if(want != got) {
 				// CRC fail -> drop one byte and rescan (strong resync).
-				popFront(1);
+				consume(1);
 				continue;
 			}
 
@@ -220,13 +233,12 @@ public:
 				f.payload[i] = _rx[8 + i];
 
 			out.push_back(std::move(f));
-			popFront(total);
+			consume(total);
 		}
 
 		return out;
 	}
 
-	// Blocking helper: send request, then wait for matching response func with timeout.
 	std::optional<Frame> request(uint16_t func,
 			const std::chrono::milliseconds timeout,
 			const std::vector<uint8_t>& payload = {}, uint8_t flags = 0)
@@ -250,7 +262,11 @@ public:
 		return std::nullopt;
 	}
 
-	void run() {
+	void run()
+	{
+		send_thread = std::thread(&MspV2Client::send_loop, this);
+
+		auto last_reply = std::chrono::steady_clock::now();
 		while(true) {
 			{
 				std::lock_guard<std::mutex> lock(mutex);
@@ -258,53 +274,27 @@ public:
 					break;
 				}
 			}
-			const auto begin = std::chrono::steady_clock::now();
-
-			std::map<uint16_t, std::function<void(const Frame&)>> request;
-			if(on_raw_imu) {
-				send_request(MSP_RAW_IMU);
-				request[MSP_RAW_IMU] = [this](const Frame& f) {
-					on_raw_imu(parse_raw_imu(f));
-				};
-			}
-			if(on_attitude) {
-				send_request(MSP_ATTITUDE);
-				request[MSP_ATTITUDE] = [this](const Frame& f) {
-					on_attitude(parse_attitude(f));
-				};
-			}
-
-			size_t num_reply = 0;
-			while(num_reply < request.size())
-			{
-				const auto now = std::chrono::steady_clock::now();
-				if(now - begin > timeout) {
-					break;
-				}
-				for(auto& f : poll()) {
-					const auto now = std::chrono::steady_clock::now();
-					if(f.type == '>') {
-						f.delay_us = std::chrono::duration_cast<std::chrono::microseconds>(now - begin).count();
-
-						auto it = request.find(f.func);
-						if(it != request.end()) {
-							if(auto call = it->second) {
-								call(f);
-								num_reply++;
-//								std::cout << "delay = " << f.delay_us / 1e3 << " ms" << std::endl;
-							}
-						}
-					}
-					// If you want to surface errors: (f.type == '!' && f.func == func)
-				}
-				std::this_thread::sleep_for(std::chrono::microseconds(200));
-			}
-
-			if(num_reply < request.size()) {
+			const auto now = std::chrono::steady_clock::now();
+			if(now - last_reply > timeout) {
 				throw std::runtime_error("MspV2Client::run(): timeout");
 			}
-			std::this_thread::sleep_until(begin + interval);
+
+			for(auto& f : poll()) {
+				const auto now = std::chrono::steady_clock::now();
+				if(f.type == '>') {
+					switch(f.func) {
+						case MSP_RAW_IMU: if(on_raw_imu) on_raw_imu(parse_raw_imu(f)); break;
+						case MSP_ATTITUDE: if(on_attitude) on_attitude(parse_attitude(f)); break;
+					}
+					last_reply = now;
+				}
+				// If you want to surface errors: (f.type == '!' && f.func == func)
+			}
+			std::this_thread::sleep_for(std::chrono::microseconds(200));
 		}
+
+		shutdown();
+		send_thread.join();
 	}
 
 	void shutdown() {
@@ -330,13 +320,41 @@ public:
 
 private:
 	std::mutex mutex;
+	std::mutex send_mutex;
+	std::thread send_thread;
 	bool do_run = true;
 
 	SerialPort _serial;
 	std::deque<uint8_t> _rx;
 	size_t _maxBuf = 64 * 1024;
 
-	void readIntoBuffer()
+	void send_loop()
+	{
+		std::vector<uint16_t> request;
+		{
+			std::lock_guard<std::mutex> lock(mutex);
+			if(on_raw_imu) {
+				request.push_back(MSP_RAW_IMU);
+			}
+			if(on_attitude) {
+				request.push_back(MSP_ATTITUDE);
+			}
+		}
+		while(true) {
+			{
+				std::lock_guard<std::mutex> lock(mutex);
+				if(!do_run) {
+					break;
+				}
+			}
+			for(auto func : request) {
+				send_request(func);
+			}
+			std::this_thread::sleep_for(interval);
+		}
+	}
+
+	void read_serial()
 	{
 		uint8_t tmp[1024];
 		for(;;) {
@@ -352,10 +370,11 @@ private:
 		}
 	}
 
-	void popFront(size_t n)
+	void consume(size_t n)
 	{
-		for(size_t i = 0; i < n && !_rx.empty(); ++i)
+		for(size_t i = 0; i < n && !_rx.empty(); ++i) {
 			_rx.pop_front();
+		}
 	}
 
 	Attitude parse_attitude(const Frame& f)
