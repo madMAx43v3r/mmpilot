@@ -9,8 +9,12 @@
 #define INCLUDE_MMPILOT_BETA_MSP_H_
 
 #include <mmpilot/serial.h>
+#include <mmpilot/replay.h>
+#include <mmpilot/util.h>
 
 #include <deque>
+#include <mutex>
+#include <functional>
 
 
 namespace mmpilot {
@@ -26,6 +30,7 @@ public:
 		char type = 0;          // '>' response, '!' error (we only parse incoming)
 		uint8_t flags = 0;
 		uint16_t func = 0;
+		int delay_us = 0;		// reponse time
 		std::vector<uint8_t> payload;
 	};
 
@@ -35,18 +40,71 @@ public:
 	// MSP_ATTITUDE (108 / 0x006C): "2 angles 1 heading" :contentReference[oaicite:7]{index=7}
 	// Payload is typically 3x int16: roll, pitch, yaw/heading in decidegrees (0.1°) in MW/BF lineage.
 	// (Betaflight uses the same message ID; if you see swapped roll/pitch, just swap in the unpack.)
-	struct Attitude {
+	class Attitude : public Sample {
+	public:
 		int16_t roll = 0;		// raw angle (0.1 deg)
 		int16_t pitch = 0;		// raw angle (0.1 deg)
 		int16_t yaw = 0;		// raw angle (0.1 deg or 1.0 deg)
+
+		void write(Recorder& out) const {
+			out.write_u32(MAGIC);
+			out.write_i32(roll);
+			out.write_i32(pitch);
+			out.write_i32(yaw);
+		}
+
+		static std::shared_ptr<Sample> read(Player& in)
+		{
+			const auto magic = in.read_u32();
+			if(magic != MAGIC) {
+				throw std::runtime_error("Attitude: invalid magic");
+			}
+			auto out = std::make_shared<Attitude>();
+			out->roll = in.read_i32();
+			out->pitch = in.read_i32();
+			out->yaw = in.read_i32();
+			return out;
+		}
+	private:
+		static constexpr uint32_t MAGIC = 0x9d292216;
 	};
 
 	// MSP_RAW_IMU (102 / 0x0066): acc[3], gyro[3], mag[3] as int16 LE (18 bytes total)
-	struct RawImu {
+	class RawImu : public Sample {
+	public:
 		int16_t acc[3] = {0, 0, 0};    // raw accel ((8|16)g/4096 default)
 		int16_t gyro[3] = {0, 0, 0};   // raw gyro rate (1/16.4 deg/s at 2000 dps)
 		int16_t mag[3] = {0, 0, 0};    // raw mag (0 if not present)
+
+		void write(Recorder& out) const {
+			out.write_u32(MAGIC);
+			for(int i = 0; i < 3; ++i) out.write_i32(acc[i]);
+			for(int i = 0; i < 3; ++i) out.write_i32(gyro[i]);
+			for(int i = 0; i < 3; ++i) out.write_i32(mag[i]);
+		}
+
+		static std::shared_ptr<Sample> read(Player& in)
+		{
+			const auto magic = in.read_u32();
+			if(magic != MAGIC) {
+				throw std::runtime_error("Attitude: invalid magic");
+			}
+			auto out = std::make_shared<RawImu>();
+			for(int i = 0; i < 3; ++i) out->acc[i] = in.read_i32();
+			for(int i = 0; i < 3; ++i) out->gyro[i] = in.read_i32();
+			for(int i = 0; i < 3; ++i) out->mag[i] = in.read_i32();
+			return out;
+		}
+	private:
+		static constexpr uint32_t MAGIC = 0x40f0ef3d;
 	};
+
+	std::chrono::milliseconds timeout = std::chrono::milliseconds(100);
+	std::chrono::milliseconds interval = std::chrono::milliseconds(10);		// update rate for run()
+
+	std::function<void(const RawImu&)> on_raw_imu;
+	std::function<void(const Attitude&)> on_attitude;
+
 
 	MspV2Client(const std::string& path, int baud = 115200)
 	{
@@ -87,6 +145,7 @@ public:
 	std::vector<Frame> poll()
 	{
 		readIntoBuffer();
+
 		std::vector<Frame> out;
 
 		// Robust resync strategy:
@@ -139,12 +198,12 @@ public:
 				break;
 
 			// Compute CRC over flags..payload (starts at index 3, length = 5 + len)
-			std::vector<uint8_t> crc_region;
-			crc_region.reserve(5 + len);
-			for(size_t i = 3; i < 8 + size_t(len); ++i)
-				crc_region.push_back(_rx[i]);
-			uint8_t want = crc8_dvb_s2(crc_region.data(), crc_region.size());
-			uint8_t got = _rx[8 + size_t(len)];
+			uint8_t crc = 0;
+			for(size_t i = 3; i < 8 + size_t(len); ++i) {
+				crc = crc8_dvb_s2_update(crc, _rx[i]);
+			}
+			const uint8_t want = crc;
+			const uint8_t got = _rx[8 + size_t(len)];
 
 			if(want != got) {
 				// CRC fail -> drop one byte and rescan (strong resync).
@@ -169,14 +228,19 @@ public:
 
 	// Blocking helper: send request, then wait for matching response func with timeout.
 	std::optional<Frame> request(uint16_t func,
-			std::chrono::milliseconds timeout, const std::vector<uint8_t>& payload = {}, uint8_t flags = 0)
+			const std::chrono::milliseconds timeout,
+			const std::vector<uint8_t>& payload = {}, uint8_t flags = 0)
 	{
+		const auto begin = get_time_micros();
+
 		send_request(func, payload, flags);
 
 		const auto t0 = std::chrono::steady_clock::now();
 		while(std::chrono::steady_clock::now() - t0 < timeout) {
 			for(auto& f : poll()) {
 				if(f.func == func && f.type == '>') {
+					f.delay_us = get_time_micros() - begin;
+//					std::cout << "delay = " << f.delay_us / 1e3 << " ms" << std::endl;
 					return f;
 				}
 				// If you want to surface errors: (f.type == '!' && f.func == func)
@@ -186,23 +250,88 @@ public:
 		return std::nullopt;
 	}
 
-	Attitude request_attitude(int timeout_ms = 20)
+	void run() {
+		while(true) {
+			{
+				std::lock_guard<std::mutex> lock(mutex);
+				if(!do_run) {
+					break;
+				}
+			}
+			const auto begin = std::chrono::steady_clock::now();
+
+			std::map<uint16_t, std::function<void(const Frame&)>> request;
+			if(on_raw_imu) {
+				send_request(MSP_RAW_IMU);
+				request[MSP_RAW_IMU] = [this](const Frame& f) {
+					on_raw_imu(parse_raw_imu(f));
+				};
+			}
+			if(on_attitude) {
+				send_request(MSP_ATTITUDE);
+				request[MSP_ATTITUDE] = [this](const Frame& f) {
+					on_attitude(parse_attitude(f));
+				};
+			}
+
+			size_t num_reply = 0;
+			while(num_reply < request.size())
+			{
+				const auto now = std::chrono::steady_clock::now();
+				if(now - begin > timeout) {
+					break;
+				}
+				for(auto& f : poll()) {
+					const auto now = std::chrono::steady_clock::now();
+					if(f.type == '>') {
+						f.delay_us = std::chrono::duration_cast<std::chrono::microseconds>(now - begin).count();
+
+						auto it = request.find(f.func);
+						if(it != request.end()) {
+							if(auto call = it->second) {
+								call(f);
+								num_reply++;
+//								std::cout << "delay = " << f.delay_us / 1e3 << " ms" << std::endl;
+							}
+						}
+					}
+					// If you want to surface errors: (f.type == '!' && f.func == func)
+				}
+				std::this_thread::sleep_for(std::chrono::microseconds(200));
+			}
+
+			if(num_reply < request.size()) {
+				throw std::runtime_error("MspV2Client::run(): timeout");
+			}
+			std::this_thread::sleep_until(begin + interval);
+		}
+	}
+
+	void shutdown() {
+		std::lock_guard<std::mutex> lock(mutex);
+		do_run = false;
+	}
+
+	Attitude req_attitude()
 	{
-		if(auto f = request(MSP_ATTITUDE, std::chrono::milliseconds(timeout_ms))) {
+		if(auto f = request(MSP_ATTITUDE, timeout)) {
 			return parse_attitude(*f);
 		}
 		throw std::runtime_error("MspV2Client: timeout");
 	}
 
-	RawImu request_raw_imu(int timeout_ms = 20)
+	RawImu req_raw_imu()
 	{
-		if(auto f = request(MSP_RAW_IMU, std::chrono::milliseconds(timeout_ms))) {
+		if(auto f = request(MSP_RAW_IMU, timeout)) {
 			return parse_raw_imu(*f);
 		}
 		throw std::runtime_error("MspV2Client: timeout");
 	}
 
 private:
+	std::mutex mutex;
+	bool do_run = true;
+
 	SerialPort _serial;
 	std::deque<uint8_t> _rx;
 	size_t _maxBuf = 64 * 1024;
@@ -234,11 +363,12 @@ private:
 		if(f.payload.size() < 6) {
 			throw std::runtime_error("MSP_ATTITUDE payload too short");
 		}
-		Attitude a;
-		a.roll = read_i16_le(f.payload, 0);
-		a.pitch = read_i16_le(f.payload, 2);
-		a.yaw = read_i16_le(f.payload, 4);
-		return a;
+		Attitude att;
+		att.ts = get_time_micros();
+		att.roll = read_i16_le(f.payload, 0);
+		att.pitch = read_i16_le(f.payload, 2);
+		att.yaw = read_i16_le(f.payload, 4);
+		return att;
 	}
 
 	RawImu parse_raw_imu(const Frame& f)
@@ -247,6 +377,8 @@ private:
 			throw std::runtime_error("MSP_RAW_IMU payload too short");
 		}
 		RawImu imu;
+		imu.ts = get_time_micros();
+
 		size_t off = 0;
 		for(int i = 0; i < 3; ++i, off += 2)
 			imu.acc[i] = read_i16_le(f.payload, off);

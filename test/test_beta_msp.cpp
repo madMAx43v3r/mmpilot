@@ -23,28 +23,22 @@ int main(int argc, char** argv) try
 	std::string dev = argv[1];
 	int baud = (argc >= 3) ? std::stoi(argv[2]) : 115200;
 
-	mmpilot::MspV2Client cli(dev, baud);
+	MspV2Client msp(dev, baud);
 
-	// Poll at ~50 Hz
-	while(true) {
-		try {
-			auto att = cli.request_attitude();
-			std::cout << "att: roll=" << att.roll << " pitch=" << att.pitch << " yaw=" << att.yaw << std::endl;
-		}
-		catch(std::exception& ex) {
-			std::cerr << "Error: " << ex.what() << "\n";
-		}
-		try {
-			auto imu = cli.request_raw_imu();
-			std::cout << "imu: gyro=[" << imu.gyro[0] << "," << imu.gyro[1] << "," << imu.gyro[2] << "]" << " acc=["
-					<< imu.acc[0] << "," << imu.acc[1] << "," << imu.acc[2] << "]" << " mag=[" << imu.mag[0] << ","
-					<< imu.mag[1] << "," << imu.mag[2] << "]" << std::endl;
-		}
-		catch(std::exception& ex) {
-			std::cerr << "Error: " << ex.what() << "\n";
-		}
-		std::this_thread::sleep_for(std::chrono::milliseconds(50));
-	}
+	msp.interval = std::chrono::milliseconds(10);
+
+	msp.on_attitude = [](const MspV2Client::Attitude& att) {
+		std::cout << "att: roll=" << att.roll << " pitch=" << att.pitch << " yaw=" << att.yaw << std::endl;
+	};
+
+	msp.on_raw_imu = [](const MspV2Client::RawImu& imu) {
+		std::cout << "imu: gyro=[" << imu.gyro[0] << "," << imu.gyro[1] << "," << imu.gyro[2] << "]" << " acc=["
+				<< imu.acc[0] << "," << imu.acc[1] << "," << imu.acc[2] << "]" << " mag=[" << imu.mag[0] << ","
+				<< imu.mag[1] << "," << imu.mag[2] << "]" << std::endl;
+	};
+
+	msp.run();
+
 } catch(const std::exception& e) {
 	std::cerr << "Fatal: " << e.what() << "\n";
 	return 1;
