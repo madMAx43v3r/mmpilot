@@ -358,12 +358,12 @@ public:
 				check_send(MSP_RAW_IMU, 4);
 			}
 			if(on_attitude) {
-				check_send(MSP_ATTITUDE, 2, interval * 2);
+				check_send(MSP_ATTITUDE, 1, interval * 2);
 			}
 			if(on_rc) {
 				check_send(MSP_RC, 1, std::chrono::milliseconds(100));
 			}
-			if(on_gps && pending.size() < 2) {
+			if(on_gps) {
 				check_send(MSP_RAW_GPS, 1, std::chrono::milliseconds(200));
 			}
 
