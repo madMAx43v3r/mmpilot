@@ -26,11 +26,14 @@ public:
 	GLenum format = 0;
 	GLenum type = 0;
 
-	explicit GL_Tex2D(GLsizei w, GLsizei h, GLenum internal_fmt, GLenum fmt, GLenum type, const void* data = nullptr)
+	GL_Tex2D(GLsizei w, GLsizei h, GLenum internal_fmt, GLenum fmt, GLenum type, const void* data = nullptr)
 		:	width(w), height(h), internal_fmt(internal_fmt), format(fmt), type(type)
 	{
 		id = GL_create_tex(w, h, internal_fmt, fmt, type, data);
 	}
+
+	GL_Tex2D(const GL_Tex2D&) = delete;
+	GL_Tex2D& operator=(const GL_Tex2D&) = delete;
 
 	~GL_Tex2D() {
 		glDeleteTextures(1, &id);

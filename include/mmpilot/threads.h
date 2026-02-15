@@ -24,14 +24,14 @@ namespace mmpilot {
 
 class ThreadPool {
 public:
-	explicit ThreadPool(std::size_t thread_count)
+	explicit ThreadPool(const size_t thread_count)
 	{
 		if(thread_count == 0) {
 			throw std::invalid_argument("ThreadPool: thread_count must be > 0");
 		}
 
 		threads_.reserve(thread_count);
-		for(std::size_t i = 0; i < thread_count; ++i) {
+		for(size_t i = 0; i < thread_count; ++i) {
 			threads_.emplace_back([this]
 			{
 				worker_loop();

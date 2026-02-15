@@ -11,6 +11,8 @@
 #include <mmpilot/sample.h>
 #include <mmpilot/replay.h>
 
+#include <vector>
+
 
 namespace mmpilot {
 

@@ -112,6 +112,9 @@ public:
 		_serial.open(path, baud);
 	}
 
+	MSP2Client(const MSP2Client&) = delete;
+	MSP2Client& operator=(const MSP2Client&) = delete;
+
 	~MSP2Client()
 	{
 		shutdown();

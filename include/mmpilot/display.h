@@ -32,6 +32,9 @@ public:
 	{
 	}
 
+	TexDisplay(const TexDisplay&) = delete;
+	TexDisplay& operator=(const TexDisplay&) = delete;
+
 	~TexDisplay() {
 		close();
 	}
