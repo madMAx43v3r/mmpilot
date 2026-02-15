@@ -25,7 +25,7 @@ namespace mmpilot {
 // Where <type> is '<' request, '>' response, '!' error. :contentReference[oaicite:2]{index=2}
 // CRC is CRC-8/DVB-S2 (poly 0xD5), computed over bytes starting at <flags> through end of payload. :contentReference[oaicite:3]{index=3}
 
-class MspV2Client {
+class MSP2Client {
 public:
 	struct Frame {
 		char type = 0;          // '>' response, '!' error (we only parse incoming)
@@ -88,7 +88,7 @@ public:
 		{
 			const auto magic = in.read_u32();
 			if(magic != MAGIC) {
-				throw std::runtime_error("Attitude: invalid magic");
+				throw std::runtime_error("RawImu: invalid magic");
 			}
 			auto out = std::make_shared<RawImu>();
 			for(int i = 0; i < 3; ++i) out->acc[i] = in.read_i32();
@@ -107,12 +107,12 @@ public:
 	std::function<void(const Attitude&)> on_attitude;
 
 
-	MspV2Client(const std::string& path, int baud = 115200)
+	MSP2Client(const std::string& path, int baud = 115200)
 	{
 		_serial.open(path, baud);
 	}
 
-	~MspV2Client()
+	~MSP2Client()
 	{
 		shutdown();
 		if(send_thread.joinable()) {
@@ -121,7 +121,7 @@ public:
 	}
 
 	// Send an MSPv2 request (type '<'), flags usually 0. :contentReference[oaicite:5]{index=5}
-	void send_request(uint16_t func, const std::vector<uint8_t>& payload = {}, uint8_t flags = 0)
+	void send_request(const uint16_t func, const std::vector<uint8_t>& payload = {}, uint8_t flags = 0)
 	{
 		std::vector<uint8_t> pkt;
 		pkt.reserve(3 + 1 + 2 + 2 + payload.size() + 1);
@@ -149,6 +149,8 @@ public:
 		std::lock_guard<std::mutex> lock(send_mutex);
 
 		_serial.writeAll(pkt.data(), pkt.size());
+
+		last_send[func] = std::chrono::steady_clock::now();
 	}
 
 	// Pump bytes from UART, parse as many frames as available.
@@ -264,8 +266,6 @@ public:
 
 	void run()
 	{
-		send_thread = std::thread(&MspV2Client::send_loop, this);
-
 		auto last_reply = std::chrono::steady_clock::now();
 		while(true) {
 			{
@@ -276,25 +276,39 @@ public:
 			}
 			const auto now = std::chrono::steady_clock::now();
 			if(now - last_reply > timeout) {
-				throw std::runtime_error("MspV2Client::run(): timeout");
+				throw std::runtime_error("MSP2Client::run(): timeout");
+			}
+
+			if(on_raw_imu && now - get_last_send(MSP_RAW_IMU) > timeout / 2) {
+				send_request(MSP_RAW_IMU);
+			}
+			if(on_attitude && now - get_last_send(MSP_ATTITUDE) > timeout / 2) {
+				send_request(MSP_ATTITUDE);
 			}
 
 			for(auto& f : poll()) {
 				const auto now = std::chrono::steady_clock::now();
 				if(f.type == '>') {
 					switch(f.func) {
-						case MSP_RAW_IMU: if(on_raw_imu) on_raw_imu(parse_raw_imu(f)); break;
-						case MSP_ATTITUDE: if(on_attitude) on_attitude(parse_attitude(f)); break;
+						case MSP_RAW_IMU:
+							if(on_raw_imu) {
+								send_request(f.func);
+								on_raw_imu(parse_raw_imu(f));
+							}
+							break;
+						case MSP_ATTITUDE:
+							if(on_attitude) {
+								send_request(f.func);
+								on_attitude(parse_attitude(f));
+							}
+							break;
 					}
 					last_reply = now;
 				}
 				// If you want to surface errors: (f.type == '!' && f.func == func)
 			}
-			std::this_thread::sleep_for(std::chrono::microseconds(200));
+			std::this_thread::sleep_until(now + interval);
 		}
-
-		shutdown();
-		send_thread.join();
 	}
 
 	void shutdown() {
@@ -307,7 +321,7 @@ public:
 		if(auto f = request(MSP_ATTITUDE, timeout)) {
 			return parse_attitude(*f);
 		}
-		throw std::runtime_error("MspV2Client: timeout");
+		throw std::runtime_error("MSP2Client: timeout");
 	}
 
 	RawImu req_raw_imu()
@@ -315,13 +329,14 @@ public:
 		if(auto f = request(MSP_RAW_IMU, timeout)) {
 			return parse_raw_imu(*f);
 		}
-		throw std::runtime_error("MspV2Client: timeout");
+		throw std::runtime_error("MSP2Client: timeout");
 	}
 
 private:
 	std::mutex mutex;
 	std::mutex send_mutex;
 	std::thread send_thread;
+	std::map<uint16_t, std::chrono::steady_clock::time_point> last_send;
 	bool do_run = true;
 
 	SerialPort _serial;
@@ -340,6 +355,7 @@ private:
 				request.push_back(MSP_ATTITUDE);
 			}
 		}
+		size_t seq = 0;
 		while(true) {
 			{
 				std::lock_guard<std::mutex> lock(mutex);
@@ -351,7 +367,18 @@ private:
 				send_request(func);
 			}
 			std::this_thread::sleep_for(interval);
+
+			if(seq++ > 100) {
+				std::cout << "SEND STOP" << std::endl;
+				break;
+			}
 		}
+	}
+
+	std::chrono::steady_clock::time_point get_last_send(uint16_t func)
+	{
+		std::lock_guard<std::mutex> lock(send_mutex);
+		return last_send[func];
 	}
 
 	void read_serial()

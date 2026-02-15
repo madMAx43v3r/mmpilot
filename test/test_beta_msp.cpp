@@ -23,16 +23,16 @@ int main(int argc, char** argv) try
 	std::string dev = argv[1];
 	int baud = (argc >= 3) ? std::stoi(argv[2]) : 115200;
 
-	MspV2Client msp(dev, baud);
+	MSP2Client msp(dev, baud);
 
 	msp.interval = std::chrono::milliseconds(10);
 
-	msp.on_attitude = [](const MspV2Client::Attitude& att) {
+	msp.on_attitude = [](const MSP2Client::Attitude& att) {
 		std::cout << "att: ts=" << att.ts
 				<< " roll=" << att.roll << " pitch=" << att.pitch << " yaw=" << att.yaw << std::endl;
 	};
 
-	msp.on_raw_imu = [](const MspV2Client::RawImu& imu) {
+	msp.on_raw_imu = [](const MSP2Client::RawImu& imu) {
 		std::cout << "imu: ts=" << imu.ts
 				<< " gyro=[" << imu.gyro[0] << "," << imu.gyro[1] << "," << imu.gyro[2] << "]" << " acc=["
 				<< imu.acc[0] << "," << imu.acc[1] << "," << imu.acc[2] << "]" << " mag=[" << imu.mag[0] << ","
