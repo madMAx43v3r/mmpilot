@@ -43,6 +43,7 @@ public:
 	int reduction_chunk = 32;
 
 	std::shared_ptr<GL_Tex2D> tex_uv;					// (u, v)
+	std::shared_ptr<GL_Tex2D> tex_debug;				// (RGBA)
 	std::shared_ptr<GL_Tex2D> tex_residual;				// (R, w)
 	std::shared_ptr<GL_Tex2D> tex_gradient[2];
 	std::shared_ptr<GL_Tex2D> tex_jacobian[2];
@@ -65,10 +66,12 @@ private:
 	GLuint prog_jacobian = 0;
 	GLuint prog_gradient = 0;
 	GLuint prog_hessian = 0;
+	GLuint prog_debug = 0;
 
 	GLuint fbo_jacobian = 0;
 	GLuint fbo_gradient = 0;
 	GLuint fbo_hessian = 0;
+	GLuint fbo_debug = 0;
 
 	bool have_init = false;
 

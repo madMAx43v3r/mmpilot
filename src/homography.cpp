@@ -309,6 +309,16 @@ Homography::Params8 Homography::solve(
 //			v /= s;
 		}
 	}
+
+	glUseProgram(prog_debug);
+
+	GL_bind_tex(prog_debug, "uImg", img->id, 0);
+	GL_bind_tex(prog_debug, "uRes", tex_residual->id, 1);
+
+	render::fullscreen(fbo_debug, width, height);
+
+	GL_finish("Homography::solve()");
+
 	std::cout << "Homography[" << width << "x" << height << "]: took "
 				<< (get_time_micros() - begin) / 1000.f << " ms" << std::endl;
 	return params;
@@ -325,11 +335,13 @@ void Homography::init(int width_, int height_)
 	auto fs_jacobian = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/homographic/jacobian.glsl");
 	auto fs_gradient = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/homographic/gradient.glsl");
 	auto fs_hessian  = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/homographic/hessian.glsl");
+	auto fs_debug    = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/debug/residual_overlay.glsl");
 
 	const auto vs = render::get_fullscreen_vertex_shader();
 	prog_jacobian = GL_link_program(vs, fs_jacobian);
 	prog_gradient = GL_link_program(vs, fs_gradient);
 	prog_hessian  = GL_link_program(vs, fs_hessian);
+	prog_debug  = GL_link_program(vs, fs_debug);
 
 	glDeleteShader(fs_jacobian);
 	glDeleteShader(fs_gradient);
@@ -360,6 +372,9 @@ void Homography::init(int width_, int height_)
 	if(hessian_off.size()) {
 		fbo_hessian = GL_create_FBO(hessian_off);
 	}
+
+	tex_debug = std::make_shared<GL_Tex2D>(width, height, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE);
+	fbo_debug = GL_create_FBO(tex_debug->id);
 
 	have_init = true;
 }
