@@ -115,14 +115,6 @@ public:
 	MSP2Client(const MSP2Client&) = delete;
 	MSP2Client& operator=(const MSP2Client&) = delete;
 
-	~MSP2Client()
-	{
-		shutdown();
-		if(send_thread.joinable()) {
-			send_thread.join();
-		}
-	}
-
 	// Send an MSPv2 request (type '<'), flags usually 0. :contentReference[oaicite:5]{index=5}
 	void send_request(const uint16_t func, const std::vector<uint8_t>& payload = {}, uint8_t flags = 0)
 	{
@@ -152,8 +144,6 @@ public:
 		std::lock_guard<std::mutex> lock(send_mutex);
 
 		_serial.writeAll(pkt.data(), pkt.size());
-
-		last_send[func] = std::chrono::steady_clock::now();
 	}
 
 	// Pump bytes from UART, parse as many frames as available.
@@ -269,6 +259,9 @@ public:
 
 	void run()
 	{
+		std::map<uint16_t, std::chrono::steady_clock::time_point> pending;
+		std::map<uint16_t, std::chrono::steady_clock::time_point> last_send;
+
 		auto last_reply = std::chrono::steady_clock::now();
 		while(true) {
 			{
@@ -282,35 +275,37 @@ public:
 				throw std::runtime_error("MSP2Client::run(): timeout");
 			}
 
-			if(on_raw_imu && now - get_last_send(MSP_RAW_IMU) > timeout / 2) {
-				send_request(MSP_RAW_IMU);
+			const auto check_send = [&](const uint16_t func)
+			{
+				if(!pending.count(func) || now - pending[func] > timeout / 2) {
+					if(!last_send.count(func) || now - last_send[func] > interval) {
+						send_request(func);
+						pending[func] = now;
+						last_send[func] = now;
+					}
+				}
+			};
+
+			if(on_raw_imu) {
+				check_send(MSP_RAW_IMU);
 			}
-			if(on_attitude && now - get_last_send(MSP_ATTITUDE) > timeout / 2) {
-				send_request(MSP_ATTITUDE);
+			if(on_attitude) {
+				check_send(MSP_ATTITUDE);
 			}
 
 			for(auto& f : poll()) {
 				const auto now = std::chrono::steady_clock::now();
 				if(f.type == '>') {
 					switch(f.func) {
-						case MSP_RAW_IMU:
-							if(on_raw_imu) {
-								send_request(f.func);
-								on_raw_imu(parse_raw_imu(f));
-							}
-							break;
-						case MSP_ATTITUDE:
-							if(on_attitude) {
-								send_request(f.func);
-								on_attitude(parse_attitude(f));
-							}
-							break;
+						case MSP_RAW_IMU: if(on_raw_imu) on_raw_imu(parse_raw_imu(f)); break;
+						case MSP_ATTITUDE: if(on_attitude) on_attitude(parse_attitude(f)); break;
 					}
+					pending.erase(f.func);
 					last_reply = now;
 				}
 				// If you want to surface errors: (f.type == '!' && f.func == func)
 			}
-			std::this_thread::sleep_until(now + interval);
+			std::this_thread::sleep_until(now + interval / 50);
 		}
 	}
 
@@ -338,51 +333,11 @@ public:
 private:
 	std::mutex mutex;
 	std::mutex send_mutex;
-	std::thread send_thread;
-	std::map<uint16_t, std::chrono::steady_clock::time_point> last_send;
 	bool do_run = true;
 
 	SerialPort _serial;
 	std::deque<uint8_t> _rx;
 	size_t _maxBuf = 64 * 1024;
-
-	void send_loop()
-	{
-		std::vector<uint16_t> request;
-		{
-			std::lock_guard<std::mutex> lock(mutex);
-			if(on_raw_imu) {
-				request.push_back(MSP_RAW_IMU);
-			}
-			if(on_attitude) {
-				request.push_back(MSP_ATTITUDE);
-			}
-		}
-		size_t seq = 0;
-		while(true) {
-			{
-				std::lock_guard<std::mutex> lock(mutex);
-				if(!do_run) {
-					break;
-				}
-			}
-			for(auto func : request) {
-				send_request(func);
-			}
-			std::this_thread::sleep_for(interval);
-
-			if(seq++ > 100) {
-				std::cout << "SEND STOP" << std::endl;
-				break;
-			}
-		}
-	}
-
-	std::chrono::steady_clock::time_point get_last_send(uint16_t func)
-	{
-		std::lock_guard<std::mutex> lock(send_mutex);
-		return last_send[func];
-	}
 
 	void read_serial()
 	{

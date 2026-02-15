@@ -103,7 +103,7 @@ public:
 				std::this_thread::sleep_for(std::chrono::milliseconds(1));
 				continue;
 			}
-			throw std::runtime_error("write: " + std::string(strerror(errno)));
+			throw std::runtime_error("SerialPort write: " + std::string(strerror(errno)));
 		}
 	}
 
@@ -116,7 +116,7 @@ public:
 		if(rc < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
 			return 0;
 		if(rc < 0)
-			throw std::runtime_error("read: " + std::string(strerror(errno)));
+			throw std::runtime_error("SerialPort read: " + std::string(strerror(errno)));
 		return 0; // rc == 0 (EOF) shouldn't happen for tty, treat as 0
 	}
 
