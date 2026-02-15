@@ -50,7 +50,7 @@ int main(int argc, char** argv) try
 	msp.on_gps = [](const MSP2Client::RawGPS& gps) {
 		std::cout << "rc:  ts=" << gps.ts
 				<< " lat=" << gps.lat << " lon=" << gps.lon << " speed=" << gps.speed
-				<< " course=" << gps.course << " fix=" << gps.fixType << std::endl;
+				<< " course=" << gps.course << " fix=" << int(gps.fixType) << std::endl;
 	};
 
 	msp.run();
