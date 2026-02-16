@@ -46,7 +46,7 @@ public:
 	Vec3f RPY_cam = Vec3f(0, 0, -35);	// relative to frame [deg]
 
 	int gradient_window = 7;
-	int pyramid_depth = 6;
+	int pyramid_depth = 5;
 
 	std::vector<int> num_iters = {1, 2, 4, 8, 12};
 
