@@ -15,6 +15,7 @@
 #include <deque>
 #include <mutex>
 #include <thread>
+#include <optional>
 #include <functional>
 
 
