@@ -244,6 +244,8 @@ protected:
 
 	void exec_image(std::shared_ptr<Image> img)
 	{
+		const auto begin = get_time_micros();
+
 		if(img->format == "JPEG") {
 			int w, h;
 			const auto& data = img->data[0];
@@ -281,6 +283,7 @@ protected:
 
 		exec(ts);
 
+		std::cout << "[" << img->sequence << "] total_time = " << (get_time_micros() - begin) / 1e3 << " ms" << std::endl;
 		std::cout << "[" << img->sequence << "] total_shift = " << total_shift << std::endl;
 	}
 
