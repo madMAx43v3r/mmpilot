@@ -8,6 +8,7 @@
 #include <mmpilot/camera.h>
 #include <mmpilot/image.h>
 #include <mmpilot/util.h>
+#include <mmpilot/beta_msp.h>
 
 #include "../pipeline.h"
 
@@ -52,6 +53,24 @@ int main(int argc, char** argv)
 	pipe_0.src_flip_y = true;
 	pipe_0.radius_mask = 0.9;
 
+	MSP2Client msp("/dev/ttyACM0");
+
+	msp.on_raw_imu = [&](const MSP2Client::RawImu& imu) {
+		pipe_0.handle(std::make_shared<MSP2Client::RawImu>(imu));
+	};
+
+	msp.on_attitude = [&](const MSP2Client::Attitude& att) {
+		pipe_0.handle(std::make_shared<MSP2Client::Attitude>(att));
+	};
+
+	msp.on_rc = [&](const MSP2Client::RcPacket& rc) {
+		pipe_0.handle(std::make_shared<MSP2Client::RcPacket>(rc));
+	};
+
+	msp.on_gps = [&](const MSP2Client::RawGPS& gps) {
+		pipe_0.handle(std::make_shared<MSP2Client::RawGPS>(gps));
+	};
+
 	Camera::init();
 
 	auto cam_0 = std::make_unique<Camera>(0, 0, 1640, 1232, "YUV420");
@@ -66,7 +85,14 @@ int main(int argc, char** argv)
 
 	cam_0->start();
 
+	std::thread msp_thread([&]() {
+		msp.run();
+	});
+
 	wait_for_exit();
+
+	msp.shutdown();
+	msp_thread.join();
 
 	cam_0->stop();
 
