@@ -95,7 +95,7 @@ int main(int argc, char** argv)
 	cam_0->open();
 	cam_0->on_frame = std::bind(on_frame, "camera.wide", std::placeholders::_1);
 
-	cam_0->set_interval(500);
+	cam_0->set_interval(200);
 	cam_0->start();
 
 	std::thread msp_thread([&]() {
