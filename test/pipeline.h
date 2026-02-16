@@ -59,22 +59,27 @@ public:
 	class Level {
 	public:
 		int level = 0;
+		int num_smooth = -1;
 
-		SmoothFilter smooth[2];
+		SmoothFilter smooth[3];
 		GradientFilter gradient;
 		Homography solver;
 
 		Homography::Params8 H_out;
 
-		std::shared_ptr<Level> prev;			// lower scale (upper level)
+		std::shared_ptr<Level> upper;			// lower scale (upper level)
 		std::shared_ptr<GL_Tex2D> prev_img;
 
 		void init(Pipeline* pipe, int level, int width, int height)
 		{
 			this->level = level;
 
-			smooth[0].init(width, height, GL_RG16F, GL_RG, GL_HALF_FLOAT);
-			smooth[1].init(width, height, GL_RG16F, GL_RG, GL_HALF_FLOAT);
+			if(num_smooth < 0) {
+				num_smooth = level > 0 ? 2 : 1;
+			}
+			for(int i = 0; i < num_smooth; ++i) {
+				smooth[i].init(width, height, GL_RG16F, GL_RG, GL_HALF_FLOAT);
+			}
 
 			gradient.win_size = pipe->gradient_window;
 			gradient.init(width, height);
@@ -88,15 +93,17 @@ public:
 
 		void exec(std::shared_ptr<GL_Tex2D> img, const Gyro::State& gyro)
 		{
-			smooth[0].exec(img);
-			smooth[1].exec(smooth[0].out);
-
-			gradient.exec(smooth[1].out);
+			auto in = img;
+			for(int i = 0; i < num_smooth; ++i) {
+				smooth[i].exec(in);
+				in = smooth[i].out;
+			}
+			gradient.exec(in);
 
 			if(sequence) {
 				Homography::Params8 p_init;
-				if(prev) {
-					p_init = prev->H_out;
+				if(upper) {
+					p_init = upper->H_out;
 					p_init.scale(2);
 				}
 				// TODO: handle exceptions
@@ -180,10 +187,10 @@ protected:
 
 		int w = width;
 		int h = height;
-		for(size_t i = 0; i < pyramid_depth; ++i)
+		for(int i = 0; i < pyramid_depth; ++i)
 		{
 			auto lvl = std::make_shared<Level>();
-			lvl->solver.num_iters = num_iters[std::min(i, num_iters.size() - 1)];
+			lvl->solver.num_iters = num_iters[std::min(size_t(i), num_iters.size() - 1)];
 			lvl->init(this, i, w, h);
 			stage.push_back(lvl);
 			w /= 2; h /= 2;
@@ -191,7 +198,7 @@ protected:
 
 		for(int i = 0; i + 1 < pyramid_depth; ++i)
 		{
-			stage[i]->prev = stage[i + 1];
+			stage[i]->upper = stage[i + 1];
 		}
 
 		have_init = true;
