@@ -236,6 +236,25 @@ void GL_uniform_2i(GLuint prog, const char* name, int x, int y)
 	}
 }
 
+void GL_uniform_fv(GLuint prog, const char* name, const float* v, const size_t N)
+{
+	auto loc = glGetUniformLocation(prog, name);
+	if(loc >= 0) {
+		glUniform1fv(loc, N, v);
+	} else {
+		throw std::logic_error("unknown uniform: " + std::string(name));
+	}
+}
+
+void GL_uniform_mat3(GLuint prog, const char* name, const float* v)
+{
+	GLint loc = glGetUniformLocation(prog, name);
+	if(loc < 0) {
+		throw std::logic_error("unknown uniform: " + std::string(name));
+	}
+	glUniformMatrix3fv(loc, 1, GL_FALSE, v); // GL_FALSE = column-major (GLSL default)
+}
+
 void GL_read_FBO_R(GLuint fbo, int index, int w, int h, std::vector<float>& out)
 {
 	out.resize(w * h);

@@ -20,6 +20,9 @@
 #include <mmpilot/pyramid.h>
 #include <mmpilot/smooth.h>
 #include <mmpilot/homography.h>
+#include <mmpilot/virtual_cam.h>
+
+#include <mmpilot/egl.h>
 
 using namespace mmpilot;
 
@@ -28,8 +31,12 @@ class Pipeline {
 public:
 	bool src_flip_x = false;
 	bool src_flip_y = false;
+	bool is_fisheye = true;
 
 	float radius_mask = 1;			// proportional to width / 2
+
+	float FOV_in = 200;				// fisheye deg (diagonal)
+	float FOV_cam = 120;			// virtual deg (diagonal)
 
 	int gradient_window = 7;
 	int pyramid_depth = 6;
@@ -38,6 +45,7 @@ public:
 
 	FlipImage flip_image;
 	WeightRadius weight_radius;
+	VirtualCam virtual_cam;
 	PyramidFilter pyramid_filter;
 
 	class Level {
@@ -137,8 +145,8 @@ public:
 protected:
 	void init(int width, int height)
 	{
-		this->width = width;
-		this->height = height;
+//		this->width = width;
+//		this->height = height;
 
 		flip_image.flip_x = src_flip_x;
 		flip_image.flip_y = src_flip_y;
@@ -152,6 +160,12 @@ protected:
 
 		flip_image.init(width, height, GL_R8, GL_RED, GL_UNSIGNED_BYTE);
 		weight_radius.init(width, height);
+
+		if(is_fisheye) {
+			virtual_cam.init(GL_RG16F, GL_RG, GL_HALF_FLOAT);
+			width = virtual_cam.width;
+			height = virtual_cam.height;
+		}
 		pyramid_filter.init(width, height, GL_RG16F, GL_RG, GL_HALF_FLOAT);
 
 		int w = width;
@@ -184,7 +198,12 @@ protected:
 
 		weight_radius.exec(flip_image.out);
 
-		pyramid_filter.exec(weight_radius.out);
+		if(is_fisheye) {
+			virtual_cam.exec(weight_radius.out);
+			pyramid_filter.exec(virtual_cam.out);
+		} else {
+			pyramid_filter.exec(weight_radius.out);
+		}
 
 		for(int i = pyramid_depth - 1; i >= 0; --i)
 		{
@@ -192,8 +211,9 @@ protected:
 		}
 
 //		show(display, flip_image.out, {1, 1, 1, 1});
-//		show(display, stage[0]->smooth[1].out, {1, 0.2, 1, 1});
-//		show(display, stage[0]->solver.tex_residual, {1, 0, 1, 1});
+//		show(display, virtual_cam.out, {1, 0.1, 1, 1});
+//		show(display, pyramid_filter.out[5], {1, 0.5, 1, 1});
+//		show(display, stage[2]->smooth[1].out, {1, 0.1, 1, 1});
 //		show(display, stage[0]->solver.tex_debug, {1, 1, 1, 1});
 	}
 
@@ -238,8 +258,8 @@ private:
 	}
 
 private:
-	int width = 0;
-	int height = 0;
+//	int width = 0;
+//	int height = 0;
 
 	Thread gl_main;
 

@@ -6,6 +6,8 @@
  */
 
 #include <mmpilot/display.h>
+#include <mmpilot/egl.h>
+#include <mmpilot/opengl.h>
 
 #include <EGL/egl.h>
 #include <EGL/eglext.h>

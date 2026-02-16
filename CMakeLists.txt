@@ -30,6 +30,10 @@ add_library(mmpilot_util STATIC
 	src/util.cpp
 )
 
+add_library(mmpilot_math STATIC
+	src/math.cpp
+)
+
 add_library(mmpilot_jpeg STATIC
 	src/jpeg.cpp
 )
@@ -61,9 +65,10 @@ target_link_libraries(mmpilot_jpeg
 	PRIVATE turbojpeg
 )
 
+target_link_libraries(mmpilot_math Eigen3::Eigen)
+
 target_link_libraries(mmpilot_vision
-	PUBLIC mmpilot_opengl mmpilot_util
-	PRIVATE Eigen3::Eigen
+	PUBLIC mmpilot_opengl mmpilot_util mmpilot_math
 )
 
 if(LIBCAMERA_FOUND)

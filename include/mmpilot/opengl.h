@@ -48,16 +48,14 @@ void GL_uniform_2f(GLuint prog, const char* name, float x, float y);
 void GL_uniform_1i(GLuint prog, const char* name, int v);
 void GL_uniform_2i(GLuint prog, const char* name, int x, int y);
 
+void GL_uniform_fv(GLuint prog, const char* name, const float* v, const size_t N);
+
 template<size_t N>
-void GL_uniform_fv(GLuint prog, const char* name, const std::array<float, N>& v)
-{
-	auto loc = glGetUniformLocation(prog, name);
-	if(loc >= 0) {
-		glUniform1fv(loc, N, v.data());
-	} else {
-		throw std::logic_error("unknown uniform: " + std::string(name));
-	}
+void GL_uniform_fv(GLuint prog, const char* name, const std::array<float, N>& v) {
+	GL_uniform_fv(prog, name, v.data(), N);
 }
+
+void GL_uniform_mat3(GLuint prog, const char* name, const float* v);
 
 void GL_read_FBO_R(GLuint fbo, int index, int w, int h, std::vector<float>& out);
 void GL_read_FBO_R(GLuint fbo, int index, int w, int h, std::vector<uint8_t>& out);

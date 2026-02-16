@@ -8,8 +8,6 @@
 #ifndef INCLUDE_MMPILOT_DISPLAY_H_
 #define INCLUDE_MMPILOT_DISPLAY_H_
 
-#include <mmpilot/egl.h>
-#include <mmpilot/opengl.h>
 #include <mmpilot/texture.h>
 #include <mmpilot/util.h>
 
