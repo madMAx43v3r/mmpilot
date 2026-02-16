@@ -23,8 +23,8 @@ namespace mmpilot {
 
 class VirtualCam {
 public:
-	int width = 1280;		// output size
-	int height = 1280;		// output size
+	int width = 1024;		// output size
+	int height = 1024;		// output size
 
 	float FOV_in = 180;		// fisheye FOV in degrees (diagonal)
 	float FOV_cam = 120;	// pinhole FOV in degrees (diagonal)
