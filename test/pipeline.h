@@ -48,7 +48,7 @@ public:
 	int gradient_window = 7;
 	int pyramid_depth = 6;
 
-	std::vector<int> num_iters = {1, 2, 4, 12};
+	std::vector<int> num_iters = {1, 2, 4, 8, 12};
 
 	Gyro gyro;
 	FlipImage flip_image;
