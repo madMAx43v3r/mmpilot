@@ -36,7 +36,7 @@ public:
 	bool src_flip_y = false;
 	bool is_fisheye = true;
 
-	int64_t camera_delay = 1000;	// [us]
+	int64_t camera_delay = 20000;	// [us]
 
 	float radius_mask = 1;			// proportional to width / 2
 
@@ -273,7 +273,9 @@ protected:
 			}
 			std::cout << "time_offset = " << time_offset << std::endl;
 		}
-		const auto ts = time_offset + img->timestamp - img->exposure / 2 - camera_delay;
+		const auto ts = (time_offset + img->timestamp)
+				- img->exposure / 2
+				- camera_delay;
 
 		exec(ts);
 	}
