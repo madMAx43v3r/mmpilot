@@ -51,7 +51,7 @@ int main(int argc, char** argv)
 		write_sample(rec, "msp.rc", rc);
 	};
 
-	msp.on_rc = [&](const MSP2Client::RawGPS& gps)
+	msp.on_gps = [&](const MSP2Client::RawGPS& gps)
 	{
 		std::lock_guard<std::mutex> lock(mutex);
 		write_sample(rec, "msp.raw_gps", gps);

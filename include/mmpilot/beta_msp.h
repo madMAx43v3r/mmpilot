@@ -137,16 +137,24 @@ public:
 
 	class RawGPS : public Sample {
 	public:
-		uint8_t  fixType = 0;
-		uint8_t  numSats = 0;
+		uint8_t  fix_type = 0;
+		uint8_t  num_sats = 0;
 		int32_t  lat = 0;		// degrees * 1e7
 		int32_t  lon = 0;		// degrees * 1e7
-		int16_t  alt = 0;		// centimeters
+		int32_t  alt = 0;		// cm
 		uint16_t speed = 0;		// cm/s
 		uint16_t course = 0;	// deg * 10
 
 		void write(Recorder& out) const {
-			// TODO
+			out.write_u32(MAGIC);
+			out.write_u16(0);
+			out.write_u16(fix_type);
+			out.write_u16(num_sats);
+			out.write_i32(lat);
+			out.write_i32(lon);
+			out.write_i32(alt);
+			out.write_u16(speed);
+			out.write_u16(course);
 		}
 
 		static std::shared_ptr<Sample> read(Player& in) {
@@ -154,8 +162,18 @@ public:
 			if(magic != MAGIC) {
 				throw std::runtime_error("RawGPS: invalid magic");
 			}
+			const auto version = in.read_u16();
+			if(version != 0) {
+				throw std::logic_error("RawGPS: invalid version");
+			}
 			auto out = std::make_shared<RawGPS>();
-			// TODO
+			out->fix_type = in.read_u16();
+			out->num_sats = in.read_u16();
+			out->lat = in.read_i32();
+			out->lon = in.read_i32();
+			out->alt = in.read_i32();
+			out->speed = in.read_u16();
+			out->course = in.read_u16();
 			return out;
 		}
 	private:
@@ -473,20 +491,21 @@ private:
 
 	RawGPS parse_raw_gps(const Frame& f)
 	{
-		// Classic RAW_GPS layout: 1 + 1 + 4 + 4 + 2 + 2 + 2 = 16 bytes
+		// Betaflight RAW_GPS layout:
+		// 1 + 1 + 4 + 4 + 4 + 2 + 2 = 18 bytes
 		const auto& p = f.payload;
-		if(p.size() < 16)
+		if(p.size() < 18) {
 			throw std::runtime_error("MSP_RAW_GPS payload too short");
-
+		}
 		RawGPS gps;
-		gps.ts = get_time_micros();
-		gps.fixType = p[0];
-		gps.numSats = p[1];
-		gps.lat = read_i32_le(p, 2);
-		gps.lon = read_i32_le(p, 6);
-		gps.alt = read_i16_le(p, 10);
-		gps.speed = read_u16_le(p, 12);
-		gps.course = read_u16_le(p, 14);
+		gps.ts       = get_time_micros();
+		gps.fix_type  = p[0];
+		gps.num_sats  = p[1];
+		gps.lat      = read_i32_le(p, 2);
+		gps.lon      = read_i32_le(p, 6);
+		gps.alt      = read_i32_le(p, 10);
+		gps.speed    = read_u16_le(p, 14);
+		gps.course   = read_u16_le(p, 16);
 		return gps;
 	}
 
