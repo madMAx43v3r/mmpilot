@@ -81,7 +81,7 @@ int main(int argc, char** argv)
 		pipe_0.handle(convert(frame));
 	};
 
-	cam_0->set_interval(500);
+	cam_0->set_interval(200);
 
 	cam_0->start();
 
