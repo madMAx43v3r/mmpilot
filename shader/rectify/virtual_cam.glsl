@@ -36,14 +36,15 @@ void main()
     }
 
     // Angle from optical axis
-    float theta = acos(clamp(dirF.z, -1.0, 1.0));
+    float xy = length(dirF.xy);
+    float theta = atan(xy, dirF.z);   // stable for 0..pi
 
     // Unit direction on image plane
-    vec2 v = normalize(dirF.xy);
+    vec2 v = (xy > 1e-8) ? (dirF.xy / xy) : vec2(0.0);
 
     // Distort in "angle radius" space: r (radians)
     float r  = theta;           // equidistant
-    // float r = 2.0 * sin(theta / 2.0)    // equisolid
+    // float r = 2.0 * sin(theta / 2.0);    // equisolid
     // float r = 2.0 * tan(theta / 2.0);   // stereographic
     float r2 = r * r;
     float r4 = r2 * r2;

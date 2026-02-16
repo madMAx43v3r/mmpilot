@@ -39,9 +39,9 @@ public:
 	float radius_mask = 1;			// proportional to width / 2
 
 	float FOV_in = 200;				// fisheye deg (diagonal)
-	float FOV_cam = 100;			// virtual deg (diagonal)
+	float FOV_cam = 120;			// virtual deg (diagonal)
 
-	Vec3f RPY_cam = Vec3f(0, 90, 0);	// relative to frame [deg]
+	Vec3f RPY_cam = Vec3f(0, 0, -35);	// relative to frame [deg]
 
 	int gradient_window = 7;
 	int pyramid_depth = 6;
@@ -96,11 +96,7 @@ public:
 				if(prev) {
 					p_init = prev->H_out;
 					p_init.scale(2);
-				} else {
-//					p_init.shift(7, 7);		// TODO: testing only
 				}
-//				p_init.shift(-1, -1);		// TODO: testing only
-
 				// TODO: handle exceptions
 				H_out = solver.solve(prev_img, img, p_init);
 
@@ -159,7 +155,10 @@ protected:
 		flip_image.flip_x = src_flip_x;
 		flip_image.flip_y = src_flip_y;
 
-		R_cam = rpy_to_rot_zyx_deg<Mat3f>(RPY_cam);
+		R_BC = rpy_to_rot_zyx_deg<Mat3f>(RPY_cam);
+
+		Vec3f exB(1,0,0);
+		std::cout << "roll axis in cam = " << (R_BC * exB).transpose() << std::endl;
 
 		if(radius_mask > 0) {
 			weight_radius.radius = (width / 2) * radius_mask;
@@ -220,8 +219,8 @@ protected:
 		weight_radius.exec(flip_image.out);
 
 		if(is_fisheye) {
-			const auto R_WB = rpy_to_rot_zyx_deg<Mat3f>(Vec3f(RPY[0], RPY[1], 0));
-			virtual_cam.R_mat = (R_cam * R_WB * R_cam.transpose());
+			const auto R_WB = rpy_to_rot_zyx_deg<Mat3f>(Vec3f(RPY[1], -RPY[0], -RPY[2]));
+			virtual_cam.R_mat = R_BC * R_WB.transpose();
 			virtual_cam.exec(weight_radius.out);
 			pyramid_filter.exec(virtual_cam.out);
 		} else {
@@ -235,7 +234,7 @@ protected:
 
 		prev_gyro = gyro_state;
 
-//		show(display, flip_image.out, {1, 1, 1, 1});
+//		show(display, flip_image.out, {1, 0.2, 1, 1});
 		show(display, virtual_cam.out, {1, 0.1, 1, 1});
 //		show(display, pyramid_filter.out[5], {1, 0.5, 1, 1});
 //		show(display, stage[2]->smooth[1].out, {1, 0.1, 1, 1});
@@ -296,7 +295,7 @@ private:
 	Thread gl_main;
 
 	Mat3f K_cam;			// intrinsic
-	Mat3f R_cam;			// mounting to frame
+	Mat3f R_BC;			// mounting to frame
 
 	Gyro::State prev_gyro;
 
