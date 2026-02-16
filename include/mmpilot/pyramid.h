@@ -39,16 +39,8 @@ public:
 		}
 		out.resize(1);
 
-		std::string shader;
-		switch(format) {
-			case GL_RED:  shader = "downscale_r.glsl"; break;
-			case GL_RG:   shader = "downscale_rg.glsl"; break;
-			case GL_RGBA: shader = "downscale_rgba.glsl"; break;
-			default:
-				throw std::runtime_error("PyramidFilter: invalid format");
-		}
 		const auto vs = render::get_fullscreen_vertex_shader();
-		const auto fs = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/scale/" + shader);
+		const auto fs = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/scale/downscale.glsl");
 		prog = GL_link_program(vs, fs);
 
 		int w = width;
