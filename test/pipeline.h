@@ -162,6 +162,8 @@ protected:
 		weight_radius.init(width, height);
 
 		if(is_fisheye) {
+			virtual_cam.FOV_in = FOV_in;
+			virtual_cam.FOV_cam = FOV_cam;
 			virtual_cam.init(GL_RG16F, GL_RG, GL_HALF_FLOAT);
 			width = virtual_cam.width;
 			height = virtual_cam.height;
