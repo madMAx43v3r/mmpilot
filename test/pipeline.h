@@ -36,6 +36,8 @@ public:
 	bool src_flip_y = false;
 	bool is_fisheye = true;
 
+	int64_t camera_delay = 1000;	// [us]
+
 	float radius_mask = 1;			// proportional to width / 2
 
 	float FOV_in = 200;				// fisheye deg (diagonal)
@@ -157,9 +159,6 @@ protected:
 
 		R_BC = rpy_to_rot_zyx_deg<Mat3f>(RPY_cam);
 
-		Vec3f exB(1,0,0);
-		std::cout << "roll axis in cam = " << (R_BC * exB).transpose() << std::endl;
-
 		if(radius_mask > 0) {
 			weight_radius.radius = (width / 2) * radius_mask;
 		}
@@ -212,7 +211,7 @@ protected:
 		const auto gyro_state = gyro.lookup(ts);
 		const auto RPY = gyro_state.RPY;
 
-		std::cout << "RPY = " << RPY << std::endl;
+		std::cout << "RPY = " << RPY[0] << " " << RPY[1] << " " << RPY[2] << std::endl;
 
 		flip_image.exec(input_luma);
 
@@ -262,7 +261,21 @@ protected:
 			}
 			input_luma->upload(img->data[0].data(), img->stride);
 		}
-		exec(img->ts);
+
+		{
+			const auto ts_off = img->ts - img->timestamp;
+			if(time_init) {
+				// keep updating offset to converge
+				time_offset = (time_offset * 63 + ts_off) / 64;
+			} else {
+				time_offset = ts_off;
+				time_init = true;
+			}
+			std::cout << "time_offset = " << time_offset << std::endl;
+		}
+		const auto ts = time_offset + img->timestamp - img->exposure / 2 - camera_delay;
+
+		exec(ts);
 	}
 
 	void on_sample(std::shared_ptr<Sample> sample)
@@ -294,12 +307,14 @@ private:
 private:
 	Thread gl_main;
 
-	Mat3f K_cam;			// intrinsic
 	Mat3f R_BC;			// mounting to frame
+
+	int64_t time_offset = 0;	// [us]
 
 	Gyro::State prev_gyro;
 
 	bool have_init = false;
+	bool time_init = false;
 
 };
 
