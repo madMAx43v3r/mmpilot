@@ -21,6 +21,9 @@
 #include <mmpilot/smooth.h>
 #include <mmpilot/homography.h>
 #include <mmpilot/virtual_cam.h>
+#include <mmpilot/beta_msp.h>
+#include <mmpilot/gyro.h>
+#include <mmpilot/math.h>
 
 #include <mmpilot/egl.h>
 
@@ -36,13 +39,16 @@ public:
 	float radius_mask = 1;			// proportional to width / 2
 
 	float FOV_in = 200;				// fisheye deg (diagonal)
-	float FOV_cam = 120;			// virtual deg (diagonal)
+	float FOV_cam = 100;			// virtual deg (diagonal)
+
+	Vec3f RPY_cam = Vec3f(0, 90, 0);	// relative to frame [deg]
 
 	int gradient_window = 7;
 	int pyramid_depth = 6;
 
 	std::vector<int> num_iters = {1, 2, 4, 10, 20};
 
+	Gyro gyro;
 	FlipImage flip_image;
 	WeightRadius weight_radius;
 	VirtualCam virtual_cam;
@@ -78,7 +84,7 @@ public:
 			glGenFramebuffers(2, fbo_tmp);
 		}
 
-		void exec(std::shared_ptr<GL_Tex2D> img)
+		void exec(std::shared_ptr<GL_Tex2D> img, const Gyro::State& gyro)
 		{
 			smooth[0].exec(img);
 			smooth[1].exec(smooth[0].out);
@@ -132,6 +138,11 @@ public:
 		gl_main.close();
 	}
 
+	void handle(std::shared_ptr<Sample> sample)
+	{
+		gl_main.post(std::bind(&Pipeline::on_sample, this, sample));
+	}
+
 	void handle(std::shared_ptr<Image> img)
 	{
 		gl_main.post(std::bind(&Pipeline::exec_image, this, img));
@@ -145,11 +156,10 @@ public:
 protected:
 	void init(int width, int height)
 	{
-//		this->width = width;
-//		this->height = height;
-
 		flip_image.flip_x = src_flip_x;
 		flip_image.flip_y = src_flip_y;
+
+		R_cam = rpy_to_rot_zyx_deg<Mat3f>(RPY_cam);
 
 		if(radius_mask > 0) {
 			weight_radius.radius = (width / 2) * radius_mask;
@@ -189,18 +199,29 @@ protected:
 		have_init = true;
 	}
 
-	void exec()
+	void exec(const int64_t ts)
 	{
 		if(!have_init) {
 			throw std::logic_error("!have_init");
 		}
+		if(!gyro.avail()) {
+			std::cout << "Waiting for gyro ..." << std::endl;
+			return;
+		}
 		GL_finish();
+
+		const auto gyro_state = gyro.lookup(ts);
+		const auto RPY = gyro_state.RPY;
+
+		std::cout << "RPY = " << RPY << std::endl;
 
 		flip_image.exec(input_luma);
 
 		weight_radius.exec(flip_image.out);
 
 		if(is_fisheye) {
+			const auto R_WB = rpy_to_rot_zyx_deg<Mat3f>(Vec3f(RPY[0], RPY[1], 0));
+			virtual_cam.R_mat = (R_cam * R_WB * R_cam.transpose());
 			virtual_cam.exec(weight_radius.out);
 			pyramid_filter.exec(virtual_cam.out);
 		} else {
@@ -209,11 +230,13 @@ protected:
 
 		for(int i = pyramid_depth - 1; i >= 0; --i)
 		{
-			stage[i]->exec(pyramid_filter.out[i]);
+			stage[i]->exec(pyramid_filter.out[i], gyro_state);
 		}
 
+		prev_gyro = gyro_state;
+
 //		show(display, flip_image.out, {1, 1, 1, 1});
-//		show(display, virtual_cam.out, {1, 0.1, 1, 1});
+		show(display, virtual_cam.out, {1, 0.1, 1, 1});
 //		show(display, pyramid_filter.out[5], {1, 0.5, 1, 1});
 //		show(display, stage[2]->smooth[1].out, {1, 0.1, 1, 1});
 //		show(display, stage[0]->solver.tex_debug, {1, 1, 1, 1});
@@ -240,7 +263,17 @@ protected:
 			}
 			input_luma->upload(img->data[0].data(), img->stride);
 		}
-		exec();
+		exec(img->ts);
+	}
+
+	void on_sample(std::shared_ptr<Sample> sample)
+	{
+		if(auto imu = std::dynamic_pointer_cast<MSP2Client::RawImu>(sample)) {
+			gyro.on_raw_imu(*imu);
+		}
+		else if(auto att = std::dynamic_pointer_cast<MSP2Client::Attitude>(sample)) {
+			gyro.on_attitude(*att);
+		}
 	}
 
 private:
@@ -260,10 +293,12 @@ private:
 	}
 
 private:
-//	int width = 0;
-//	int height = 0;
-
 	Thread gl_main;
+
+	Mat3f K_cam;			// intrinsic
+	Mat3f R_cam;			// mounting to frame
+
+	Gyro::State prev_gyro;
 
 	bool have_init = false;
 
