@@ -44,7 +44,7 @@ void main()
 
     // Distort in "angle radius" space: r (radians)
     float r  = theta;           // equidistant
-    // float r = 2.0 * sin(theta / 2.0);    // equisolid
+    // float r = 2.0 * sin(theta / 2.0);   // equisolid
     // float r = 2.0 * tan(theta / 2.0);   // stereographic
     float r2 = r * r;
     float r4 = r2 * r2;

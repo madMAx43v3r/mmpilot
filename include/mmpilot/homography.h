@@ -10,6 +10,7 @@
 
 #include <mmpilot/texture.h>
 #include <mmpilot/opengl.h>
+#include <mmpilot/math.h>
 
 #include <array>
 
@@ -35,6 +36,9 @@ public:
 		void shift(float x, float y) {
 			(*this)[2] += x;
 			(*this)[5] += y;
+		}
+		Vec2f get_shift() const {
+			return Vec2f((*this)[2], (*this)[5]);
 		}
 	};
 

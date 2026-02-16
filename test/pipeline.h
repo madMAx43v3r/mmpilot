@@ -48,7 +48,7 @@ public:
 	int gradient_window = 7;
 	int pyramid_depth = 6;
 
-	std::vector<int> num_iters = {1, 2, 4, 10, 20};
+	std::vector<int> num_iters = {1, 2, 4, 12};
 
 	Gyro gyro;
 	FlipImage flip_image;
@@ -231,10 +231,12 @@ protected:
 			stage[i]->exec(pyramid_filter.out[i], gyro_state);
 		}
 
+		total_shift += stage[0]->H_out.get_shift().norm();
+
 		prev_gyro = gyro_state;
 
 //		show(display, flip_image.out, {1, 0.2, 1, 1});
-		show(display, virtual_cam.out, {1, 0.1, 1, 1});
+//		show(display, virtual_cam.out, {1, 0.1, 1, 1});
 //		show(display, pyramid_filter.out[5], {1, 0.5, 1, 1});
 //		show(display, stage[2]->smooth[1].out, {1, 0.1, 1, 1});
 //		show(display, stage[0]->solver.tex_debug, {1, 1, 1, 1});
@@ -278,6 +280,8 @@ protected:
 				- camera_delay;
 
 		exec(ts);
+
+		std::cout << "[" << img->sequence << "] total_shift = " << total_shift << std::endl;
 	}
 
 	void on_sample(std::shared_ptr<Sample> sample)
@@ -312,6 +316,8 @@ private:
 	Mat3f R_BC;			// mounting to frame
 
 	int64_t time_offset = 0;	// [us]
+
+	double total_shift = 0;
 
 	Gyro::State prev_gyro;
 
