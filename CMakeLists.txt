@@ -28,6 +28,7 @@ include_directories(
 
 add_library(mmpilot_util STATIC
 	src/util.cpp
+	src/serial.cpp
 )
 
 add_library(mmpilot_math STATIC
