@@ -182,14 +182,6 @@ Homography::Params Homography::solve(
 		for(int i = 0; i < 8; ++i) {
 			params[i] -= delta[i];
 		}
-
-		// renormalize homography scale to keep numbers sane
-		// Here, keep p2 / p5 roughly on the same scale by normalizing by (p6,p7,1) magnitude.
-		const auto s = std::sqrt(params[6]*params[6] + params[7]*params[7] + 1);
-		for(auto& v : params) {
-			// TODO: needed?
-//			v /= s;
-		}
 	}
 
 	glUseProgram(prog_debug);
