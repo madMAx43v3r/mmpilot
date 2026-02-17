@@ -64,10 +64,10 @@ public:
 		}
 		const auto begin = get_time_micros();
 
-		// fisheye baseline (input)
+		// fisheye baseline (equidistant)
 		const auto fov_rad = FOV_in * (M_PI / 180);
 		const auto diag = Vec2f(in->width, in->height).norm() / 2;
-		const auto uF = diag / (fov_rad / 2);   // pixels per radian
+		const auto uF = diag / (fov_rad / 2);
 
 		glUseProgram(prog);
 

@@ -5,26 +5,24 @@ layout(location = 0) out vec4 outColor;
 
 uniform sampler2D uSrc;         // fisheye source
 
-uniform vec2 uInvSrcSize;       // (1/inW, 1/inH)
+uniform vec2  uInvSrcSize;      // (1/inW, 1/inH)
 
 // Virtual pinhole camera
 uniform vec2  uCenter;          // (outW/2, outH/2)
 uniform vec2  uInvF;            // inverse focal length (1/pix)
-uniform mat3  uRot;             // rotation: dirF = uR * dirV
+uniform mat3  uRot;             // camera rotation
 
 // Fisheye intrinsics
-uniform float uF;               // fisheye scale in px per radian (equidistant baseline)
-uniform float uK2;              // r^2 coeff on angle-radius (r = theta)
+uniform float uF;               // fisheye scale in px
+uniform float uK2;              // r^2 coeff on angle-radius
 uniform float uK4;              // r^4 coeff on angle-radius
 
 void main()
 {
     vec2 pOut = gl_FragCoord.xy - uCenter;
 
-    // Virtual camera coords: x right, y up, z forward.
-    // Flip ndc.y because screen y usually grows upward in NDC but gl_FragCoord grows upward too;
-    // using -ndc.y gives conventional image coordinates (y down). Change if needed.
-    vec3 dirV = normalize(vec3(pOut.x * uInvF.x, pOut.y * uInvF.y, 1.0));
+    // Virtual camera ray direction
+    vec3 dirV = normalize(vec3(pOut * uInvF, 1));
 
     // Rotate into fisheye camera coordinates
     vec3 dirF = normalize(uRot * dirV);
@@ -37,10 +35,10 @@ void main()
 
     // Angle from optical axis
     float xy = length(dirF.xy);
-    float theta = atan(xy, dirF.z);   // stable for 0..pi
+    float theta = atan(xy, dirF.z);
 
     // Unit direction on image plane
-    vec2 v = (xy > 1e-8) ? (dirF.xy / xy) : vec2(0.0);
+    vec2 v = (xy > 1e-8) ? (dirF.xy / xy) : vec2(0);
 
     // Distort in "angle radius" space: r (radians)
     float r  = theta;           // equidistant
@@ -50,10 +48,9 @@ void main()
     float r4 = r2 * r2;
     float rd = r * (1.0 + uK2 * r2 + uK4 * r4);
 
-    // Equidistant baseline: pixel radius = f * rd
-    vec2 uv = vec2(0.5) + (uF * rd) * (v * uInvSrcSize);
+    // Reproject to fisheye
+    vec2 uv = vec2(0.5) + ((uF * rd) * v) * uInvSrcSize;
 
-    // Outside => border (avoid wrap artifacts)
     if(uv.x < 0.0 || uv.y < 0.0 || uv.x >= 1.0 || uv.y >= 1.0) {
         outColor = vec4(0);
         return;
