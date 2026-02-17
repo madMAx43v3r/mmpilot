@@ -65,7 +65,7 @@ public:
 		GradientFilter gradient;
 		Homography solver;
 
-		Homography::Params8 H_out;
+		Homography::Params H_out;
 
 		std::shared_ptr<Level> upper;			// lower scale (upper level)
 		std::shared_ptr<GL_Tex2D> prev_img;
@@ -101,7 +101,7 @@ public:
 			gradient.exec(in);
 
 			if(sequence) {
-				Homography::Params8 p_init;
+				Homography::Params p_init;
 				if(upper) {
 					p_init = upper->H_out;
 					p_init.scale(2);
