@@ -41,6 +41,7 @@ public:
 
 	float radius_mask = 1;			// proportional to width / 2
 	float rebase_delta = 50;		// pixels traveled
+	float rebase_scale = 1.5;		// relative scale change
 
 	float FOV_in = 200;				// fisheye deg (diagonal)
 	float FOV_cam = 120;			// virtual deg (diagonal)
@@ -262,7 +263,8 @@ protected:
 
 		map.render(T, src);
 
-		if(T.pos.norm() > rebase_delta) {
+		if(T.pos.norm() > rebase_delta || T.scale > rebase_scale || T.scale < 1 / rebase_scale)
+		{
 			for(int i = 0; i < pyramid_depth; ++i) {
 				stage[i]->rebase(pyramid.out[i]);
 			}
