@@ -18,6 +18,9 @@ namespace mmpilot {
 using Vec2f = Eigen::Matrix<float, 2, 1>;
 using Vec2d = Eigen::Matrix<double, 2, 1>;
 
+using Mat2f = Eigen::Matrix<float, 2, 2>;
+using Mat2d = Eigen::Matrix<double, 2, 2>;
+
 using Mat3f = Eigen::Matrix<float, 3, 3>;
 using Mat3d = Eigen::Matrix<double, 3, 3>;
 
@@ -61,10 +64,26 @@ T angle_delta_180(T a_deg, T b_deg)
 	return angle_norm_180(b_deg - a_deg);
 }
 
+template<typename T>
+T get_angle(const Eigen::Matrix<T,2,2>& R)
+{
+	return std::atan2(R(1,0), R(0,0));
+}
+
+template<typename T>
+Eigen::Matrix<T,2,2> normalize_rot(Eigen::Matrix<T,2,2>& R)
+{
+	const auto a = get_angle(R);
+	Eigen::Matrix<T,2,2> Q;
+	Q << std::cos(a), -std::sin(a),
+		 std::sin(a),  std::cos(a);
+	return Q;
+}
+
 // Rotation matrix from roll/pitch/yaw in degrees, ZYX order:
 // R = Rz(yaw) * Ry(pitch) * Rx(roll)
-template<typename M, typename V>
-M rpy_to_rot_zyx_deg(const V& rpy_deg)
+template<typename T>
+Eigen::Matrix<T,3,3> rpy_to_rot_zyx_deg(const Eigen::Matrix<T,3,1>& rpy_deg)
 {
 	const float cr = std::cos(deg2rad(rpy_deg[0]));
 	const float sr = std::sin(deg2rad(rpy_deg[0]));
@@ -73,7 +92,7 @@ M rpy_to_rot_zyx_deg(const V& rpy_deg)
 	const float cy = std::cos(deg2rad(rpy_deg[2]));
 	const float sy = std::sin(deg2rad(rpy_deg[2]));
 
-	M R;
+	Eigen::Matrix<T,3,3> R;
 	// ZYX (yaw-pitch-roll)
 	R(0, 0) = cy * cp;
 	R(0, 1) = cy * sp * sr - sy * cr;

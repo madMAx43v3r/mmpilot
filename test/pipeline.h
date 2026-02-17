@@ -24,6 +24,7 @@
 #include <mmpilot/beta_msp.h>
 #include <mmpilot/gyro.h>
 #include <mmpilot/math.h>
+#include <mmpilot/mapping.h>
 
 #include <mmpilot/egl.h>
 
@@ -39,6 +40,7 @@ public:
 	int64_t camera_delay = 20000;	// [us]
 
 	float radius_mask = 1;			// proportional to width / 2
+	float rebase_delta = 50;		// pixels traveled
 
 	float FOV_in = 200;				// fisheye deg (diagonal)
 	float FOV_cam = 120;			// virtual deg (diagonal)
@@ -54,7 +56,8 @@ public:
 	FlipImage flip_image;
 	WeightRadius weight_radius;
 	VirtualCam virtual_cam;
-	PyramidFilter pyramid_filter;
+	PyramidFilter pyramid;
+	Mapping map;
 
 	class Level {
 	public:
@@ -65,10 +68,10 @@ public:
 		GradientFilter gradient;
 		Homography solver;
 
-		Homography::Params H_out;
+		Homography::Params H;
 
 		std::shared_ptr<Level> upper;			// lower scale (upper level)
-		std::shared_ptr<GL_Tex2D> prev_img;
+		std::shared_ptr<GL_Tex2D> base_img;
 
 		void init(Pipeline* pipe, int level, int width, int height)
 		{
@@ -91,12 +94,26 @@ public:
 
 			solver.init(width, height);
 
-			prev_img = std::make_shared<GL_Tex2D>(width, height, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT);
+			base_img = std::make_shared<GL_Tex2D>(width, height, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT);
 
 			glGenFramebuffers(2, fbo_tmp);
 		}
 
 		void exec(std::shared_ptr<GL_Tex2D> img, const Gyro::State& gyro)
+		{
+			if(have_base) {
+				if(upper) {
+					H = Homography::Params(upper->H).scale(2);
+				}
+				H = solver.solve(base_img, img, H);
+
+				std::cout << "params[" << level << "][" << solver.num_iters << "] = " << to_string(H) << std::endl;
+			} else {
+				rebase(img);
+			}
+		}
+
+		void rebase(std::shared_ptr<GL_Tex2D> img)
 		{
 			auto in = img;
 			for(int i = 0; i < num_smooth; ++i) {
@@ -105,25 +122,15 @@ public:
 			}
 			gradient.exec(in);
 
-			if(sequence) {
-				Homography::Params p_init;
-				if(upper) {
-					p_init = upper->H_out;
-					p_init.scale(2);
-				}
-				// TODO: handle exceptions
-				H_out = solver.solve(prev_img, img, p_init);
+			GL_blit_FBO(fbo_tmp[0], fbo_tmp[1], base_img, gradient.out);
 
-				std::cout << "params[" << level << "][" << solver.num_iters << "] = " << to_string(H_out) << std::endl;
-			}
-
-			GL_blit_FBO(fbo_tmp[0], fbo_tmp[1], prev_img, gradient.out);
-
-			sequence++;
+			H = Homography::Params();
+			have_base = true;
 		}
 
 	private:
-		uint64_t sequence = 0;
+		bool have_base = false;
+
 		GLuint fbo_tmp[2] = {};
 	};
 
@@ -155,7 +162,7 @@ public:
 
 	void handle(std::shared_ptr<Image> img)
 	{
-		gl_main.post(std::bind(&Pipeline::exec_image, this, img));
+		gl_main.post(std::bind(&Pipeline::on_image, this, img));
 		sync();
 	}
 
@@ -169,12 +176,12 @@ protected:
 		flip_image.flip_x = src_flip_x;
 		flip_image.flip_y = src_flip_y;
 
-		R_BC = rpy_to_rot_zyx_deg<Mat3f>(RPY_cam);
+		R_BC = rpy_to_rot_zyx_deg(RPY_cam);
 
 		if(radius_mask > 0) {
 			weight_radius.radius = (width / 2) * radius_mask;
 		}
-		pyramid_filter.depth = pyramid_depth;
+		pyramid.depth = pyramid_depth;
 
 		input_luma = std::make_shared<GL_Tex2D>(width, height, GL_R8, GL_RED, GL_UNSIGNED_BYTE);
 
@@ -188,7 +195,7 @@ protected:
 			width = virtual_cam.width;
 			height = virtual_cam.height;
 		}
-		pyramid_filter.init(width, height, GL_RG16F, GL_RG, GL_HALF_FLOAT);
+		pyramid.init(width, height, GL_RG16F, GL_RG, GL_HALF_FLOAT);
 
 		int w = width;
 		int h = height;
@@ -205,6 +212,8 @@ protected:
 		{
 			stage[i]->upper = stage[i + 1];
 		}
+
+		map.init(GL_R16F, GL_RED, GL_HALF_FLOAT);
 
 		have_init = true;
 	}
@@ -229,21 +238,36 @@ protected:
 
 		weight_radius.exec(flip_image.out);
 
+		auto src = weight_radius.out;
 		if(is_fisheye) {
-			const auto R_WB = rpy_to_rot_zyx_deg<Mat3f>(Vec3f(RPY[1], -RPY[0], -RPY[2]));
+			const auto R_WB = rpy_to_rot_zyx_deg(Vec3f(RPY[1], -RPY[0], -RPY[2]));
 			virtual_cam.R_mat = R_BC * R_WB.transpose();
 			virtual_cam.exec(weight_radius.out);
-			pyramid_filter.exec(virtual_cam.out);
-		} else {
-			pyramid_filter.exec(weight_radius.out);
+			src = virtual_cam.out;
+		}
+		pyramid.exec(src);
+
+		// TODO: handle exceptions
+		for(int i = pyramid_depth - 1; i >= 0; --i) {
+			// top down processing
+			stage[i]->exec(pyramid.out[i], gyro_state);
 		}
 
-		for(int i = pyramid_depth - 1; i >= 0; --i)
-		{
-			stage[i]->exec(pyramid_filter.out[i], gyro_state);
+		for(int i = 1; i < pyramid_depth; ++i) {
+			// back propagate most accurate result
+			stage[i]->H = Homography::Params(stage[i-1]->H).scale(0.5);
 		}
+		const auto H = stage[0]->H;
+		const auto T = H.transform().inverse();
 
-		total_shift += stage[0]->H_out.get_shift().norm();
+		map.render(T, src);
+
+		if(T.pos.norm() > rebase_delta) {
+			for(int i = 0; i < pyramid_depth; ++i) {
+				stage[i]->rebase(pyramid.out[i]);
+			}
+			map.update(T);
+		}
 
 		prev_gyro = gyro_state;
 
@@ -254,7 +278,7 @@ protected:
 //		show(display, stage[0]->solver.tex_debug, {1, 1, 1, 1});
 	}
 
-	void exec_image(std::shared_ptr<Image> img)
+	void on_image(std::shared_ptr<Image> img)
 	{
 		const auto begin = get_time_micros();
 
@@ -296,7 +320,6 @@ protected:
 		exec(ts);
 
 		std::cout << "[" << img->sequence << "] total_time = " << (get_time_micros() - begin) / 1e3 << " ms" << std::endl;
-		std::cout << "[" << img->sequence << "] total_shift = " << total_shift << std::endl;
 	}
 
 	void on_sample(std::shared_ptr<Sample> sample)
@@ -331,8 +354,6 @@ private:
 	Mat3f R_BC;			// mounting to frame
 
 	int64_t time_offset = 0;	// [us]
-
-	double total_shift = 0;
 
 	Gyro::State prev_gyro;
 

@@ -25,7 +25,7 @@ public:
 		Vec3f RPY = Vec3f::Zero();	// [deg]
 
 		Mat3f matrix() const {
-			return rpy_to_rot_zyx_deg<Mat3f>(RPY);
+			return rpy_to_rot_zyx_deg(RPY);
 		}
 	};
 
@@ -86,7 +86,7 @@ public:
 	Mat3f matrix(const int64_t ts) const
 	{
 		const auto s = lookup(ts);
-		return rpy_to_rot_zyx_deg<Mat3f>(s.RPY);
+		return rpy_to_rot_zyx_deg(s.RPY);
 	}
 
 	State lookup(const int64_t ts) const

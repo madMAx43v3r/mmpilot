@@ -10,7 +10,7 @@
 
 #include <mmpilot/texture.h>
 #include <mmpilot/opengl.h>
-#include <mmpilot/math.h>
+#include <mmpilot/transform.h>
 
 #include <array>
 
@@ -43,6 +43,17 @@ public:
 			p(4) = 1;
 		}
 
+		Params(const Params&) = default;
+
+		Params(const Mat3f& M) {
+			p(0) = M(0,0);  p(1) = M(0,1);  p(2) = M(0,2);
+			p(3) = M(1,0);  p(4) = M(1,1);  p(5) = M(1,2);
+			p(6) = M(2,0);  p(7) = M(2,1);
+			for(int i = 0; i < 8; ++i) {
+				p(i) /= M(2,2);
+			}
+		}
+
 		float& p(size_t i) {
 			return (*this)[i];
 		}
@@ -51,16 +62,14 @@ public:
 			return (*this)[i];
 		}
 
-		void scale(float s) {
+		Params& scale(float s) {
 			p(2) *= s; p(5) *= s;
+			return *this;
 		}
 
-		void shift(float x, float y) {
+		Params& shift(float x, float y) {
 			p(2) += x; p(5) += y;
-		}
-
-		Vec2f get_shift() const {
-			return Vec2f(p(2), p(5));
+			return *this;
 		}
 
 		Mat3f matrix() const {
@@ -70,6 +79,12 @@ public:
 				 p(6), p(7), 1.0f;
 			return M;
 		}
+
+		Params inverse() const {
+			return Params(Mat3f(matrix().inverse()));
+		}
+
+		Transform2D transform() const;
 
 		Vec2f project(const Vec2f& v) const
 		{
