@@ -47,6 +47,7 @@ add_library(mmpilot_opengl STATIC
 
 add_library(mmpilot_vision STATIC
 	src/homography.cpp
+	src/mapping.cpp
 )
 
 target_include_directories(mmpilot_opengl

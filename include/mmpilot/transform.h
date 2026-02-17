@@ -27,6 +27,16 @@ public:
 		normalize_rot(rot);
 	}
 
+	Vec2f apply(const Vec2f& p) const
+	{
+		return pos + rot * (p * scale);
+	}
+
+	Vec2f apply(float x, float y) const
+	{
+		return apply(Vec2f(x, y));
+	}
+
 	Transform2D inverse() const
 	{
 		Transform2D inv;

@@ -50,6 +50,7 @@ public:
 
 	int gradient_window = 7;
 	int pyramid_depth = 5;
+	int map_size = 2048;
 
 	std::vector<int> num_iters = {1, 2, 4, 8, 12};
 
@@ -214,7 +215,9 @@ protected:
 			stage[i]->upper = stage[i + 1];
 		}
 
-		map.init(GL_R16F, GL_RED, GL_HALF_FLOAT);
+		map.width = map_size;
+		map.height = map_size;
+		map.init(GL_RG);
 
 		have_init = true;
 	}
@@ -259,10 +262,10 @@ protected:
 			stage[i]->H = Homography::Params(stage[i-1]->H).scale(0.5);
 		}
 		const auto H = stage[0]->H;
-		const auto H_inv = H.applied_inverse(src->width, src->height);
-		const auto T = H.transform().inverse();
+		const auto T = H.transform();
 
-		map.render(src, H_inv);
+		map.render(src, H.apply(src->width, src->height));
+		map.finalize();		// TODO: debugging
 
 		if(T.pos.norm() > rebase_delta || T.scale > rebase_scale || T.scale < 1 / rebase_scale)
 		{

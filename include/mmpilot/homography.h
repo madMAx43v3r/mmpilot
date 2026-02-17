@@ -112,7 +112,6 @@ public:
 
 		Transform2D transform() const;
 
-		// optional centering, requires apply()
 		Vec2f project(const Vec2f& v, const Vec2f& center = Vec2f::Zero()) const {
 			if(!is_applied) {
 				throw std::logic_error("Params: not applied");
@@ -122,6 +121,19 @@ public:
 			return center + Vec2f(
 				(p(0) * q.x() + p(1) * q.y() + p(2)) / w,
 				(p(3) * q.x() + p(4) * q.y() + p(5)) / w
+			);
+		}
+
+		Vec3f project3(const Vec2f& v, const Vec2f& center = Vec2f::Zero()) const {
+			if(!is_applied) {
+				throw std::logic_error("Params: not applied");
+			}
+			const Vec2f q = v - center;
+			const float w = p(6) * q.x() + p(7) * q.y() + 1;
+			return Vec3f(
+				(p(0) * q.x() + p(1) * q.y() + p(2)) / w + center.x(),
+				(p(3) * q.x() + p(4) * q.y() + p(5)) / w + center.y(),
+				w
 			);
 		}
 	private:

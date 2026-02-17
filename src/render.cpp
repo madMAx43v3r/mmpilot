@@ -20,8 +20,10 @@ void fullscreen(GLuint fbo, int width, int height)
 {
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 	glViewport(0, 0, width, height);
-	glDisable(GL_DEPTH_TEST);
+
 	glDisable(GL_BLEND);
+	glDisable(GL_DEPTH_TEST);
+	glDisable(GL_SCISSOR_TEST);
 
 	// a dummy VAO is required in core-ish profiles; ES typically too
 	glBindVertexArray(g_dummy_vao);
