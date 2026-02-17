@@ -86,7 +86,7 @@ public:
 				smooth[i].init(width, height, GL_RG16F, GL_RG, GL_HALF_FLOAT);
 			}
 
-			gradient.win_size = pipe->gradient_window;
+			gradient.win_size = level > 0 ? pipe->gradient_window : 5;
 			gradient.init(width, height);
 
 			solver.init(width, height);
