@@ -59,16 +59,27 @@ public:
 			p(2) += x; p(5) += y;
 		}
 
-		void normalize() {
-			const auto s = 1 / Vec3f(p(6), p(7), 1).norm();
-			for(int i = 0; i < 8; ++i) {
-				p(i) *= s;
-			}
-		}
-
 		Vec2f get_shift() const {
 			return Vec2f(p(2), p(5));
 		}
+
+		Mat3f matrix() const {
+			Mat3f M;
+			M << p(0), p(1), p(2),
+				 p(3), p(4), p(5),
+				 p(6), p(7), 1.0f;
+			return M;
+		}
+
+		Vec2f project(const Vec2f& v) const
+		{
+			const auto w = p(6) * v.x() + p(7) * v.y() + 1;
+			return {
+				(p(0) * v.x() + p(1) * v.y() + p(2)) / w,
+				(p(3) * v.x() + p(4) * v.y() + p(5)) / w
+			};
+		}
+
 	};
 
 	~Homography();
