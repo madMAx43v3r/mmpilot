@@ -91,15 +91,13 @@ Transform2D Homography::Params::transform() const
 {
 	// Convert homography to affine transform
 	Transform2D out;
-	const Mat3f H = matrix();
+	out.pos = translation();
 
-	Mat2f A = H.block<2,2>(0, 0);
-	out.pos = H.block<2,1>(0, 2);
-
+	const Mat2f A = rotation();
 	Eigen::JacobiSVD<Mat2f> svd(A, Eigen::ComputeFullU | Eigen::ComputeFullV);
 	Mat2f U = svd.matrixU();
 	Mat2f V = svd.matrixV();
-	Vec2f sig = svd.singularValues();
+	Vec2f svals = svd.singularValues();
 
 	Mat2f R = U * V.transpose();
 	if(R.determinant() < 0.0f) {      // reflection fix
@@ -107,7 +105,9 @@ Transform2D Homography::Params::transform() const
 		R = U * V.transpose();
 	}
 	out.rot = R;
-	out.scale = std::sqrt(std::abs(A.determinant()));
+
+	out.scale = (svals(0) + svals(1)) / 2;
+//	out.scale = std::sqrt(std::abs(A.determinant()));
 	return out;
 }
 

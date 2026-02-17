@@ -62,9 +62,24 @@ public:
 				<< ", scale = " << state.scale << std::endl;
 	}
 
-	void render(const Transform2D& pos, std::shared_ptr<GL_Tex2D> img)
+	void render(std::shared_ptr<GL_Tex2D> img, const Homography::Params& H)
 	{
-		// TODO
+		const float w = img->width;
+		const float h = img->height;
+		const Vec2f center = Vec2f(w, h) / 2;
+
+		Vec2f coords[4] = {
+				H.project(Vec2f(0, 0) - center),	// lower left
+				H.project(Vec2f(w, 0) - center),	// lower right
+				H.project(Vec2f(w, h) - center),	// upper right
+				H.project(Vec2f(0, h) - center)		// upper left
+		};
+
+		std::cout << "Mapping render: " << std::endl;
+		for(int i = 0; i < 4; ++i) {
+			std::cout << "  " << coords[i].transpose() << std::endl;
+		}
+
 	}
 
 private:

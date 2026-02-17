@@ -45,15 +45,6 @@ public:
 
 		Params(const Params&) = default;
 
-		Params(const Mat3f& M) {
-			p(0) = M(0,0);  p(1) = M(0,1);  p(2) = M(0,2);
-			p(3) = M(1,0);  p(4) = M(1,1);  p(5) = M(1,2);
-			p(6) = M(2,0);  p(7) = M(2,1);
-			for(int i = 0; i < 8; ++i) {
-				p(i) /= M(2,2);
-			}
-		}
-
 		float& p(size_t i) {
 			return (*this)[i];
 		}
@@ -72,7 +63,21 @@ public:
 			return *this;
 		}
 
+		Params apply(float width, float height) const {
+			if(is_applied) {
+				throw std::logic_error("Params: already applied");
+			}
+			Params out(*this);
+			out.p(6) /= width;
+			out.p(7) /= height;
+			out.is_applied = true;
+			return out;
+		}
+
 		Mat3f matrix() const {
+			if(!is_applied) {
+				throw std::logic_error("Params: not applied");
+			}
 			Mat3f M;
 			M << p(0), p(1), p(2),
 				 p(3), p(4), p(5),
@@ -80,21 +85,58 @@ public:
 			return M;
 		}
 
+		Mat2f rotation() const {
+			Mat2f M;
+			M << p(0), p(1),
+				 p(3), p(4);
+			return M;
+		}
+
+		Vec2f translation() const {
+			return Vec2f(p(2), p(5));
+		}
+
 		Params inverse() const {
-			return Params(Mat3f(matrix().inverse()));
+			if(!is_applied) {
+				throw std::logic_error("Params: not applied");
+			}
+			return Params(matrix().inverse());
+		}
+
+		Params applied_inverse(float width, float height) const {
+			if(is_applied) {
+				throw std::logic_error("Params: already applied");
+			}
+			return apply(width, height).inverse();
 		}
 
 		Transform2D transform() const;
 
-		Vec2f project(const Vec2f& v) const
-		{
-			const auto w = p(6) * v.x() + p(7) * v.y() + 1;
-			return {
-				(p(0) * v.x() + p(1) * v.y() + p(2)) / w,
-				(p(3) * v.x() + p(4) * v.y() + p(5)) / w
-			};
+		// optional centering, requires apply()
+		Vec2f project(const Vec2f& v, const Vec2f& center = Vec2f::Zero()) const {
+			if(!is_applied) {
+				throw std::logic_error("Params: not applied");
+			}
+			const Vec2f q = v - center;
+			const float w = p(6) * q.x() + p(7) * q.y() + 1;
+			return center + Vec2f(
+				(p(0) * q.x() + p(1) * q.y() + p(2)) / w,
+				(p(3) * q.x() + p(4) * q.y() + p(5)) / w
+			);
 		}
+	private:
+		bool is_applied = false;
 
+		Params(const Mat3f& M)
+		{
+			p(0) = M(0,0);  p(1) = M(0,1);  p(2) = M(0,2);
+			p(3) = M(1,0);  p(4) = M(1,1);  p(5) = M(1,2);
+			p(6) = M(2,0);  p(7) = M(2,1);
+			for(int i = 0; i < 8; ++i) {
+				p(i) /= M(2,2);
+			}
+			is_applied = true;
+		}
 	};
 
 	~Homography();

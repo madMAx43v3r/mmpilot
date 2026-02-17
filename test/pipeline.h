@@ -259,9 +259,10 @@ protected:
 			stage[i]->H = Homography::Params(stage[i-1]->H).scale(0.5);
 		}
 		const auto H = stage[0]->H;
+		const auto H_inv = H.applied_inverse(src->width, src->height);
 		const auto T = H.transform().inverse();
 
-		map.render(T, src);
+		map.render(src, H_inv);
 
 		if(T.pos.norm() > rebase_delta || T.scale > rebase_scale || T.scale < 1 / rebase_scale)
 		{
