@@ -75,7 +75,12 @@ public:
 			this->level = level;
 
 			if(num_smooth < 0) {
-				num_smooth = level > 0 ? 2 : 1;
+				switch(level) {
+					case 0:  num_smooth = 0; break;
+					case 1:  num_smooth = 1; break;
+					case 2:  num_smooth = 2; break;
+					default: num_smooth = 3;
+				}
 			}
 			for(int i = 0; i < num_smooth; ++i) {
 				smooth[i].init(width, height, GL_RG16F, GL_RG, GL_HALF_FLOAT);
