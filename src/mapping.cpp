@@ -104,11 +104,11 @@ void Mapping::update(const Transform2D& delta)
 
 	std::cout << "Mapping delta = " << delta.pos.transpose()
 			<< ", rot = " << rad2deg(get_angle(delta.rot))
-			<< ", scale = " << delta.scale << std::endl;
+			<< " deg, scale = " << delta.scale << std::endl;
 
 	std::cout << "Mapping pos   = " << state.pos.transpose()
 			<< ", rot = " << rad2deg(get_angle(state.rot))
-			<< ", scale = " << state.scale << std::endl;
+			<< " deg, scale = " << state.scale << std::endl;
 }
 
 void Mapping::render(std::shared_ptr<GL_Tex2D> img, const Homography::Params& H_)

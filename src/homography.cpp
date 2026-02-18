@@ -209,6 +209,8 @@ Homography::Params Homography::solve(
 		hessian(6) *= proj_damping;
 		hessian(7) *= proj_damping;
 
+		// TODO: use H_xy + H_67
+
 		Vec8 delta;
 		for(int i = 0; i < 8; ++i) {
 			delta[i] = gradient[i] / hessian[i];
