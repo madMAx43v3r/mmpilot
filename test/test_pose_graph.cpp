@@ -25,7 +25,7 @@ int main()
 			graph.add_edge(i - 1, i, Vec2d(1, 0));
 		}
 	}
-	graph.add_edge(0, N - 1, Vec2d(N - 1, 1));
+	graph.add_edge(0, N - 1, Vec2d(N, 1), 2);
 
 	for(const auto& node : graph.nodes()) {
 		std::cout << node.transpose() << std::endl;

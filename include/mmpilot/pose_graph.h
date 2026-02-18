@@ -46,6 +46,11 @@ public:
 		return int(nodes_.size()) - 1;
 	}
 
+	void add_edge(const int i, const int j, const Vec2& delta, const T weight)
+	{
+		add_edge(i, j, delta, Mat2::Identity() * weight);
+	}
+
 	void add_edge(	const int i, const int j, const Vec2& delta,
 					const Mat2& info = Mat2::Identity())
 	{
