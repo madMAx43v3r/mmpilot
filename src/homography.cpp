@@ -133,7 +133,7 @@ Homography::Params Homography::solve(
 	Params params = init_p;
 
 	// CPU readback buffers
-	std::vector<float> G0_rgba, G1_rgba, D0_rgba, D1_rgba;
+	std::vector<float> G0_rgba, G1_rgba, D0_rgba, D1_rgba, RwHxy_rgba;
 
 	for(int iter = 0; iter < num_iters; ++iter)
 	{
@@ -171,6 +171,7 @@ Homography::Params Homography::solve(
 		GL_read_FBO_RGBA(fbo_gradient, 1, width, reduction_chunk, G1_rgba);
 		GL_read_FBO_RGBA(fbo_gradient, 2, width, reduction_chunk, D0_rgba);
 		GL_read_FBO_RGBA(fbo_gradient, 3, width, reduction_chunk, D1_rgba);
+		GL_read_FBO_RGBA(fbo_gradient, 4, width, reduction_chunk, RwHxy_rgba);
 
 		// ---------- Assemble and solve
 		Vec8 hessian;
@@ -178,8 +179,26 @@ Homography::Params Homography::solve(
 
 		assemble_equations(gradient, hessian, G0_rgba, G1_rgba, D0_rgba, D1_rgba);
 
+		double R_sum = 0;
+		double W_sum = 0;
+		double H_xy = 0;
+		double H_67 = 0;
+		for(size_t i = 0; i < RwHxy_rgba.size() / 4; ++i) {
+			R_sum += RwHxy_rgba[i * 4 + 0];
+			W_sum += RwHxy_rgba[i * 4 + 1];
+			H_xy  += RwHxy_rgba[i * 4 + 2];
+			H_67  += RwHxy_rgba[i * 4 + 3];
+		}
+		const float R_norm = 100 * sqrt(R_sum) / W_sum;
+		const float num_pixel = width * height;
+
+		params.R_norm = R_norm;
+		params.overlap = W_sum / num_pixel;
+		params.H_xy << hessian(2), H_xy, H_xy, hessian(5);
+		params.H_xy *= 100 / num_pixel;
+
 //		std::cout << "G = " << std::endl << gradient.transpose() << std::endl;
-//		std::cout << "H = " << std::endl << hessian.transpose() << std::endl;
+//		std::cout << "H = " << hessian.transpose() << std::endl;
 
 		// Apply damping
 		for(int i = 0; i < 8; ++i) {
@@ -208,15 +227,20 @@ Homography::Params Homography::solve(
 		}
 	}
 
-	glUseProgram(prog_debug);
+//	std::cout << "Homography: R_norm = " << params.R_norm << ", overlap = " << params.overlap
+//				<< ", H_xx = " << params.H_xy(0,0) << ", H_yy = " << params.H_xy(1,1)
+//				<< ", H_xy = " << params.H_xy(0,1) << std::endl;
 
-	GL_bind_tex(prog_debug, "uImg", img->id, 0);
-	GL_bind_tex(prog_debug, "uRes", tex_residual->id, 1);
+	if(debug) {
+		glUseProgram(prog_debug);
 
-	render::fullscreen(fbo_debug, width, height);
+		GL_bind_tex(prog_debug, "uImg", img->id, 0);
+		GL_bind_tex(prog_debug, "uRes", tex_residual->id, 1);
 
-	GL_finish("Homography::solve()");
+		render::fullscreen(fbo_debug, width, height);
 
+		GL_finish("Homography::solve()");
+	}
 	std::cout << "Homography[" << width << "x" << height << "]: took "
 				<< (get_time_micros() - begin) / 1000.f << " ms" << std::endl;
 	return params;
@@ -253,11 +277,12 @@ void Homography::init(int width_, int height_)
 		tex_hessian.push_back(
 				std::make_shared<GL_Tex2D>(width, reduction_chunk, GL_RGBA32F, GL_RGBA, GL_FLOAT));
 	}
+	tex_RwHxy = std::make_shared<GL_Tex2D>(width, reduction_chunk, GL_RGBA32F, GL_RGBA, GL_FLOAT);
 
 	fbo_jacobian = GL_create_FBO(
 			{tex_jacobian[0]->id, tex_jacobian[1]->id, tex_residual->id, tex_uv->id});
 	fbo_gradient = GL_create_FBO(
-			{tex_gradient[0]->id, tex_gradient[1]->id, tex_hessian[0]->id, tex_hessian[1]->id});
+			{tex_gradient[0]->id, tex_gradient[1]->id, tex_hessian[0]->id, tex_hessian[1]->id, tex_RwHxy->id});
 
 	tex_debug = std::make_shared<GL_Tex2D>(width, height, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE);
 	fbo_debug = GL_create_FBO(tex_debug->id);

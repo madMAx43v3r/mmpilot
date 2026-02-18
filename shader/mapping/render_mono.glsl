@@ -1,7 +1,7 @@
 #version 310 es
 precision highp float;
 
-layout(location = 0) out float outMono;
+layout(location = 0) out vec2  outMono;
 layout(location = 1) out float outWeight;
 
 uniform sampler2D uSrc;
@@ -14,6 +14,6 @@ void main() {
 
     vec4 c = texture(uSrc, uv);
 
-    outMono   = c.x;
+    outMono   = c.xy;
     outWeight = c.y;
 }

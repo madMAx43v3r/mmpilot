@@ -16,34 +16,39 @@ namespace mmpilot {
 static const Vec2f g_uv[4] = {{0,0}, {1,0}, {1,1}, {0,1}};
 
 
-void Mapping::init(int width_, int height_, GLenum format_)
+void Mapping::init(int width_, int height_, GLenum format)
 {
 	if(have_init) {
 		throw std::logic_error("already initialized");
 	}
 	width = width_;
 	height = height_;
-	format = format_;
 
+	if(format == GL_RED) {
+		format = GL_RG;
+	}
+	if(format == GL_RGB) {
+		format = GL_RGBA;
+	}
 	std::string shader;
 	switch(format) {
 		case GL_RG:
-			int_format_out = GL_RG8;
-			int_format_map = GL_RG16F;
+			is_mono = true;
 			shader = "render_mono.glsl";
 			break;
 		case GL_RGBA:
-			int_format_out = GL_RGBA8;
-			int_format_map = GL_RGBA16F;
 			shader = "render_rgba.glsl";
 			break;
 		default:
 			throw std::logic_error("Mapping: invalid format");
 	}
 
-	tex_map     = std::make_shared<GL_Tex2D>(width, height, int_format_map, format, GL_HALF_FLOAT);
-	tex_weight  = std::make_shared<GL_Tex2D>(width, height, GL_R16F, GL_RED, GL_HALF_FLOAT);
-	tex_debug   = std::make_shared<GL_Tex2D>(width, height, int_format_out, format, GL_UNSIGNED_BYTE);
+	tex_map     = std::make_shared<GL_Tex2D>(
+			width, height, is_mono ? GL_RG16F : GL_RGBA16F, format, GL_HALF_FLOAT);
+	tex_weight  = std::make_shared<GL_Tex2D>(
+			width, height, GL_R16F, GL_RED, GL_HALF_FLOAT);
+	tex_debug   = std::make_shared<GL_Tex2D>(
+			width, height, is_mono ? GL_R8 : GL_RGB8, is_mono ? GL_RED : GL_RGB, GL_UNSIGNED_BYTE);
 
 	fbo_map = GL_create_FBO({tex_map->id, tex_weight->id});
 	fbo_debug = GL_create_FBO(tex_debug->id);
@@ -182,6 +187,7 @@ void Mapping::render_image(
 	glUseProgram(prog_map);
 
 	GL_bind_tex(prog_map, "uSrc", img->id, 0);
+
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
@@ -211,7 +217,8 @@ void Mapping::render_image(
 
 void Mapping::add_node()
 {
-	const auto img = std::make_shared<GL_Tex2D>(width, height, int_format_out, format, GL_UNSIGNED_BYTE);
+	const auto img = std::make_shared<GL_Tex2D>(
+			width, height, is_mono ? GL_RG8 : GL_RGBA8, is_mono ? GL_RG : GL_RGBA, GL_UNSIGNED_BYTE);
 	const auto fbo = GL_create_FBO(img->id);
 
 	glUseProgram(prog_out);
@@ -221,7 +228,7 @@ void Mapping::add_node()
 
 	render::fullscreen(fbo, width, height);
 
-	GL_finish("Mapping::overlay()");
+	GL_finish("Mapping::add_node()");
 
 	glDeleteFramebuffers(1, &fbo);
 
@@ -257,8 +264,10 @@ std::shared_ptr<GL_Tex2D> Mapping::finalize()
 
 	std::cout << "Mapping: map size = " << map_width << " x " << map_height << ", nodes = " << nodes.size() << std::endl;
 
-	auto map     = std::make_shared<GL_Tex2D>(map_width, map_height, int_format_map, format, GL_HALF_FLOAT);
-	auto weight  = std::make_shared<GL_Tex2D>(map_width, map_height, GL_R16F, GL_RED, GL_HALF_FLOAT);
+	auto map = std::make_shared<GL_Tex2D>(
+			map_width, map_height, is_mono ? GL_R16F : GL_RGB16F, is_mono ? GL_RED : GL_RGB, GL_HALF_FLOAT);
+	auto weight = std::make_shared<GL_Tex2D>(
+			map_width, map_height, GL_R16F, GL_RED, GL_HALF_FLOAT);
 	auto fbo_map = GL_create_FBO({map->id, weight->id});
 
 	bool do_clear = true;
@@ -276,7 +285,8 @@ std::shared_ptr<GL_Tex2D> Mapping::finalize()
 		do_clear = false;
 	}
 
-	auto out = std::make_shared<GL_Tex2D>(map_width, map_height, int_format_out, format, GL_UNSIGNED_BYTE);
+	auto out = std::make_shared<GL_Tex2D>(
+			map_width, map_height, is_mono ? GL_R8 : GL_RGB8, is_mono ? GL_RED : GL_RGB, GL_UNSIGNED_BYTE);
 	auto fbo_out = GL_create_FBO(out->id);
 
 	glUseProgram(prog_out);

@@ -64,11 +64,10 @@ private:
 	GLuint ebo = 0;
 
 	GLenum format = 0;
-	GLenum int_format_out = 0;
-	GLenum int_format_map = 0;
 
 	bool have_init = false;
 	bool need_clear = true;
+	bool is_mono = false;
 
 };
 

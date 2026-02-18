@@ -100,7 +100,7 @@ public:
 			glGenFramebuffers(2, fbo_tmp);
 		}
 
-		void exec(std::shared_ptr<GL_Tex2D> img, const Gyro::State& gyro)
+		void exec(std::shared_ptr<GL_Tex2D> img)
 		{
 			if(have_base) {
 				if(upper) {
@@ -223,15 +223,11 @@ protected:
 		if(!have_init) {
 			throw std::logic_error("!have_init");
 		}
-		if(!gyro.avail()) {
-			std::cout << "Waiting for gyro ..." << std::endl;
-			return;
+		Vec3f RPY = Vec3f::Zero();
+		if(gyro.avail()) {
+			const auto state = gyro.lookup(ts);
+			RPY = state.RPY;
 		}
-		GL_finish();
-
-		const auto gyro_state = gyro.lookup(ts);
-		const auto RPY = gyro_state.RPY;
-
 		std::cout << "RPY = " << RPY[0] << " " << RPY[1] << " " << RPY[2] << std::endl;
 
 		flip_image.exec(input_luma);
@@ -250,7 +246,7 @@ protected:
 		// TODO: handle exceptions
 		for(int i = pyramid_depth - 1; i >= 0; --i) {
 			// top down processing
-			stage[i]->exec(pyramid.out[i], gyro_state);
+			stage[i]->exec(pyramid.out[i]);
 		}
 
 		for(int i = 1; i < pyramid_depth; ++i) {
@@ -270,8 +266,6 @@ protected:
 		mapping.render(src, H);
 
 		const auto map = mapping.finalize();		// TODO: debugging
-
-		prev_gyro = gyro_state;
 
 //		show(display, flip_image.out, {1, 0.2, 1, 1});
 //		show(display, virtual_cam.out, {1, 0.1, 1, 1});
@@ -359,8 +353,6 @@ private:
 	Mat3f R_BC;			// mounting to frame
 
 	int64_t time_offset = 0;	// [us]
-
-	Gyro::State prev_gyro;
 
 	bool have_init = false;
 	bool time_init = false;

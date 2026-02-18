@@ -25,9 +25,12 @@ public:
 	int num_iters = 8;
 	int reduction_chunk = 32;
 
+	bool debug = true;
+
 	std::shared_ptr<GL_Tex2D> tex_uv;					// (u, v)
 	std::shared_ptr<GL_Tex2D> tex_debug;				// (RGBA)
 	std::shared_ptr<GL_Tex2D> tex_residual;				// (R, w)
+	std::shared_ptr<GL_Tex2D> tex_RwHxy;				// (R, w, H_xy)
 	std::shared_ptr<GL_Tex2D> tex_gradient[2];
 	std::shared_ptr<GL_Tex2D> tex_jacobian[2];
 	std::vector<std::shared_ptr<GL_Tex2D>> tex_hessian;
@@ -37,6 +40,10 @@ public:
 	// [6 7 X]
 	class Params : public std::array<float, 8> {
 	public:
+		float R_norm = 0;		// normalized (factor 100)
+		float overlap = 0;		// (0 to 1)
+		Mat2f H_xy = Mat2f::Identity();
+
 		Params() {
 			for(int i = 0; i < 8; ++i) p(i) = 0;
 			p(0) = 1;
