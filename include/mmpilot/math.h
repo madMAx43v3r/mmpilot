@@ -38,36 +38,46 @@ T rad2deg(T r) {
 	return r * T(180 / M_PI);
 }
 
+// Wrap to [-pi, pi)
+template<typename T>
+T angle_norm_pi(T a) {
+	// atan2(sin, cos) gives [-pi, pi]
+    return std::atan2(std::sin(a), std::cos(a));
+}
+
 // Wrap to [-180, 180)
 template<typename T>
-T angle_norm_180(T deg)
-{
-	// atan2(sin, cos) gives [-pi, pi]
-	const T r = std::atan2(std::sin(deg2rad(deg)), std::cos(deg2rad(deg)));
-	const T d = rad2deg(r); // [-180, 180]
-	// make it [-180,180)
-	return d < 180 ? d : d - 360;
+T angle_norm_180(T deg) {
+	return rad2deg(angle_norm_pi(deg2rad(deg)));
 }
 
 // Wrap to [0, 360)
 template<typename T>
-T angle_norm_360(T deg)
-{
+T angle_norm_360(T deg) {
 	const T d = std::fmod(deg, T(360));
-	return d >= 0 ? d : d + 360;
+	return d < 0 ? d + 360 : d;
 }
 
 // Smallest signed delta to go from a -> b in degrees, result in [-180, 180)
 template<typename T>
-T angle_delta_180(T a_deg, T b_deg)
-{
+T angle_delta_180(T a_deg, T b_deg) {
 	return angle_norm_180(b_deg - a_deg);
 }
 
 template<typename T>
-T get_angle(const Eigen::Matrix<T,2,2>& R)
-{
+T get_angle(const Eigen::Matrix<T,2,2>& R) {
 	return std::atan2(R(1,0), R(0,0));
+}
+
+template<typename T>
+Eigen::Matrix<T,2,2> get_rotation_matrix(const T theta)
+{
+	const T c = std::cos(theta);
+	const T s = std::sin(theta);
+	Eigen::Matrix<T,2,2> R;
+	R << c, -s,
+	     s,  c;
+    return R;
 }
 
 template<typename T>
