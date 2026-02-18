@@ -72,6 +72,8 @@ public:
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
+		GL_uniform_2f(prog, "uInvSize", 1.f / width, 1.f / height);
+
 		render::fullscreen(fbo, width, height);
 
 		if(sync) {
