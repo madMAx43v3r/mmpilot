@@ -219,7 +219,7 @@ Homography::Params Homography::solve(
 		// Update params
 		const auto step_norm = delta.norm();
 
-//		std::cout << "iter " << iter << ": delta = " << step_norm << std::endl;
+//		std::cout << "iter " << iter << ": delta = " << delta.transpose() << std::endl;
 
 		if(!std::isfinite(step_norm)) {
 			throw std::logic_error("Homography: solver failed");
