@@ -147,6 +147,9 @@ private:
 
 inline void show(std::unique_ptr<TexDisplay>& display, std::shared_ptr<GL_Tex2D> tex, const std::array<float, 4>& scale = {1, 1, 1, 1})
 {
+	if(!tex) {
+		return;
+	}
 	if(!display) {
 		display = std::make_unique<TexDisplay>(tex->width, tex->height);
 	}

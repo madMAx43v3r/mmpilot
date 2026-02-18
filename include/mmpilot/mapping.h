@@ -13,6 +13,7 @@
 #include <mmpilot/homography.h>
 #include <mmpilot/transform.h>
 
+#include <vector>
 #include <iostream>
 
 
@@ -20,35 +21,54 @@ namespace mmpilot {
 
 class Mapping {
 public:
-	int width = 4096;
-	int height = 4096;
-
 	Transform2D state;
 
-	std::shared_ptr<GL_Tex2D> out;
 	std::shared_ptr<GL_Tex2D> tex_map;
 	std::shared_ptr<GL_Tex2D> tex_weight;
+	std::shared_ptr<GL_Tex2D> tex_debug;
 
-	void init(GLenum format);
+	void init(int width, int height, GLenum format);
 
 	void update(const Transform2D& delta);
 
 	void render(std::shared_ptr<GL_Tex2D> img, const Homography::Params& H);
 
-	void finalize();
+	std::shared_ptr<GL_Tex2D> finalize();
 
 private:
-	GLuint prog = 0;
+	struct Node {
+		Transform2D pose;
+		std::shared_ptr<GL_Tex2D> image;
+	};
+
+	void add_node();
+
+	void render_image(
+			std::shared_ptr<GL_Tex2D> img, const std::vector<Vec3f>& coords,
+			const GLuint fbo, const int width_, const int height_, bool do_clear);
+
+private:
+	int width = 0;
+	int height = 0;
+
+	std::vector<Node> nodes;
+
+	GLuint prog_map = 0;
 	GLuint prog_out = 0;
 
-	GLuint fbo = 0;
-	GLuint fbo_out = 0;
+	GLuint fbo_map = 0;
+	GLuint fbo_debug = 0;
 
 	GLuint vao = 0;
 	GLuint vbo = 0;
 	GLuint ebo = 0;
 
+	GLenum format = 0;
+	GLenum int_format_out = 0;
+	GLenum int_format_map = 0;
+
 	bool have_init = false;
+	bool need_clear = true;
 
 };
 

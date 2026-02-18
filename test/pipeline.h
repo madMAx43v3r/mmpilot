@@ -50,7 +50,6 @@ public:
 
 	int gradient_window = 7;
 	int pyramid_depth = 5;
-	int map_size = 2048;
 
 	std::vector<int> num_iters = {1, 2, 4, 8, 12};
 
@@ -59,7 +58,7 @@ public:
 	WeightRadius weight_radius;
 	VirtualCam virtual_cam;
 	PyramidFilter pyramid;
-	Mapping map;
+	Mapping mapping;
 
 	class Level {
 	public:
@@ -214,9 +213,7 @@ protected:
 			stage[i]->upper = stage[i + 1];
 		}
 
-		map.width = map_size;
-		map.height = map_size;
-		map.init(GL_RG);
+		mapping.init(width * 2, height * 2, GL_RG);
 
 		have_init = true;
 	}
@@ -261,19 +258,18 @@ protected:
 			stage[i]->H = Homography::Params(stage[i-1]->H).scale(0.5);
 		}
 		const auto H = stage[0]->H;
-		const auto H_wh = H.apply(src->width, src->height);
 		const auto T = H.transform();
-
-		map.render(src, H_wh);
-		map.finalize();		// TODO: debugging
 
 		if(T.pos.norm() > rebase_delta || T.scale > rebase_scale || T.scale < 1 / rebase_scale)
 		{
 			for(int i = 0; i < pyramid_depth; ++i) {
 				stage[i]->rebase(pyramid.out[i]);
 			}
-			map.update(T);
+			mapping.update(T);
 		}
+		mapping.render(src, H);
+
+		const auto map = mapping.finalize();		// TODO: debugging
 
 		prev_gyro = gyro_state;
 

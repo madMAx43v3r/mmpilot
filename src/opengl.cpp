@@ -164,6 +164,13 @@ GLuint GL_create_tex(GLsizei w, GLsizei h, GLenum internal_fmt, GLenum fmt, GLen
 	return tex;
 }
 
+GLuint GL_create_FBO()
+{
+	GLuint fbo = 0;
+	glGenFramebuffers(1, &fbo);
+	return fbo;
+}
+
 GLuint GL_create_FBO(const GLuint tex) {
 	return GL_create_FBO(std::vector<GLuint>{tex});
 }
