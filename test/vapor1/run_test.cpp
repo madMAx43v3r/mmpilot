@@ -79,6 +79,7 @@ int main(int argc, char** argv)
 
 	cam_0->on_frame = [&](const CameraFrame& frame) {
 		pipe_0.handle(convert(frame));
+		pipe_0.sync();
 	};
 
 	cam_0->set_interval(200);

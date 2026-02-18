@@ -36,6 +36,7 @@ int main(int argc, char** argv)
 	{
 		on_frame(frame);
 		pipe_0.handle(frame);
+		pipe_0.sync();
 	};
 
 //	const auto on_frame_1 = [&](std::shared_ptr<Image> frame)

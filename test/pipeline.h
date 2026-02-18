@@ -157,15 +157,14 @@ public:
 		gl_main.close();
 	}
 
-	void handle(std::shared_ptr<Sample> sample)
-	{
-		gl_main.post(std::bind(&Pipeline::on_sample, this, sample));
-	}
-
 	void handle(std::shared_ptr<Image> img)
 	{
 		gl_main.post(std::bind(&Pipeline::on_image, this, img));
-		sync();
+	}
+
+	void handle(std::shared_ptr<Sample> sample)
+	{
+		gl_main.post(std::bind(&Pipeline::on_sample, this, sample));
 	}
 
 	void sync() {
@@ -244,7 +243,7 @@ protected:
 
 		auto src = weight_radius.out;
 		if(is_fisheye) {
-			const auto R_WB = rpy_to_rot_zyx_deg(Vec3f(RPY[1], -RPY[0], -RPY[2]));
+			const auto R_WB = rpy_to_rot_zyx_deg<float>({RPY[1], -RPY[0], -RPY[2]});
 			virtual_cam.R_mat = R_BC * R_WB.transpose();
 			virtual_cam.exec(weight_radius.out);
 			src = virtual_cam.out;
@@ -262,9 +261,10 @@ protected:
 			stage[i]->H = Homography::Params(stage[i-1]->H).scale(0.5);
 		}
 		const auto H = stage[0]->H;
+		const auto H_wh = H.apply(src->width, src->height);
 		const auto T = H.transform();
 
-		map.render(src, H.apply(src->width, src->height));
+		map.render(src, H_wh);
 		map.finalize();		// TODO: debugging
 
 		if(T.pos.norm() > rebase_delta || T.scale > rebase_scale || T.scale < 1 / rebase_scale)
@@ -330,7 +330,10 @@ protected:
 
 	void on_sample(std::shared_ptr<Sample> sample)
 	{
-		if(auto imu = std::dynamic_pointer_cast<MSP2Client::RawImu>(sample)) {
+		if(auto img = std::dynamic_pointer_cast<Image>(sample)) {
+			on_image(img);
+		}
+		else if(auto imu = std::dynamic_pointer_cast<MSP2Client::RawImu>(sample)) {
 			gyro.on_raw_imu(*imu);
 		}
 		else if(auto att = std::dynamic_pointer_cast<MSP2Client::Attitude>(sample)) {

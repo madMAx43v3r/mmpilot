@@ -35,6 +35,7 @@ int main(int argc, char** argv)
 	const auto on_frame_0 = [&](std::shared_ptr<Image> frame) {
 		on_frame(frame);
 		pipe_0.handle(frame);
+		pipe_0.sync();
 	};
 
 	const auto on_raw_imu = [&](std::shared_ptr<MSP2Client::RawImu> imu) {
