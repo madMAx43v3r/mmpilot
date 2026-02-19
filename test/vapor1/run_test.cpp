@@ -53,7 +53,7 @@ int main(int argc, char** argv)
 	pipe_0.src_flip_y = true;
 	pipe_0.radius_mask = 0.9;
 
-	MSP2Client msp("/dev/ttyACM0");
+	MSP2Client msp("/dev/ttyAMA0");
 
 	msp.on_raw_imu = [&](const MSP2Client::RawImu& imu) {
 		pipe_0.handle(std::make_shared<MSP2Client::RawImu>(imu));

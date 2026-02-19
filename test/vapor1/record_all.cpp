@@ -31,7 +31,7 @@ int main(int argc, char** argv)
 
 	Recorder rec(file_name);
 
-	MSP2Client msp("/dev/ttyACM0");
+	MSP2Client msp("/dev/ttyAMA0");
 
 	msp.on_raw_imu = [&](const MSP2Client::RawImu& imu)
 	{
