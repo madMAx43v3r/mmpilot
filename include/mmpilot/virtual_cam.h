@@ -68,8 +68,14 @@ public:
 
 		// fisheye baseline (equidistant)
 		const auto diag = FOV_circle * Vec2f(in->width, in->height).norm() / 2;
-		const auto uF = diag / (deg2rad(FOV_in) / 2);
-
+		auto uF = diag / (deg2rad(FOV_in) / 2);
+		{
+			const auto r = deg2rad(FOV_in) / 2;
+			const auto r2 = r * r;
+			const auto r4 = r2 * r2;
+			const auto scale = (1 + K2 * r2 + K4 * r4);
+			uF /= scale;
+		}
 		glUseProgram(prog);
 
 		GL_bind_tex(prog, "uSrc", in->id, 0);
