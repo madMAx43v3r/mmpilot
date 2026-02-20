@@ -20,18 +20,29 @@ namespace mmpilot {
 
 class Gyro {
 public:
-	struct State {
-		int64_t ts = 0;				// [us]
-		Vec3f RPY = Vec3f::Zero();	// [deg]
+	class State {
+	public:
+		int64_t ts = 0;		// [us]
+
+		Mat3f rot = Mat3f::Identity();
 
 		Mat3f matrix() const {
-			return rpy_to_rot_zyx_deg(RPY);
+			return rot;
+		}
+
+		// RPY in deg
+		Vec3f get_rpy() const {
+			const auto raw = rot_zyx_to_rpy_deg(rot);
+			return Vec3f(raw.x(), raw.y(), angle_norm_360(-raw.z()));
 		}
 	};
 
-	size_t max_history = 10000;		// samples
+	size_t max_history = 1000;		// samples
 
-	float imu_scale = 1 / 16.4;				// [deg/s]
+	float gyro_scale = 1 / 16.4;				// [deg/s]
+	float accel_scale = 1 / 2048.f;				// [g]
+
+	float att_window = 30;		// how fast to converge towards attitude [sec]
 
 	Vec3f att_scale = Vec3f(0.1, 0.1, 1);	// [deg]
 
@@ -41,21 +52,39 @@ public:
 			return;
 		}
 		const auto prev = history.back();
-		const auto dt = (imu.ts - prev.ts) * 1e-6f;		// [sec]
-		const Vec3f rates = Vec3f(imu.gyro[0], imu.gyro[1], -imu.gyro[2]) * imu_scale;	// [deg/s]
+		const float dt = (imu.ts - prev.ts) * 1e-6f;		// [sec]
+
+		const Vec3f rates =
+				Vec3f(imu.gyro[0], imu.gyro[1], imu.gyro[2]) * gyro_scale
+				+ att_correction;	// [deg/s]
+
+		const Vec3f omega = rates * float(M_PI / 180);   	// [rad/s]
 
 		State out;
 		out.ts = imu.ts;
-		out.RPY = Vec3f(
-			angle_norm_180(prev.RPY[0] + dt * rates[0]),
-			angle_norm_180(prev.RPY[1] + dt * rates[1]),
-			angle_norm_360(prev.RPY[2] + dt * rates[2])
-		);
+		out.rot = prev.rot * so3_exp<float>(omega * dt);
 		history.push_back(out);
 
-//		std::cout << "gyro imu raw: ts=" << out.ts << " roll=" << imu.gyro[0] << " pitch=" << imu.gyro[1] << " yaw=" << imu.gyro[2] << std::endl;
-//		std::cout << "gyro imu rates: ts=" << out.ts << " roll=" << rates[0] << " pitch=" << rates[1] << " yaw=" << rates[2] << std::endl;
-//		std::cout << "gyro imu: ts=" << out.ts << " roll=" << out.RPY[0] << " pitch=" << out.RPY[1] << " yaw=" << out.RPY[2] << std::endl;
+		const auto RPY = out.get_rpy();
+
+//		std::cout << "gyro imu raw:   ts=" << out.ts << " roll=" << imu.gyro[0] << ", pitch=" << imu.gyro[1] << ", yaw=" << imu.gyro[2] << std::endl;
+//		std::cout << "gyro imu rates: ts=" << out.ts << " roll=" << rates[0] << " deg/s, pitch=" << rates[1] << " deg/s, yaw=" << rates[2] << " deg/s" << std::endl;
+//		std::cout << "gyro imu rpy:   ts=" << out.ts << " roll=" << RPY[0] << " deg, pitch=" << RPY[1] << " deg, yaw=" << RPY[2] << " deg" << std::endl;
+
+		const Vec3f accel = Vec3f(imu.acc[0], imu.acc[1], imu.acc[2]) * accel_scale;
+
+		if(accel.norm() > 0.1) {
+			const Vec3f g = accel.normalized();
+
+			const auto pitch = rad2deg(std::asin(-g.x()));
+			const auto roll  = rad2deg(std::atan2(g.y(), g.z()));
+
+			att_correction = Vec3f(
+						angle_norm_180(roll - RPY.x()),
+						angle_norm_180(pitch - RPY.y()), 0) / att_window;
+
+//			std::cout << "gyro accel att: ts=" << out.ts << " roll=" << roll << " deg, pitch=" << pitch << " deg" << std::endl;
+		}
 
 		while(history.size() > max_history) {
 			history.pop_front();
@@ -64,29 +93,27 @@ public:
 
 	void on_attitude(const MSP2Client::Attitude& att)
 	{
-		if(!history.empty() && att.ts <= history.back().ts) {
-			return;
-		}
-		State out;
-		out.ts = att.ts;
-		out.RPY = Vec3f(att.roll, att.pitch, att.yaw).cwiseProduct(att_scale);
-		out.RPY[0] = angle_norm_180(out.RPY[0]);
-		out.RPY[1] = angle_norm_180(out.RPY[1]);
-		out.RPY[2] = angle_norm_360(out.RPY[2]);
-		history.push_back(out);
+		const Vec3f RPY = Vec3f(att.roll, att.pitch, att.yaw).cwiseProduct(att_scale);
 
-//		std::cout << "gyro att: ts=" << out.ts << " roll=" << out.RPY[0] << " pitch=" << out.RPY[1] << " yaw=" << out.RPY[2] << std::endl;
-
-		while(history.size() > max_history) {
-			history.pop_front();
+		if(history.empty()) {
+			State out;
+			out.ts = att.ts;
+			out.rot = rpy_to_rot_zyx_deg<float>({RPY.x(), RPY.y(), 0});	// ignore yaw
+			history.push_back(out);
+		} else {
+//			const auto state = history.back().get_rpy();
+//			att_correction = Vec3f(
+//					angle_norm_180(RPY.x() - state.x()),
+//					angle_norm_180(RPY.y() - state.y()), 0) / att_window;
 		}
+
+//		std::cout << "gyro att: ts=" << att.ts << " roll=" << RPY[0] << " deg, pitch=" << RPY[1] << " deg, yaw=" << RPY[2] << " deg" << std::endl;
+//		std::cout << "gyro att correction: ts=" << att.ts << " roll=" << att_correction[0] << " deg/s, pitch=" << att_correction[1] << " deg/s" << std::endl;
 	}
 
-	// R = Rz(yaw) * Ry(pitch) * Rx(roll)
 	Mat3f matrix(const int64_t ts) const
 	{
-		const auto s = lookup(ts);
-		return rpy_to_rot_zyx_deg(s.RPY);
+		return lookup(ts).matrix();
 	}
 
 	State lookup(const int64_t ts) const
@@ -94,44 +121,37 @@ public:
 		if(history.empty()) {
 			throw std::runtime_error("Gyro::lookup(): history is empty");
 		}
-
-		// Clamp outside range
 		if(ts <= history.front().ts) {
+			std::cout << "Gyro::lookup(): requested ts beyond history: " << ts << std::endl;
 			return history.front();
 		}
 		if(ts >= history.back().ts) {
+			std::cout << "Gyro::lookup(): requested ts in future by " << (ts - history.back().ts) << " us" << std::endl;
 			return history.back();
 		}
 
 		// Find bracketing states [a,b] with a.ts <= ts <= b.ts
-		auto itB = history.begin();
-		auto itA = itB++;
-		for(; itB != history.end(); ++itA, ++itB) {
-			if(itB->ts >= ts) {
+		auto it_b = history.begin();
+		auto it_a = it_b++;
+		for(; it_b != history.end(); ++it_a, ++it_b) {
+			if(it_b->ts >= ts) {
 				break;
 			}
 		}
-		// itB must be valid due to clamping above
-		const State& a = *itA;
-		const State& b = *itB;
-
-		const int64_t dt_us = b.ts - a.ts;
-		if(dt_us <= 0) {
-			// should not happen if timestamps are strictly increasing
-			return a;
+		if(it_b == history.end()) {
+			throw std::logic_error("Gyro::lookup() error");
 		}
-		const float t = float(ts - a.ts) / float(dt_us); // 0..1
+		const auto& a = *it_a;
+		const auto& b = *it_b;
+
+		if(b.ts < a.ts) {
+			throw std::logic_error("Gyro::lookup(): b.ts < a.ts");
+		}
+		const auto t = float(ts - a.ts) / (b.ts - a.ts); 	// 0..1
 
 		State out;
 		out.ts = ts;
-
-		// Roll/Pitch: interpolate using shortest delta in [-180,180)
-		out.RPY[0] = angle_norm_180(a.RPY[0] + t * angle_delta_180(a.RPY[0], b.RPY[0]));
-		out.RPY[1] = angle_norm_180(a.RPY[1] + t * angle_delta_180(a.RPY[1], b.RPY[1]));
-
-		// Yaw: shortest delta in (-180,180], then wrap to [0,360)
-		out.RPY[2] = angle_norm_360(a.RPY[2] + t * angle_delta_180(a.RPY[2], b.RPY[2]));
-
+		out.rot = slerp_R(a.rot, b.rot, t);
 		return out;
 	}
 
@@ -149,6 +169,8 @@ public:
 
 private:
 	std::list<State> history;
+
+	Vec3f att_correction = Vec3f::Zero();		// [deg/s]
 
 };
 

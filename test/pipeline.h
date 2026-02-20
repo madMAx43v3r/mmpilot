@@ -226,7 +226,7 @@ protected:
 		Vec3f RPY = Vec3f::Zero();
 		if(gyro.avail()) {
 			const auto state = gyro.lookup(ts);
-			RPY = state.RPY;
+			RPY = state.get_rpy();
 		}
 		std::cout << "RPY = " << RPY[0] << " " << RPY[1] << " " << RPY[2] << std::endl;
 

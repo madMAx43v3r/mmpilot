@@ -29,6 +29,8 @@ public:
 	float FOV_in = 180;		// fisheye FOV in degrees (diagonal)
 	float FOV_cam = 120;	// pinhole FOV in degrees (diagonal)
 
+	float FOV_circle = 0.9;		// correction for black corners
+
 	float K2 = 0;			// r^2 coeff on angle-radius (r = theta)
 	float K4 = 0;			// r^4 coeff on angle-radius
 
@@ -41,7 +43,8 @@ public:
 		if(have_init) {
 			throw std::logic_error("already initialized");
 		}
-		const auto fov_rad = FOV_cam * float(M_PI) / 180.0f;
+		// rectilinear baseline
+		const auto fov_rad = deg2rad(FOV_cam);
 		const auto diag = Vec2f(width, height).norm() / 2;
 		const auto f = diag / std::tan(fov_rad / 2);
 		uInvF[0] = 1 / f;
@@ -65,8 +68,8 @@ public:
 		const auto begin = get_time_micros();
 
 		// fisheye baseline (equidistant)
-		const auto fov_rad = FOV_in * (M_PI / 180);
-		const auto diag = Vec2f(in->width, in->height).norm() / 2;
+		const auto fov_rad = deg2rad(FOV_in);
+		const auto diag = FOV_circle * Vec2f(in->width, in->height).norm() / 2;
 		const auto uF = diag / (fov_rad / 2);
 
 		glUseProgram(prog);

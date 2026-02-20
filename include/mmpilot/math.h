@@ -41,7 +41,6 @@ T rad2deg(T r) {
 // Wrap to [-pi, pi)
 template<typename T>
 T angle_norm_pi(T a) {
-	// atan2(sin, cos) gives [-pi, pi]
     return std::atan2(std::sin(a), std::cos(a));
 }
 
@@ -58,51 +57,67 @@ T angle_norm_360(T deg) {
 	return d < 0 ? d + 360 : d;
 }
 
-// Smallest signed delta to go from a -> b in degrees, result in [-180, 180)
+// Returns to [-pi, pi)
 template<typename T>
-T angle_delta_180(T a_deg, T b_deg) {
-	return angle_norm_180(b_deg - a_deg);
-}
-
-template<typename T>
-T get_angle(const Eigen::Matrix<T,2,2>& R) {
+T get_angle(const Eigen::Matrix<T, 2, 2>& R) {
 	return std::atan2(R(1,0), R(0,0));
 }
 
+// Returns to [-180, 180)
 template<typename T>
-Eigen::Matrix<T,2,2> get_rotation_matrix(const T theta)
+T get_angle_deg(const Eigen::Matrix<T, 2, 2>& R) {
+	return rad2deg(get_angle(R));
+}
+
+template<typename T>
+Eigen::Matrix<T, 2, 2> get_rotation_matrix(const T theta)
 {
 	const T c = std::cos(theta);
 	const T s = std::sin(theta);
-	Eigen::Matrix<T,2,2> R;
+	Eigen::Matrix<T, 2, 2> R;
 	R << c, -s,
 	     s,  c;
     return R;
 }
 
 template<typename T>
-Eigen::Matrix<T,2,2> normalize_rot(Eigen::Matrix<T,2,2>& R)
+Eigen::Matrix<T, 2, 2> normalize_rot(Eigen::Matrix<T, 2, 2>& R)
 {
-	const auto a = get_angle(R);
-	Eigen::Matrix<T,2,2> Q;
+	const T a = get_angle(R);
+	Eigen::Matrix<T, 2, 2> Q;
 	Q << std::cos(a), -std::sin(a),
 		 std::sin(a),  std::cos(a);
 	return Q;
 }
 
+// ZYX angles from matrix
+template<typename T>
+Eigen::Matrix<T, 3, 1> rot_zyx_to_rpy(const Eigen::Matrix<T, 3, 3>& R)
+{
+	const T yaw   = std::atan2(R(1,0), R(0,0));
+	const T pitch = std::asin(-R(2,0));
+	const T roll  = std::atan2(R(2,1), R(2,2));
+	return {roll, pitch, yaw};
+}
+
+template<typename T>
+Eigen::Matrix<T, 3, 1> rot_zyx_to_rpy_deg(const Eigen::Matrix<T, 3, 3>& R) {
+	return rot_zyx_to_rpy(R) * T(180 / M_PI);
+}
+
 // Rotation matrix from roll/pitch/yaw in degrees, ZYX order:
 // R = Rz(yaw) * Ry(pitch) * Rx(roll)
 template<typename T>
-Eigen::Matrix<T,3,3> rpy_to_rot_zyx_deg(const Eigen::Matrix<T,3,1>& rpy_deg)
+Eigen::Matrix<T, 3, 3> rpy_to_rot_zyx(const Eigen::Matrix<T, 3, 1>& rpy_rad)
 {
-	const float cr = std::cos(deg2rad(rpy_deg[0]));
-	const float sr = std::sin(deg2rad(rpy_deg[0]));
-	const float cp = std::cos(deg2rad(rpy_deg[1]));
-	const float sp = std::sin(deg2rad(rpy_deg[1]));
-	const float cy = std::cos(deg2rad(rpy_deg[2]));
-	const float sy = std::sin(deg2rad(rpy_deg[2]));
+	const T cr = std::cos(rpy_rad[0]);
+	const T sr = std::sin(rpy_rad[0]);
+	const T cp = std::cos(rpy_rad[1]);
+	const T sp = std::sin(rpy_rad[1]);
+	const T cy = std::cos(rpy_rad[2]);
+	const T sy = std::sin(rpy_rad[2]);
 
-	Eigen::Matrix<T,3,3> R;
+	Eigen::Matrix<T, 3, 3> R;
 	// ZYX (yaw-pitch-roll)
 	R(0, 0) = cy * cp;
 	R(0, 1) = cy * sp * sr - sy * cr;
@@ -118,6 +133,75 @@ Eigen::Matrix<T,3,3> rpy_to_rot_zyx_deg(const Eigen::Matrix<T,3,1>& rpy_deg)
 
 	return R;
 }
+
+// Rotation matrix from roll/pitch/yaw in degrees, ZYX order:
+// R = Rz(yaw) * Ry(pitch) * Rx(roll)
+template<typename T>
+Eigen::Matrix<T, 3, 3> rpy_to_rot_zyx_deg(const Eigen::Matrix<T, 3, 1>& rpy_deg)
+{
+	return rpy_to_rot_zyx<T>({
+		deg2rad(rpy_deg.x()),
+		deg2rad(rpy_deg.y()),
+		deg2rad(rpy_deg.z())
+	});
+}
+
+template<typename T>
+Eigen::Matrix<T, 3, 3> slerp_R(const Eigen::Matrix<T, 3, 3>& R_0, const Eigen::Matrix<T, 3, 3>& R_1, const T t)
+{
+	Eigen::Quaternion<T> qa(R_0);
+	Eigen::Quaternion<T> qb(R_1);
+
+	// Ensure shortest path (avoid q and -q taking the long way)
+	if(qa.dot(qb) < 0) {
+		qb.coeffs() *= -1;
+	}
+	Eigen::Quaternion<T> q = qa.slerp(t, qb);
+	q.normalize();
+	return q.toRotationMatrix();
+}
+
+template<typename T>
+Eigen::Matrix<T, 3, 3> skew(const Eigen::Matrix<T, 3, 1>& w)
+{
+	Eigen::Matrix<T, 3, 3> W;
+	W << 	 T(0),  -w.z(),  w.y(),
+			 w.z(),  T(0),  -w.x(),
+			-w.y(),  w.x(),   T(0);
+	return W;
+}
+
+// Exp([w]x) with w = axis * angle (radians)
+template<typename T>
+Eigen::Matrix<T, 3, 3> so3_exp(const Eigen::Matrix<T, 3, 1>& w)
+{
+	const T th = w.norm();
+	const Eigen::Matrix<T, 3, 3> W = skew(w);
+
+	if(th < T(1e-8)) {
+		// I + [w]x is fine at tiny angles
+		return Eigen::Matrix<T, 3, 3>::Identity() + W;
+	}
+	const T a = std::sin(th) / th;
+	const T b = (T(1) - std::cos(th)) / (th * th);
+	return Eigen::Matrix<T, 3, 3>::Identity() + a * W + b * (W * W);
+}
+
+template<typename T>
+Eigen::Matrix<T, 3, 3> orthonormalize(const Eigen::Matrix<T, 3, 3>& R)
+{
+    Eigen::JacobiSVD<Eigen::Matrix<T, 3, 3>> svd(R, Eigen::ComputeFullU | Eigen::ComputeFullV);
+    Eigen::Matrix<T, 3, 3> U = svd.matrixU();
+    Eigen::Matrix<T, 3, 3> V = svd.matrixV();
+    Eigen::Matrix<T, 3, 3> Rn = U * V.transpose();
+    if(Rn.determinant() < 0) {
+        U.col(2) *= -1;
+        Rn = U * V.transpose();
+    }
+    return Rn;
+}
+
+
 
 
 } // mmpilot

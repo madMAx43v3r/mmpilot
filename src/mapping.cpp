@@ -103,11 +103,11 @@ void Mapping::update(const Transform2D& delta)
 	state.add(delta);
 
 	std::cout << "Mapping delta = " << delta.pos.transpose()
-			<< ", rot = " << rad2deg(get_angle(delta.rot))
+			<< ", rot = " << get_angle_deg(delta.rot)
 			<< " deg, scale = " << delta.scale << std::endl;
 
 	std::cout << "Mapping pos   = " << state.pos.transpose()
-			<< ", rot = " << rad2deg(get_angle(state.rot))
+			<< ", rot = " << get_angle_deg(state.rot)
 			<< " deg, scale = " << state.scale << std::endl;
 }
 
