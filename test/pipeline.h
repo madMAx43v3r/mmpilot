@@ -52,7 +52,7 @@ public:
 	int gradient_window = 7;
 	int pyramid_depth = 4;
 
-	std::vector<int> num_iters = {1, 2, 5, 15};
+	std::vector<int> num_iters = {1, 3, 5, 15};
 
 	Gyro gyro;
 	FlipImage flip_image;
@@ -82,9 +82,8 @@ public:
 
 			if(num_smooth < 0) {
 				switch(level) {
-					case 0:  num_smooth = 0; break;
-					case 1:  num_smooth = 1; break;
-					case 2:  num_smooth = 2; break;
+					case 0:  num_smooth = 1; break;
+					case 1:  num_smooth = 2; break;
 					default: num_smooth = 3;
 				}
 			}
