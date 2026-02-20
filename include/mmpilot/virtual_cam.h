@@ -34,6 +34,8 @@ public:
 	float K2 = 0;			// r^2 coeff on angle-radius (r = theta)
 	float K4 = 0;			// r^4 coeff on angle-radius
 
+	float f_cam = 0;		// focal length (pixels)
+
 	Mat3f R_mat = Mat3f::Identity();	// virtual cam rotation matrix
 
 	std::shared_ptr<GL_Tex2D> out;
@@ -44,11 +46,8 @@ public:
 			throw std::logic_error("already initialized");
 		}
 		// rectilinear baseline
-		const auto fov_rad = deg2rad(FOV_cam);
 		const auto diag = Vec2f(width, height).norm() / 2;
-		const auto f = diag / std::tan(fov_rad / 2);
-		uInvF[0] = 1 / f;
-		uInvF[1] = 1 / f;
+		f_cam = diag / std::tan(deg2rad(FOV_cam) / 2);
 
 		const auto vs = render::get_fullscreen_vertex_shader();
 		const auto fs = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/rectify/virtual_cam.glsl");
@@ -68,9 +67,8 @@ public:
 		const auto begin = get_time_micros();
 
 		// fisheye baseline (equidistant)
-		const auto fov_rad = deg2rad(FOV_in);
 		const auto diag = FOV_circle * Vec2f(in->width, in->height).norm() / 2;
-		const auto uF = diag / (fov_rad / 2);
+		const auto uF = diag / (deg2rad(FOV_in) / 2);
 
 		glUseProgram(prog);
 
@@ -81,7 +79,7 @@ public:
 
 		GL_uniform_2f(prog, "uInvSrcSize", 1.f / in->width, 1.f / in->height);
 		GL_uniform_2f(prog, "uCenter", width / 2.f, height / 2.f);
-		GL_uniform_2f(prog, "uInvF", uInvF[0], uInvF[1]);
+		GL_uniform_2f(prog, "uInvF", 1 / f_cam, 1 / f_cam);
 		GL_uniform_mat3(prog, "uRot", R_mat.data());
 
 		GL_uniform_1f(prog, "uF", uF);
@@ -97,8 +95,6 @@ public:
 	}
 
 private:
-	float uInvF[2] = {};
-
 	GLuint fbo = 0;
 	GLuint prog = 0;
 
