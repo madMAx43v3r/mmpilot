@@ -26,7 +26,7 @@ public:
 
 	std::shared_ptr<GL_Tex2D> out;
 
-	void init(int width_, int height_)
+	void init(GLenum format, int width_, int height_)
 	{
 		if(have_init) {
 			throw std::logic_error("already initialized");
@@ -37,8 +37,16 @@ public:
 		if(radius < 0) {
 			radius = width / 2;
 		}
+
+		std::string shader;
+		switch(format) {
+			case GL_RED: shader = "radius_r.glsl"; break;
+			case GL_RG:  shader = "radius_rw.glsl"; break;
+			default:
+				throw std::logic_error("invalid format");
+		}
 		const auto vs = render::get_fullscreen_vertex_shader();
-		const auto fs = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/weight/radius.glsl");
+		const auto fs = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/weight/" + shader);
 		prog = GL_link_program(vs, fs);
 
 		out = std::make_shared<GL_Tex2D>(width, height, GL_RG8, GL_RG, GL_UNSIGNED_BYTE);
@@ -50,7 +58,7 @@ public:
 	void exec(std::shared_ptr<GL_Tex2D> in)
 	{
 		if(!have_init) {
-			init(in->width, in->height);
+			init(in->format, in->width, in->height);
 		}
 		const auto begin = get_time_micros();
 

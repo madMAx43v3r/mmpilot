@@ -1,7 +1,7 @@
 #version 310 es
 precision highp float;
 
-uniform sampler2D uSrc;               // R16F
+uniform sampler2D uSrc;               // (Y)
 
 layout(location = 0) out vec2 out0;   // (Y, w)
 
@@ -15,7 +15,8 @@ void main()
 
     float Y = texelFetch(uSrc, ivec2(p), 0).x;
 
-    float w = (dot(q, q) < uRadiusSq) ? 1.0 : 0.0;
+    float r2 = dot(q, q);
+    float w = max(1.0 - r2 / uRadiusSq, 0.0);
 
     out0 = vec2(Y, w);
 }
