@@ -51,6 +51,8 @@ private:
 	int width = 0;
 	int height = 0;
 
+	float scale_bias = 1;
+
 	std::vector<Node> nodes;
 
 	GLuint prog_map = 0;

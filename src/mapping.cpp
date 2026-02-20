@@ -100,7 +100,15 @@ void Mapping::update(const Transform2D& delta)
 	}
 	add_node();
 
-	state.add(delta);
+	auto fixed = delta;
+	fixed.scale /= scale_bias;
+
+	state.add(fixed);
+	{
+		const float a = 0.05;
+		const float x = std::clamp(delta.scale, 0.95f, 1.05f);
+		scale_bias *= std::pow(x / scale_bias, a);
+	}
 
 	std::cout << "Mapping delta = " << delta.pos.transpose()
 			<< ", rot = " << get_angle_deg(delta.rot)
@@ -108,7 +116,7 @@ void Mapping::update(const Transform2D& delta)
 
 	std::cout << "Mapping pos   = " << state.pos.transpose()
 			<< ", rot = " << get_angle_deg(state.rot)
-			<< " deg, scale = " << state.scale << std::endl;
+			<< " deg, scale = " << state.scale << ", bias = " << scale_bias << std::endl;
 }
 
 void Mapping::render(std::shared_ptr<GL_Tex2D> img, const Homography::Params& H_)
@@ -124,7 +132,7 @@ void Mapping::render(std::shared_ptr<GL_Tex2D> img, const Homography::Params& H_
 	const Vec2f c_map = Vec2f(width, height) / 2;
 
 	std::vector<Vec3f> coords;
-	std::cout << "Mapping render: " << std::endl;
+//	std::cout << "Mapping render: " << std::endl;
 
 	for(int i = 0; i < 4; ++i)
 	{
@@ -136,7 +144,7 @@ void Mapping::render(std::shared_ptr<GL_Tex2D> img, const Homography::Params& H_
 
 		coords.emplace_back(p.x(), p.y(), q.z());
 
-		std::cout << "  " << p.transpose() << " / " << q.z() << std::endl;
+//		std::cout << "  " << p.transpose() << " / " << q.z() << std::endl;
 	}
 	render_image(img, coords, fbo_map, width, height, need_clear);
 
