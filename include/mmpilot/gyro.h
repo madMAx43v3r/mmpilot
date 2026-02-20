@@ -37,14 +37,14 @@ public:
 		}
 	};
 
-	size_t max_history = 1000;		// samples
+	size_t max_history = 1000;					// samples
 
 	float gyro_scale = 1 / 16.4;				// [deg/s]
 	float accel_scale = 1 / 2048.f;				// [g]
 
 	float att_window = 30;		// how fast to converge towards attitude [sec]
 
-	Vec3f att_scale = Vec3f(0.1, 0.1, 1);	// [deg]
+	Vec3f att_scale = Vec3f(0.1, 0.1, 1);		// [deg]
 
 	void on_raw_imu(const MSP2Client::RawImu& imu)
 	{
@@ -63,6 +63,7 @@ public:
 		State out;
 		out.ts = imu.ts;
 		out.rot = prev.rot * so3_exp<float>(omega * dt);
+		out.rot = orthonormalize(out.rot);
 		history.push_back(out);
 
 		const auto RPY = out.get_rpy();

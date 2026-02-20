@@ -156,9 +156,7 @@ Eigen::Matrix<T, 3, 3> slerp_R(const Eigen::Matrix<T, 3, 3>& R_0, const Eigen::M
 	if(qa.dot(qb) < 0) {
 		qb.coeffs() *= -1;
 	}
-	Eigen::Quaternion<T> q = qa.slerp(t, qb);
-	q.normalize();
-	return q.toRotationMatrix();
+	return qa.slerp(t, qb).normalized().toRotationMatrix();
 }
 
 template<typename T>
