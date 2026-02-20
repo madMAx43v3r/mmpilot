@@ -29,7 +29,7 @@ public:
 	float FOV_in = 180;		// fisheye FOV in degrees (diagonal)
 	float FOV_cam = 120;	// pinhole FOV in degrees (diagonal)
 
-	float FOV_circle = 0.9;		// correction for black corners
+	float FOV_circle = 1;		// correction for black corners
 
 	float K2 = 0;			// r^2 coeff on angle-radius (r = theta)
 	float K4 = 0;			// r^4 coeff on angle-radius

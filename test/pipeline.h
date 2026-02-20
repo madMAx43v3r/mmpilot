@@ -45,6 +45,7 @@ public:
 
 	float FOV_in = 200;				// fisheye deg (diagonal)
 	float FOV_cam = 120;			// virtual deg (diagonal)
+	float FOV_circle = 0.9;			// for FOV_in
 
 	Vec3f RPY_cam = Vec3f(0, 0, -35);	// relative to frame [deg]
 
@@ -191,6 +192,7 @@ protected:
 		if(is_fisheye) {
 			virtual_cam.FOV_in = FOV_in;
 			virtual_cam.FOV_cam = FOV_cam;
+			virtual_cam.FOV_circle = FOV_circle;
 			virtual_cam.init(GL_RG16F, GL_RG, GL_HALF_FLOAT);
 			width = virtual_cam.width;
 			height = virtual_cam.height;
