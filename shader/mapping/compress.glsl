@@ -11,7 +11,7 @@ void main() {
 
     float w = texelFetch(uWeight, p, 0).x;
 
-    if(w > 0.0) {
+    if(w > 0.001) {
         outMap = texelFetch(uMap, p, 0) / w;
     } else {
         outMap = vec4(0);

@@ -64,7 +64,7 @@ void Mapping::init(int width_, int height_, GLenum format)
 		prog_out = GL_link_program(vs, fs);
 	}
 
-	const float vert[4 * 5] = {0};	// dummy
+	const float vert[4 * 4] = {0};	// dummy
 	const uint16_t vert_idx[6] = {0, 1, 2, 0, 2, 3};
 
 	glGenVertexArrays(1, &vao);
@@ -80,15 +80,11 @@ void Mapping::init(int width_, int height_, GLenum format)
 
 	// layout(location=0) in vec2 inPos;
 	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 0);
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * 4, 0);
 
 	// layout(location=1) in vec2 inUV;
 	glEnableVertexAttribArray(1);
-	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(2 * sizeof(float)));
-
-	// layout(location=2) in float inHW;
-	glEnableVertexAttribArray(2);
-	glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(4 * sizeof(float)));
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * 4, (void*)(2 * 4));
 
 	have_init = true;
 }
@@ -119,32 +115,21 @@ void Mapping::update(const Transform2D& delta)
 			<< " deg, scale = " << state.scale << ", bias = " << scale_bias << std::endl;
 }
 
-void Mapping::render(std::shared_ptr<GL_Tex2D> img, const Homography::Params& H_)
+void Mapping::render(std::shared_ptr<GL_Tex2D> img, const Homography::Params& H)
 {
 	if(!have_init) {
-		init(img->width * 2, img->height * 2, img->format);
+		init((img->width * 5) / 4, (img->height * 5) / 4, img->format);
 	}
-	const auto H = H_.apply(img->width, img->height);
-
 	const float w = img->width;
 	const float h = img->height;
 	const Vec2f c_img = Vec2f(w, h) / 2;
 	const Vec2f c_map = Vec2f(width, height) / 2;
 
-	std::vector<Vec3f> coords;
-//	std::cout << "Mapping render: " << std::endl;
-
-	for(int i = 0; i < 4; ++i)
-	{
+	std::vector<Vec2f> coords;
+	for(int i = 0; i < 4; ++i) {
 		const auto& uv = g_uv[i];
-
-		const Vec3f q = H.project3(Vec2f(w * uv.x(), h * uv.y()) - c_img);
-
-		const Vec2f p = c_map + Vec2f(q.x(), q.y());
-
-		coords.emplace_back(p.x(), p.y(), q.z());
-
-//		std::cout << "  " << p.transpose() << " / " << q.z() << std::endl;
+		const Vec2f p = c_map + H.project(Vec2f(w * uv.x(), h * uv.y()) - c_img);
+		coords.push_back(p);
 	}
 	render_image(img, coords, fbo_map, width, height, need_clear);
 
@@ -161,7 +146,7 @@ void Mapping::render(std::shared_ptr<GL_Tex2D> img, const Homography::Params& H_
 }
 
 void Mapping::render_image(
-		std::shared_ptr<GL_Tex2D> img, const std::vector<Vec3f>& coords,
+		std::shared_ptr<GL_Tex2D> img, const std::vector<Vec2f>& coords,
 		const GLuint fbo, const int width_, const int height_, bool do_clear)
 {
 	if(coords.size() != 4) {
@@ -172,16 +157,15 @@ void Mapping::render_image(
 	float xmax = std::numeric_limits<float>::min();
 	float ymax = std::numeric_limits<float>::min();
 
-	float vert[4 * 5] = {};
+	float vert[4 * 4] = {};
 
 	for(int i = 0; i < 4; ++i)
 	{
 		const auto& p = coords[i];
-		vert[i * 5 + 0] = p.x();
-		vert[i * 5 + 1] = p.y();
-		vert[i * 5 + 2] = g_uv[i].x();
-		vert[i * 5 + 3] = g_uv[i].y();
-		vert[i * 5 + 4] = p.z();
+		vert[i * 4 + 0] = p.x();
+		vert[i * 4 + 1] = p.y();
+		vert[i * 4 + 2] = g_uv[i].x();
+		vert[i * 4 + 3] = g_uv[i].y();
 
 		xmin = std::min(xmin, p.x());
 		ymin = std::min(ymin, p.y());
@@ -281,13 +265,13 @@ std::shared_ptr<GL_Tex2D> Mapping::finalize()
 	bool do_clear = true;
 	for(const auto& node : nodes)
 	{
-		std::vector<Vec3f> coords;
+		std::vector<Vec2f> coords;
 		for(int i = 0; i < 4; ++i)
 		{
 			const auto& uv = g_uv[i];
 			const Vec2f q = Vec2f(width * uv.x(), height * uv.y()) - Vec2f(width, height) / 2;
 			const Vec2f p = node.pose.apply(q) - origin;
-			coords.emplace_back(p.x(), p.y(), 1);
+			coords.push_back(p);
 		}
 		render_image(node.image, coords, fbo_map, map_width, map_height, do_clear);
 		do_clear = false;

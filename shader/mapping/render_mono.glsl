@@ -7,13 +7,10 @@ layout(location = 1) out float outWeight;
 uniform sampler2D uSrc;
 
 in vec2  vUV;
-in float vHW;
 
 void main() {
-    vec2 uv = vUV / vHW;
+    vec4 c = texture(uSrc, vUV);
 
-    vec4 c = texture(uSrc, uv);
-
-    outMono   = c.xy;
+    outMono   = vec2(c.x * c.y, c.y);
     outWeight = c.y;
 }

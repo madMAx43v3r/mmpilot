@@ -44,7 +44,7 @@ private:
 	void add_node();
 
 	void render_image(
-			std::shared_ptr<GL_Tex2D> img, const std::vector<Vec3f>& coords,
+			std::shared_ptr<GL_Tex2D> img, const std::vector<Vec2f>& coords,
 			const GLuint fbo, const int width_, const int height_, bool do_clear);
 
 private:

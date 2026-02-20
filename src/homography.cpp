@@ -5,29 +5,6 @@
  *      Author: mad
  */
 
-// Host-side Gauss-Newton loop for your three ES 3.1 fragment kernels:
-//
-//   (1) Per-pixel J + residual (MRT: J0, J1, Rw, UV)
-//   (2) Vertical chunk reduction: G (J^T r) + D (diag of J^T J)
-//   (3) Vertical chunk reduction: off-diagonals of J^T J
-//
-// It assembles the 8x8 normal equations on CPU using Eigen and solves:
-//
-//     H * delta = -g
-//     p <- p + delta
-//
-// Assumptions:
-// - You already have a valid OpenGL ES 3.1 context current (EGL/GLFW/etc).
-// - uRef (R16F) and uGrad (RGBA16F = Y,Ix,Iy,w) textures are created + filled.
-// - Your shaders compile as fragment shaders and are drawn over fullscreen.
-// - For simplicity, final reduction over X and over "chunk rows" is done on CPU
-//   by reading back the (W x chunkSize) partial textures (manageable).
-//
-// Build hint (Linux):
-//   g++ -O3 -std=c++20 homography_gn_host.cpp -lEGL -lGLESv2 -I /usr/include/eigen3
-//
-// NOTE: Use glGetError / KHR_debug in your real code.
-
 #include <mmpilot/homography.h>
 #include <mmpilot/opengl.h>
 #include <mmpilot/render.h>
@@ -45,15 +22,14 @@
 
 namespace mmpilot {
 
-using Vec8 = Eigen::Matrix<double, 8, 1>;
+using Vec6 = Eigen::Matrix<double, 6, 1>;
 
 static void assemble_equations(
-		Vec8& g,
-		Vec8& H,
-		const std::vector<float>& G0_rgba, // b0..b3
-		const std::vector<float>& G1_rgba, // b4..b7
-		const std::vector<float>& D0_rgba, // d0..d3
-		const std::vector<float>& D1_rgba  // d4..d7
+		Vec6& G,
+		Vec6& H,
+		const std::vector<float>& G0,
+		const std::vector<float>& D0,
+		const std::vector<float>& GD
 	)
 {
 	auto sumRGBA = [&](const std::vector<float>& v, double out[4]) {
@@ -67,23 +43,25 @@ static void assemble_equations(
 		}
 	};
 
-	double b0_3[4], b4_7[4], d0_3[4], d4_7[4];
-	sumRGBA(G0_rgba, b0_3);
-	sumRGBA(G1_rgba, b4_7);
-	sumRGBA(D0_rgba, d0_3);
-	sumRGBA(D1_rgba, d4_7);
+	double G0_sum[4], D0_sum[4], GD_sum[4];
+	sumRGBA(G0, G0_sum);
+	sumRGBA(D0, D0_sum);
+	sumRGBA(GD, GD_sum);
 
-	// Gradient g = sum(J^T r). Your shader accumulates G += J * R.
-	// Normal equations: H * delta = -g.
+	// Gradient g = sum(J^T r)
 	for(int i = 0; i < 4; ++i) {
-		g(i)		= b0_3[i];
-		g(i + 4)	= b4_7[i];
+		G(i) = G0_sum[i];
+	}
+	for(int i = 0; i < 2; ++i) {
+		G(i + 4) = GD_sum[i];
 	}
 
 	// Diagonal of H: sum(Jk^2)
 	for(int i = 0; i < 4; ++i) {
-		H(i)		= d0_3[i];
-		H(i + 4)	= d4_7[i];
+		H(i) = D0_sum[i];
+	}
+	for(int i = 0; i < 2; ++i) {
+		H(i + 4) = GD_sum[i + 2];
 	}
 }
 
@@ -111,14 +89,6 @@ Transform2D Homography::Params::transform() const
 	return out;
 }
 
-Homography::Params Homography::solve(std::shared_ptr<GL_Tex2D> ref, std::shared_ptr<GL_Tex2D> img)
-{
-	Params p = {};
-	p[0] = 1;
-	p[4] = 1;
-	return solve(ref, img, p);
-}
-
 Homography::Params Homography::solve(
 		std::shared_ptr<GL_Tex2D> ref, std::shared_ptr<GL_Tex2D> img, const Params& init_p)
 {
@@ -131,9 +101,6 @@ Homography::Params Homography::solve(
 	const auto begin = get_time_micros();
 
 	Params params = init_p;
-
-	// CPU readback buffers
-	std::vector<float> G0_rgba, G1_rgba, D0_rgba, D1_rgba, RwHxy_rgba;
 
 	for(int iter = 0; iter < num_iters; ++iter)
 	{
@@ -167,27 +134,24 @@ Homography::Params Homography::solve(
 		GL_finish("Homography::solve()");
 
 		// ---------- Read back partials (W * chunkSize pixels)
-		GL_read_FBO_RGBA(fbo_gradient, 0, width, reduction_chunk, G0_rgba);
-		GL_read_FBO_RGBA(fbo_gradient, 1, width, reduction_chunk, G1_rgba);
-		GL_read_FBO_RGBA(fbo_gradient, 2, width, reduction_chunk, D0_rgba);
-		GL_read_FBO_RGBA(fbo_gradient, 3, width, reduction_chunk, D1_rgba);
-		GL_read_FBO_RGBA(fbo_gradient, 4, width, reduction_chunk, RwHxy_rgba);
+		GL_read_FBO_RGBA(fbo_gradient, 0, width, reduction_chunk, G0_buf);
+		GL_read_FBO_RGBA(fbo_gradient, 1, width, reduction_chunk, D0_buf);
+		GL_read_FBO_RGBA(fbo_gradient, 2, width, reduction_chunk, GD_buf);
+		GL_read_FBO_RGBA(fbo_gradient, 3, width, reduction_chunk, RwHxy_buf);
 
 		// ---------- Assemble and solve
-		Vec8 hessian;
-		Vec8 gradient;
+		Vec6 hessian;
+		Vec6 gradient;
 
-		assemble_equations(gradient, hessian, G0_rgba, G1_rgba, D0_rgba, D1_rgba);
+		assemble_equations(gradient, hessian, G0_buf, D0_buf, GD_buf);
 
 		double R_sum = 0;
 		double W_sum = 0;
 		double H_xy = 0;
-		double H_67 = 0;
-		for(size_t i = 0; i < RwHxy_rgba.size() / 4; ++i) {
-			R_sum += RwHxy_rgba[i * 4 + 0];
-			W_sum += RwHxy_rgba[i * 4 + 1];
-			H_xy  += RwHxy_rgba[i * 4 + 2];
-			H_67  += RwHxy_rgba[i * 4 + 3];
+		for(size_t i = 0; i < RwHxy_buf.size() / 4; ++i) {
+			R_sum += RwHxy_buf[i * 4 + 0];
+			W_sum += RwHxy_buf[i * 4 + 1];
+			H_xy  += RwHxy_buf[i * 4 + 2];
 		}
 		const float R_norm = 100 * sqrt(R_sum) / W_sum;
 		const float num_pixel = width * height;
@@ -201,19 +165,15 @@ Homography::Params Homography::solve(
 //		std::cout << "H = " << hessian.transpose() << std::endl;
 
 		// Apply damping
-		for(int i = 0; i < 8; ++i) {
-			hessian(i) = hessian(i) * damping + 1;
-		}
+		hessian *= damping;
 
-		// Extra damping for projective params
-		hessian(6) *= proj_damping;
-		hessian(7) *= proj_damping;
+		// TODO: use H_xy
 
-		// TODO: use H_xy + H_67
-
-		Vec8 delta;
-		for(int i = 0; i < 8; ++i) {
-			delta[i] = gradient[i] / hessian[i];
+		Vec6 delta = Vec6::Zero();
+		for(int i = 0; i < 6; ++i) {
+			if(hessian[i] > 0) {
+				delta[i] = -gradient[i] / hessian[i];
+			}
 		}
 
 		// Update params
@@ -224,8 +184,8 @@ Homography::Params Homography::solve(
 		if(!std::isfinite(step_norm)) {
 			throw std::logic_error("Homography: solver failed");
 		}
-		for(int i = 0; i < 8; ++i) {
-			params[i] -= delta[i];
+		for(int i = 0; i < 6; ++i) {
+			params[i] += delta[i];
 		}
 	}
 
@@ -271,20 +231,18 @@ void Homography::init(int width_, int height_)
 	tex_uv       = std::make_shared<GL_Tex2D>(width, height, GL_RG16F, GL_RG, GL_HALF_FLOAT);
 	tex_residual = std::make_shared<GL_Tex2D>(width, height, GL_RG16F, GL_RG, GL_HALF_FLOAT);
 
-	for(int i = 0; i < 2; ++i) {
-		tex_jacobian[i] = std::make_shared<GL_Tex2D>(width, height, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT);
+	tex_jacobian[0] = std::make_shared<GL_Tex2D>(width, height, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT);
+	tex_jacobian[1] = std::make_shared<GL_Tex2D>(width, height, GL_RG16F, GL_RG, GL_HALF_FLOAT);
+
+	for(int i = 0; i < 3; ++i) {
 		tex_gradient[i] = std::make_shared<GL_Tex2D>(width, reduction_chunk, GL_RGBA32F, GL_RGBA, GL_FLOAT);
-	}
-	for(int i = 0; i < 2; ++i) {
-		tex_hessian.push_back(
-				std::make_shared<GL_Tex2D>(width, reduction_chunk, GL_RGBA32F, GL_RGBA, GL_FLOAT));
 	}
 	tex_RwHxy = std::make_shared<GL_Tex2D>(width, reduction_chunk, GL_RGBA32F, GL_RGBA, GL_FLOAT);
 
 	fbo_jacobian = GL_create_FBO(
 			{tex_jacobian[0]->id, tex_jacobian[1]->id, tex_residual->id, tex_uv->id});
 	fbo_gradient = GL_create_FBO(
-			{tex_gradient[0]->id, tex_gradient[1]->id, tex_hessian[0]->id, tex_hessian[1]->id, tex_RwHxy->id});
+			{tex_gradient[0]->id, tex_gradient[1]->id, tex_gradient[2]->id, tex_RwHxy->id});
 
 	tex_debug = std::make_shared<GL_Tex2D>(width, height, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE);
 	fbo_debug = GL_create_FBO(tex_debug->id);

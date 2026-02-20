@@ -20,7 +20,6 @@ namespace mmpilot {
 class Homography {
 public:
 	float damping = 1;				// H diag factor
-	float proj_damping = 10;		// extra damping for p6,p7
 
 	int num_iters = 8;
 	int reduction_chunk = 32;
@@ -31,21 +30,20 @@ public:
 	std::shared_ptr<GL_Tex2D> tex_debug;				// (RGBA)
 	std::shared_ptr<GL_Tex2D> tex_residual;				// (R, w)
 	std::shared_ptr<GL_Tex2D> tex_RwHxy;				// (R, w, H_xy)
-	std::shared_ptr<GL_Tex2D> tex_gradient[2];
+	std::shared_ptr<GL_Tex2D> tex_gradient[3];			// 6x G + 6x H
 	std::shared_ptr<GL_Tex2D> tex_jacobian[2];
-	std::vector<std::shared_ptr<GL_Tex2D>> tex_hessian;
 
 	// [0 1 2]
 	// [3 4 5]
-	// [6 7 X]
-	class Params : public std::array<float, 8> {
+	// [X X X]
+	class Params : public std::array<float, 6> {
 	public:
 		float R_norm = 0;		// normalized (factor 100)
 		float overlap = 0;		// (0 to 1)
 		Mat2f H_xy = Mat2f::Identity();
 
 		Params() {
-			for(int i = 0; i < 8; ++i) p(i) = 0;
+			for(int i = 0; i < 6; ++i) p(i) = 0;
 			p(0) = 1;
 			p(4) = 1;
 		}
@@ -70,25 +68,11 @@ public:
 			return *this;
 		}
 
-		Params apply(float width, float height) const {
-			if(is_applied) {
-				throw std::logic_error("Params: already applied");
-			}
-			Params out(*this);
-			out.p(6) /= width;
-			out.p(7) /= height;
-			out.is_applied = true;
-			return out;
-		}
-
 		Mat3f matrix() const {
-			if(!is_applied) {
-				throw std::logic_error("Params: not applied");
-			}
 			Mat3f M;
 			M << p(0), p(1), p(2),
 				 p(3), p(4), p(5),
-				 p(6), p(7), 1.0f;
+				 0.f,  0.f,  1.0f;
 			return M;
 		}
 
@@ -104,63 +88,30 @@ public:
 		}
 
 		Params inverse() const {
-			if(!is_applied) {
-				throw std::logic_error("Params: not applied");
-			}
 			return Params(matrix().inverse());
-		}
-
-		Params applied_inverse(float width, float height) const {
-			if(is_applied) {
-				throw std::logic_error("Params: already applied");
-			}
-			return apply(width, height).inverse();
 		}
 
 		Transform2D transform() const;
 
-		Vec2f project(const Vec2f& v, const Vec2f& center = Vec2f::Zero()) const {
-			if(!is_applied) {
-				throw std::logic_error("Params: not applied");
-			}
+		Vec2f project(const Vec2f& v, const Vec2f& center = Vec2f::Zero()) const
+		{
 			const Vec2f q = v - center;
-			const float w = p(6) * q.x() + p(7) * q.y() + 1;
 			return center + Vec2f(
-				(p(0) * q.x() + p(1) * q.y() + p(2)) / w,
-				(p(3) * q.x() + p(4) * q.y() + p(5)) / w
-			);
-		}
-
-		Vec3f project3(const Vec2f& v, const Vec2f& center = Vec2f::Zero()) const {
-			if(!is_applied) {
-				throw std::logic_error("Params: not applied");
-			}
-			const Vec2f q = v - center;
-			const float w = p(6) * q.x() + p(7) * q.y() + 1;
-			return Vec3f(
-				(p(0) * q.x() + p(1) * q.y() + p(2)) / w + center.x(),
-				(p(3) * q.x() + p(4) * q.y() + p(5)) / w + center.y(),
-				w
+				(p(0) * q.x() + p(1) * q.y() + p(2)),
+				(p(3) * q.x() + p(4) * q.y() + p(5))
 			);
 		}
 	private:
-		bool is_applied = false;
-
-		Params(const Mat3f& M)
-		{
+		Params(const Mat3f& M) {
 			p(0) = M(0,0);  p(1) = M(0,1);  p(2) = M(0,2);
 			p(3) = M(1,0);  p(4) = M(1,1);  p(5) = M(1,2);
-			p(6) = M(2,0);  p(7) = M(2,1);
-			for(int i = 0; i < 8; ++i) {
+			for(int i = 0; i < 6; ++i) {
 				p(i) /= M(2,2);
 			}
-			is_applied = true;
 		}
 	};
 
 	~Homography();
-
-	Params solve(std::shared_ptr<GL_Tex2D> ref, std::shared_ptr<GL_Tex2D> img);
 
 	Params solve(std::shared_ptr<GL_Tex2D> ref, std::shared_ptr<GL_Tex2D> img, const Params& init_p);
 
@@ -177,6 +128,9 @@ private:
 	GLuint fbo_jacobian = 0;
 	GLuint fbo_gradient = 0;
 	GLuint fbo_debug = 0;
+
+	// CPU readback buffers
+	std::vector<float> G0_buf, D0_buf, GD_buf, RwHxy_buf;
 
 	bool have_init = false;
 

@@ -219,7 +219,7 @@ protected:
 			stage[i]->upper = stage[i + 1];
 		}
 
-		mapping.init(width * 2, height * 2, GL_RG);
+		mapping.init((width * 5) / 4, (height * 5) / 4, GL_RG);
 
 		have_init = true;
 	}
@@ -272,6 +272,8 @@ protected:
 
 		std::cout << "homography: R_norm = " << H.R_norm << ", overlap = " << H.overlap << std::endl;
 
+		mapping.render(src, H);
+
 		if(T.pos.norm() > rebase_delta || T.scale > rebase_scale || T.scale < 1 / rebase_scale)
 		{
 			for(int i = 0; i < pyramid_depth; ++i) {
@@ -282,7 +284,6 @@ protected:
 			base_gyro = gyro_now;
 			have_base = true;
 		}
-		mapping.render(src, H);
 
 //		const auto map = mapping.finalize();		// TODO: debugging
 
