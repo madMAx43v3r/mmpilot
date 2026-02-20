@@ -40,8 +40,8 @@ public:
 	int64_t camera_delay = 20000;	// [us]
 
 	float radius_mask = 1;			// proportional to width / 2
-	float rebase_delta = 50;		// pixels traveled
-	float rebase_scale = 1.5;		// relative scale change
+	float rebase_delta = 20;		// pixels traveled
+	float rebase_scale = 1.33;		// relative scale change
 
 	float FOV_in = 200;				// fisheye deg (diagonal)
 	float FOV_cam = 120;			// virtual deg (diagonal)
@@ -228,13 +228,14 @@ protected:
 		if(!gyro.avail()) {
 			return;
 		}
-		Vec3f RPY = Vec3f::Zero();
+		Gyro::State gyro_now;
 		try {
-			const auto state = gyro.lookup(ts);
-			RPY = state.get_rpy();
+			gyro_now = gyro.lookup(ts);
 		} catch(std::exception& ex) {
 			std::cout << "Gyro failed with: " << ex.what() << std::endl;
 		}
+		const Vec3f RPY = gyro_now.get_rpy();
+
 		std::cout << "RPY = " << RPY[0] << " " << RPY[1] << " " << RPY[2] << std::endl;
 
 		flip_image.exec(input_luma);
@@ -263,16 +264,21 @@ protected:
 		const auto H = stage[0]->H;
 		const auto T = H.transform();
 
+		std::cout << "homography: R_norm = " << H.R_norm << ", overlap = " << H.overlap << std::endl;
+
 		if(T.pos.norm() > rebase_delta || T.scale > rebase_scale || T.scale < 1 / rebase_scale)
 		{
 			for(int i = 0; i < pyramid_depth; ++i) {
 				stage[i]->rebase(pyramid.out[i]);
 			}
 			mapping.update(T);
+
+			base_gyro = gyro_now;
+			have_base = true;
 		}
 		mapping.render(src, H);
 
-		const auto map = mapping.finalize();		// TODO: debugging
+//		const auto map = mapping.finalize();		// TODO: debugging
 
 //		show(display, flip_image.out, {1, 0.2, 1, 1});
 //		show(display, virtual_cam.out, {1, 0.1, 1, 1});
@@ -359,10 +365,13 @@ private:
 
 	Mat3f R_BC;			// mounting to frame
 
+	Gyro::State base_gyro;
+
 	int64_t time_offset = 0;	// [us]
 
 	bool have_init = false;
 	bool time_init = false;
+	bool have_base = false;
 
 };
 
