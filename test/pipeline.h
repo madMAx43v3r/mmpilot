@@ -50,14 +50,15 @@ public:
 	Vec3f RPY_cam = Vec3f(0, 0, -35);	// relative to frame [deg]
 
 	int gradient_window = 7;
-	int pyramid_depth = 5;
+	int pyramid_depth = 4;
 
-	std::vector<int> num_iters = {1, 2, 4, 8, 12};
+	std::vector<int> num_iters = {1, 2, 5, 15};
 
 	Gyro gyro;
 	FlipImage flip_image;
 	WeightRadius weight_radius;
 	VirtualCam virtual_cam;
+	WeightRadius virtual_weight_radius;
 	PyramidFilter pyramid;
 	Mapping mapping;
 
@@ -187,15 +188,19 @@ protected:
 		input_luma = std::make_shared<GL_Tex2D>(width, height, GL_R8, GL_RED, GL_UNSIGNED_BYTE);
 
 		flip_image.init(width, height, GL_R8, GL_RED, GL_UNSIGNED_BYTE);
-		weight_radius.init(width, height);
+
+		weight_radius.init(GL_RED, width, height);
 
 		if(is_fisheye) {
 			virtual_cam.FOV_in = FOV_in;
 			virtual_cam.FOV_cam = FOV_cam;
 			virtual_cam.FOV_circle = FOV_circle;
 			virtual_cam.init(GL_RG16F, GL_RG, GL_HALF_FLOAT);
+
 			width = virtual_cam.width;
 			height = virtual_cam.height;
+
+			virtual_weight_radius.init(GL_RG, width, height);
 		}
 		pyramid.init(width, height, GL_RG16F, GL_RG, GL_HALF_FLOAT);
 
@@ -246,8 +251,10 @@ protected:
 		if(is_fisheye) {
 			const auto R_WB = rpy_to_rot_zyx_deg<float>({RPY[1], -RPY[0], -RPY[2]});
 			virtual_cam.R_mat = R_BC * R_WB.transpose();
-			virtual_cam.exec(weight_radius.out);
-			src = virtual_cam.out;
+			virtual_cam.exec(src);
+
+			virtual_weight_radius.exec(virtual_cam.out);
+			src = virtual_weight_radius.out;
 		}
 		pyramid.exec(src);
 
