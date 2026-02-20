@@ -185,6 +185,25 @@ Eigen::Matrix<T, 3, 3> so3_exp(const Eigen::Matrix<T, 3, 1>& w)
 	return Eigen::Matrix<T, 3, 3>::Identity() + a * W + b * (W * W);
 }
 
+// rotation matrix -> rotation vector (axis*angle), radians, in the same frame as R
+template<typename T>
+Eigen::Matrix<T, 3, 1> so3_log(const Eigen::Matrix<T, 3, 3>& R)
+{
+	const T cos_th = (R.trace() - T(1)) * T(0.5);
+	const T c = std::min(T(1), std::max(T(-1), cos_th));
+	const T th = std::acos(c);
+
+	if(th < T(1e-8)) {
+		return Eigen::Matrix<T, 3, 1>::Zero();
+	}
+	Eigen::Matrix<T, 3, 1> v;
+	v << (R(2, 1) - R(1, 2)),
+		 (R(0, 2) - R(2, 0)),
+		 (R(1, 0) - R(0, 1));
+	v *= T(0.5) / std::sin(th);
+	return v * th;
+}
+
 template<typename T>
 Eigen::Matrix<T, 3, 3> orthonormalize(const Eigen::Matrix<T, 3, 3>& R)
 {
