@@ -44,10 +44,10 @@ void main()
     vec4 proj = texture(uRef, uv);   // (Y, Ix, Iy, w)
 
     float w2 = pix.y * proj.w;
-    if(w2 < 0.01) {
+    float w = sqrt(w2);
+    if(w < 0.001) {
         return;
     }
-    float w = sqrt(w2);
     float R = (proj.x - pix.x) * w;
 
     outR = vec2(R, w);
