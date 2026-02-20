@@ -4,7 +4,7 @@ precision highp float;
 layout(location = 0) out vec4 outG0;
 layout(location = 1) out vec4 outD0;
 layout(location = 2) out vec4 outGD;
-layout(location = 4) out vec4 outRWXY; // (R, w, H_xy)
+layout(location = 3) out vec4 outRWXY; // (R, w, H_xy)
 
 uniform sampler2D uRes;  // residual texture (R, w)
 uniform sampler2D uJ0;   // RGBA: J0..J3
