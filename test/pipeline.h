@@ -225,10 +225,15 @@ protected:
 		if(!have_init) {
 			throw std::logic_error("!have_init");
 		}
+		if(!gyro.avail()) {
+			return;
+		}
 		Vec3f RPY = Vec3f::Zero();
-		if(gyro.avail()) {
+		try {
 			const auto state = gyro.lookup(ts);
 			RPY = state.get_rpy();
+		} catch(std::exception& ex) {
+			std::cout << "Gyro failed with: " << ex.what() << std::endl;
 		}
 		std::cout << "RPY = " << RPY[0] << " " << RPY[1] << " " << RPY[2] << std::endl;
 

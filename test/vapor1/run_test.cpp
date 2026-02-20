@@ -55,6 +55,8 @@ int main(int argc, char** argv)
 
 	MSP2Client msp("/dev/ttyAMA0");
 
+	msp.interval = std::chrono::milliseconds(20);
+
 	msp.on_raw_imu = [&](const MSP2Client::RawImu& imu) {
 		pipe_0.handle(std::make_shared<MSP2Client::RawImu>(imu));
 	};

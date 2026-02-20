@@ -183,7 +183,7 @@ public:
 
 
 	std::chrono::milliseconds timeout = std::chrono::milliseconds(500);
-	std::chrono::milliseconds interval = std::chrono::milliseconds(10);		// update rate for run()
+	std::chrono::milliseconds interval = std::chrono::milliseconds(20);		// update rate for run()
 
 	std::function<void(const RawImu&)> on_raw_imu;
 	std::function<void(const Attitude&)> on_attitude;
@@ -376,14 +376,14 @@ public:
 			if(on_raw_imu) {
 				check_send(MSP_RAW_IMU, 4);
 			}
-			if(on_attitude) {
-				check_send(MSP_ATTITUDE, 1, interval * 2);
-			}
 			if(on_rc) {
 				check_send(MSP_RC, 1, std::chrono::milliseconds(100));
 			}
 			if(on_gps) {
 				check_send(MSP_RAW_GPS, 1, std::chrono::milliseconds(200));
+			}
+			if(on_attitude) {
+				check_send(MSP_ATTITUDE, 1, std::chrono::milliseconds(200));
 			}
 
 			for(auto& f : poll()) {

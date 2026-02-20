@@ -33,6 +33,8 @@ int main(int argc, char** argv)
 
 	MSP2Client msp("/dev/ttyAMA0");
 
+	msp.interval = std::chrono::milliseconds(20);
+
 	msp.on_raw_imu = [&](const MSP2Client::RawImu& imu)
 	{
 		std::lock_guard<std::mutex> lock(mutex);

@@ -25,7 +25,7 @@ int main(int argc, char** argv) try
 
 	MSP2Client msp(dev, baud);
 
-	msp.interval = std::chrono::milliseconds(50);
+	msp.interval = std::chrono::milliseconds(20);
 
 	msp.on_attitude = [](const MSP2Client::Attitude& att) {
 		std::cout << "att: ts=" << att.ts
