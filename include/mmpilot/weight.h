@@ -22,7 +22,7 @@ namespace mmpilot {
 
 class WeightRadius {
 public:
-	float radius = -1;
+	float radius = -1;		// pixels
 
 	std::shared_ptr<GL_Tex2D> out;
 

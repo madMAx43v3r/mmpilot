@@ -133,7 +133,7 @@ Homography::Params Homography::solve(
 
 		GL_finish("Homography::solve()");
 
-		// ---------- Read back partials (W * chunkSize pixels)
+		// ---------- Read back partials
 		GL_read_FBO_RGBA(fbo_gradient, 0, width, reduction_chunk, G0_buf);
 		GL_read_FBO_RGBA(fbo_gradient, 1, width, reduction_chunk, D0_buf);
 		GL_read_FBO_RGBA(fbo_gradient, 2, width, reduction_chunk, GD_buf);
@@ -160,7 +160,7 @@ Homography::Params Homography::solve(
 		params.H_xy << hessian(2), H_xy, H_xy, hessian(5);
 		params.H_xy *= 1000 / num_pixel;
 
-//		std::cout << "G = " << std::endl << gradient.transpose() << std::endl;
+//		std::cout << "G = " << gradient.transpose() << std::endl;
 //		std::cout << "H = " << hessian.transpose() << std::endl;
 
 		// Apply damping
@@ -172,10 +172,12 @@ Homography::Params Homography::solve(
 				delta[i] = -gradient[i] / hessian[i];
 			}
 		}
+
+		// Use 2x2 system to solve for dx, dy
 		try {
-			// use 2x2 system to solve for dx, dy
 			Mat2f H;
 			H << hessian(2), H_xy, H_xy, hessian(5);
+
 			const Vec2f d_xy = H.colPivHouseholderQr().solve(Vec2f(gradient(2), gradient(5)));
 			delta[2] = -d_xy.x();
 			delta[5] = -d_xy.y();
@@ -210,8 +212,10 @@ Homography::Params Homography::solve(
 
 		GL_finish("Homography::solve()");
 	}
+
 	std::cout << "Homography[" << width << "x" << height << "]: took "
 				<< (get_time_micros() - begin) / 1000.f << " ms" << std::endl;
+
 	return params;
 }
 
@@ -234,8 +238,8 @@ void Homography::init(int width_, int height_)
 
 	glDeleteShader(fs_jacobian);
 	glDeleteShader(fs_gradient);
+	glDeleteShader(fs_debug);
 
-	tex_uv       = std::make_shared<GL_Tex2D>(width, height, GL_RG16F, GL_RG, GL_HALF_FLOAT);
 	tex_residual = std::make_shared<GL_Tex2D>(width, height, GL_RG16F, GL_RG, GL_HALF_FLOAT);
 
 	tex_jacobian[0] = std::make_shared<GL_Tex2D>(width, height, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT);
@@ -247,7 +251,7 @@ void Homography::init(int width_, int height_)
 	tex_RwHxy = std::make_shared<GL_Tex2D>(width, reduction_chunk, GL_RGBA32F, GL_RGBA, GL_FLOAT);
 
 	fbo_jacobian = GL_create_FBO(
-			{tex_jacobian[0]->id, tex_jacobian[1]->id, tex_residual->id, tex_uv->id});
+			{tex_jacobian[0]->id, tex_jacobian[1]->id, tex_residual->id});
 	fbo_gradient = GL_create_FBO(
 			{tex_gradient[0]->id, tex_gradient[1]->id, tex_gradient[2]->id, tex_RwHxy->id});
 

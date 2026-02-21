@@ -9,6 +9,7 @@
 #include <mmpilot/image.h>
 
 #include "../mapping.h"
+#include "../calibration.h"
 
 #include <iostream>
 
@@ -22,8 +23,15 @@ int main(int argc, char** argv)
 	std::cout << "file_name = " << file_name << std::endl;
 
 	MappingPipe pipe_0;
+//	CalibrationPipe pipe_0;
+	pipe_0.is_debug = true;
 	pipe_0.src_flip_y = true;
 	pipe_0.radius_mask = 0.9;
+//	pipe_0.K_param = {
+//		0,
+////		-0.0042
+//		-0.005
+//	};
 
 	const auto on_frame = [&](std::shared_ptr<Image> frame) {
 		std::cout << "[" << frame->topic << "] ts = " << frame->timestamp

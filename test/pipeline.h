@@ -35,6 +35,7 @@ public:
 	bool src_flip_x = false;
 	bool src_flip_y = false;
 	bool is_fisheye = true;
+	bool is_debug = false;
 
 	int64_t camera_delay = 20000;	// [us]
 
@@ -43,6 +44,8 @@ public:
 	float FOV_in = 200;				// fisheye deg (diagonal)
 	float FOV_cam = 120;			// virtual deg (diagonal)
 	float FOV_circle = 0.9;			// for FOV_in
+
+	Vec2f K_param = {0, 0};			// K2, K4
 
 	Vec3f RPY_cam = Vec3f(0, 0, -35);	// relative to frame [deg]
 
@@ -85,7 +88,8 @@ public:
 
 			base_img = std::make_shared<GL_Tex2D>(width, height, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT);
 
-			glGenFramebuffers(2, fbo_tmp);
+			fbo_copy[0] = GL_create_FBO(base_img->id);
+			fbo_copy[1] = GL_create_FBO(gradient.out->id);
 		}
 
 		void exec(std::shared_ptr<GL_Tex2D> img)
@@ -111,7 +115,13 @@ public:
 			}
 			gradient.exec(in);
 
-			GL_blit_FBO(fbo_tmp[0], fbo_tmp[1], base_img, gradient.out);
+			glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo_copy[1]);
+			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo_copy[0]);
+			glBlitFramebuffer(
+				0, 0, base_img->width, base_img->height,
+				0, 0, base_img->width, base_img->height,
+				GL_COLOR_BUFFER_BIT, GL_NEAREST
+			);
 
 			H = Homography::Params();
 			have_base = true;
@@ -120,7 +130,7 @@ public:
 	private:
 		bool have_base = false;
 
-		GLuint fbo_tmp[2] = {};
+		GLuint fbo_copy[2] = {};
 	};
 
 	Pipeline()
@@ -160,23 +170,32 @@ protected:
 	WeightRadius virtual_weight_radius;
 	PyramidFilter pyramid;
 
-	std::vector<std::shared_ptr<Level>> stage;
-
 	std::shared_ptr<GL_Tex2D> input_luma;
 
 	std::shared_ptr<GL_Tex2D> source;	// source image for pyramid
 
-	int src_width = 0;
-	int src_height = 0;
+	std::vector<std::shared_ptr<Level>> stage;
 
-	Mat3f R_BC;			// mounting to frame
+	Gyro::State gyro_state;
 
-	Gyro::State gyro_now;
+	Mat3f R_BC;			// camera to body
+	Mat3f R_WB;			// body to world
+
+	int in_width = 0;			// input to pipeline
+	int in_height = 0;			// input to pipeline
+
+	int src_width = 0;			// input to pyramid
+	int src_height = 0;			// input to pyramid
+
+	bool have_base = false;
 
 	std::unique_ptr<TexDisplay> display;
 
 	virtual void init(int width, int height)
 	{
+		in_width = width;
+		in_height = height;
+
 		flip_image.flip_x = src_flip_x;
 		flip_image.flip_y = src_flip_y;
 
@@ -197,6 +216,8 @@ protected:
 			virtual_cam.FOV_in = FOV_in;
 			virtual_cam.FOV_cam = FOV_cam;
 			virtual_cam.FOV_circle = FOV_circle;
+			virtual_cam.K2 = K_param.x();
+			virtual_cam.K4 = K_param.y();
 			virtual_cam.init(GL_RG16F, GL_RG, GL_HALF_FLOAT);
 
 			width = virtual_cam.width;
@@ -214,6 +235,7 @@ protected:
 		for(int i = 0; i < pyramid_depth; ++i)
 		{
 			auto lvl = std::make_shared<Level>();
+			lvl->solver.debug = is_debug;
 			lvl->solver.num_iters = num_iters[std::min(size_t(i), num_iters.size() - 1)];
 
 			lvl->init(this, i, w, h);
@@ -229,37 +251,21 @@ protected:
 		have_init = true;
 	}
 
-	void rebase()
+	virtual void rebase()
 	{
 		for(int i = 0; i < pyramid_depth; ++i) {
 			stage[i]->rebase(pyramid.out[i]);
 		}
 	}
 
-	void exec(const int64_t ts)
+	virtual void exec_filter(std::shared_ptr<GL_Tex2D> input)
 	{
-		if(!have_init) {
-			throw std::logic_error("!have_init");
-		}
-		if(!gyro.avail()) {
-			return;
-		}
-		try {
-			gyro_now = gyro.lookup(ts);
-		} catch(std::exception& ex) {
-			std::cout << "Gyro failed with: " << ex.what() << std::endl;
-		}
-		const Vec3f RPY = gyro_now.get_rpy();
-
-		std::cout << "RPY = " << RPY[0] << " " << RPY[1] << " " << RPY[2] << std::endl;
-
-		flip_image.exec(input_luma);
+		flip_image.exec(input);
 
 		weight_radius.exec(flip_image.out);
 
 		source = weight_radius.out;
 		if(is_fisheye) {
-			const auto R_WB = rpy_to_rot_zyx_deg<float>({RPY[1], -RPY[0], -RPY[2]});
 			virtual_cam.R_mat = R_BC * R_WB.transpose();
 			virtual_cam.exec(source);
 
@@ -267,19 +273,59 @@ protected:
 			source = virtual_weight_radius.out;
 		}
 		pyramid.exec(source);
+	}
 
-		// TODO: handle exceptions
+	virtual void exec(const Gyro::State& gyro, std::shared_ptr<GL_Tex2D> input)
+	{
+		if(!have_init) {
+			throw std::logic_error("!have_init");
+		}
+		gyro_state = gyro;
+
+		const Vec3f RPY = gyro.get_rpy();
+
+		R_WB = rpy_to_rot_zyx_deg<float>({RPY[1], -RPY[0], -RPY[2]});
+
+		std::cout << "RPY = " << RPY[0] << " " << RPY[1] << " " << RPY[2] << std::endl;
+
+		exec_filter(input);
+
+		if(!have_base) {
+			rebase();
+			have_base = true;
+			return;
+		}
+
+		// top down processing
 		for(int i = pyramid_depth - 1; i >= 0; --i) {
-			// top down processing
 			stage[i]->exec(pyramid.out[i]);
 		}
 
+		// back propagate most accurate result
 		for(int i = 1; i < pyramid_depth; ++i) {
-			// back propagate most accurate result
 			stage[i]->H = copy(stage[i-1]->H).scale(0.5);
 		}
 
 		update();
+	}
+
+	virtual void update() {}
+
+	void reset(const Homography::Params& H)
+	{
+		stage[0]->H = H;
+
+		for(int i = 1; i < pyramid_depth; ++i) {
+			stage[i]->H = copy(stage[i-1]->H).scale(0.5);
+		}
+	}
+
+	Homography::Params get_params(const int i = 0)
+	{
+		if(i < 0 || i >= pyramid_depth) {
+			throw std::logic_error("get_params(): out of bounds");
+		}
+		return stage[i]->H;
 	}
 
 	void on_image(std::shared_ptr<Image> img)
@@ -291,6 +337,8 @@ protected:
 			const auto& data = img->data[0];
 			const auto img_luma = decode_jpeg_y(data.data(), data.size(), w, h);
 			const auto img_rgba = decode_jpeg_rgba(data.data(), data.size(), w, h);
+
+			std::cout << "[" << img->sequence << "] decode took " << (get_time_micros() - begin) / 1e3 << " ms" << std::endl;
 
 			if(!have_init) {
 				init(w, h);
@@ -304,6 +352,9 @@ protected:
 				init(img->width, img->height);
 			}
 			input_luma->upload(img->data[0].data(), img->stride);
+		}
+		else {
+			return;
 		}
 
 		{
@@ -321,7 +372,10 @@ protected:
 				- img->exposure / 2
 				- camera_delay;
 
-		exec(ts);
+		if(!gyro.avail()) {
+			return;
+		}
+		exec(gyro.lookup(ts), input_luma);
 
 		std::cout << "[" << img->sequence << "] total_time = " << (get_time_micros() - begin) / 1e3 << " ms" << std::endl;
 	}
@@ -338,8 +392,6 @@ protected:
 			gyro.on_attitude(*att);
 		}
 	}
-
-	virtual void update() {}
 
 private:
 	static void gl_main_func(Thread& self)

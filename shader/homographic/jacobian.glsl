@@ -4,7 +4,6 @@ precision highp float;
 layout(location = 0) out vec4 outJ0;
 layout(location = 1) out vec2 outJ1;
 layout(location = 2) out vec2 outR;     // (R, w)
-layout(location = 3) out vec2 outUV;    // (u, v)
 
 uniform sampler2D uRef;         // RGBA16F, (Y, Ix, Iy, w)
 uniform sampler2D uImg;         // RG16F, (Y, w)
@@ -21,13 +20,12 @@ void main()
     float uN = uParams[0] * p.x + uParams[1] * p.y + uParams[2];
     float vN = uParams[3] * p.x + uParams[4] * p.y + uParams[5];
 
-    vec2 wp = vec2(uN, vN) + uCenter;
-    vec2 uv = wp * uInvSize;
+    vec2 q  = vec2(uN, vN) + uCenter;
+    vec2 uv = q * uInvSize;
 
     outJ0 = vec4(0);
     outJ1 = vec2(0);
     outR  = vec2(0);
-    outUV = vec2(uv.x, uv.y);
 
     if(uv.x < 0.0 || uv.y < 0.0 || uv.x >= 1.0 || uv.y >= 1.0) {
         return;

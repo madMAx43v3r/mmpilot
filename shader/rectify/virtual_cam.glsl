@@ -2,6 +2,7 @@
 precision highp float;
 
 layout(location = 0) out vec4 outColor;
+layout(location = 1) out vec4 outSrcPos;
 
 uniform sampler2D uSrc;         // fisheye source
 
@@ -40,14 +41,17 @@ void main()
     // float r = 2.0 * tan(theta / 2.0);   // stereographic
     float r2 = r * r;
     float r4 = r2 * r2;
-    float rd = r * (1.0 + uK2 * r2 + uK4 * r4);
+    float rd = r + uK2 * r2 + uK4 * r4;
 
     // Reproject to fisheye
-    vec2 uv = vec2(0.5) + ((uF * rd) * v) * uInvSrcSize;
+    vec2 q = (rd * uF) * v;
+    vec2 uv = vec2(0.5) + q * uInvSrcSize;
+
+    outSrcPos = vec4(v, r, rd);    // for K2, K4 jacobian
 
     if(uv.x < 0.0 || uv.y < 0.0 || uv.x >= 1.0 || uv.y >= 1.0) {
         outColor = vec4(0);
-        return;
+    } else {
+        outColor = texture(uSrc, uv);
     }
-    outColor = texture(uSrc, uv);
 }

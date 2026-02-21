@@ -30,7 +30,7 @@ protected:
 
 	void update() override
 	{
-		const auto H = stage[0]->H;
+		const auto H = get_params();
 		const auto T = H.transform();
 
 		std::cout << "homography: R_norm = " << H.R_norm << ", overlap = " << H.overlap << std::endl;

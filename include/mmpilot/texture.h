@@ -39,6 +39,10 @@ public:
 		glDeleteTextures(1, &id);
 	}
 
+	std::shared_ptr<GL_Tex2D> clone() {
+		return std::make_shared<GL_Tex2D>(width, height, internal_fmt, format, type);
+	}
+
 	void bind() {
 		glBindTexture(GL_TEXTURE_2D, id);
 	}
@@ -85,11 +89,13 @@ public:
 
 
 inline void GL_blit_FBO(
-		GLuint fbo_dst, GLuint fbo_src,
 		std::shared_ptr<GL_Tex2D> dst, std::shared_ptr<GL_Tex2D> src)
 {
-	glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo_src);
-	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo_dst);
+	GLuint fbo[2] = {};
+	glGenFramebuffers(2, fbo);
+
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo[0]);
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo[1]);
 
 	glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, src->id, 0);
 	glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, dst->id, 0);
@@ -108,6 +114,8 @@ inline void GL_blit_FBO(
 		mode
 	);
 	GL_finish("GL_blit_FBO()");
+
+	glDeleteFramebuffers(2, fbo);
 }
 
 

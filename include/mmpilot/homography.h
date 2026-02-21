@@ -24,9 +24,8 @@ public:
 	int num_iters = 8;
 	int reduction_chunk = 32;
 
-	bool debug = true;
+	bool debug = false;
 
-	std::shared_ptr<GL_Tex2D> tex_uv;					// (u, v)
 	std::shared_ptr<GL_Tex2D> tex_debug;				// (RGBA)
 	std::shared_ptr<GL_Tex2D> tex_residual;				// (R, w)
 	std::shared_ptr<GL_Tex2D> tex_RwHxy;				// (R, w, H_xy)
