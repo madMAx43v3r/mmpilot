@@ -172,13 +172,15 @@ Homography::Params Homography::solve(
 				delta[i] = -gradient[i] / hessian[i];
 			}
 		}
-		{
+		try {
 			// use 2x2 system to solve for dx, dy
 			Mat2f H;
 			H << hessian(2), H_xy, H_xy, hessian(5);
 			const Vec2f d_xy = H.colPivHouseholderQr().solve(Vec2f(gradient(2), gradient(5)));
 			delta[2] = -d_xy.x();
 			delta[5] = -d_xy.y();
+		} catch(...) {
+			// ignore
 		}
 
 		// Update params
