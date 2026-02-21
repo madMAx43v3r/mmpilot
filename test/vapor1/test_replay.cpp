@@ -8,7 +8,7 @@
 #include <mmpilot/replay.h>
 #include <mmpilot/image.h>
 
-#include "../pipeline.h"
+#include "../mapping.h"
 
 #include <iostream>
 
@@ -21,7 +21,7 @@ int main(int argc, char** argv)
 	std::cout << "offset = " << offset_sec << " sec" << std::endl;
 	std::cout << "file_name = " << file_name << std::endl;
 
-	Pipeline pipe_0;
+	MappingPipe pipe_0;
 	pipe_0.src_flip_y = true;
 	pipe_0.radius_mask = 0.9;
 

@@ -22,7 +22,7 @@ namespace mmpilot {
 
 class GradientFilter {
 public:
-	int win_size = 7;		// window size
+	int win_size = 5;		// window size
 
 	std::shared_ptr<GL_Tex2D> tmp;		// (Y, Sx, Dx, w)
 	std::shared_ptr<GL_Tex2D> out;		// (Y, Ix, Iy, w)

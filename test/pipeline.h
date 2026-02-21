@@ -24,7 +24,6 @@
 #include <mmpilot/beta_msp.h>
 #include <mmpilot/gyro.h>
 #include <mmpilot/math.h>
-#include <mmpilot/mapping.h>
 
 #include <mmpilot/egl.h>
 
@@ -40,8 +39,6 @@ public:
 	int64_t camera_delay = 20000;	// [us]
 
 	float radius_mask = 1;			// proportional to width / 2
-	float rebase_delta = 20;		// pixels traveled
-	float rebase_scale = 1.33;		// relative scale change
 
 	float FOV_in = 200;				// fisheye deg (diagonal)
 	float FOV_cam = 120;			// virtual deg (diagonal)
@@ -49,18 +46,9 @@ public:
 
 	Vec3f RPY_cam = Vec3f(0, 0, -35);	// relative to frame [deg]
 
-	int gradient_window = 7;
 	int pyramid_depth = 4;
 
-	std::vector<int> num_iters = {1, 3, 5, 15};
-
-	Gyro gyro;
-	FlipImage flip_image;
-	WeightRadius weight_radius;
-	VirtualCam virtual_cam;
-	WeightRadius virtual_weight_radius;
-	PyramidFilter pyramid;
-	Mapping mapping;
+	std::vector<int> num_iters = {1, 3, 7, 12};
 
 	class Level {
 	public:
@@ -91,7 +79,7 @@ public:
 				smooth[i].init(width, height, GL_RG16F, GL_RG, GL_HALF_FLOAT);
 			}
 
-			gradient.win_size = level > 0 ? pipe->gradient_window : 5;
+			gradient.win_size = level > 1 ? 7 : 5;
 			gradient.init(width, height);
 
 			solver.init(width, height);
@@ -136,12 +124,6 @@ public:
 		GLuint fbo_tmp[2] = {};
 	};
 
-	std::vector<std::shared_ptr<Level>> stage;
-
-	std::shared_ptr<GL_Tex2D> input_luma;
-
-	std::unique_ptr<TexDisplay> display;
-
 	Pipeline()
 		:	gl_main(&Pipeline::gl_main_func)
 	{
@@ -149,7 +131,7 @@ public:
 		sync();
 	}
 
-	~Pipeline()
+	virtual ~Pipeline()
 	{
 		if(display) {
 			display->close();
@@ -172,7 +154,29 @@ public:
 	}
 
 protected:
-	void init(int width, int height)
+	Gyro gyro;
+	FlipImage flip_image;
+	WeightRadius weight_radius;
+	VirtualCam virtual_cam;
+	WeightRadius virtual_weight_radius;
+	PyramidFilter pyramid;
+
+	std::vector<std::shared_ptr<Level>> stage;
+
+	std::shared_ptr<GL_Tex2D> input_luma;
+
+	std::shared_ptr<GL_Tex2D> source;	// source image for pyramid
+
+	int src_width = 0;
+	int src_height = 0;
+
+	Mat3f R_BC;			// mounting to frame
+
+	Gyro::State gyro_now;
+
+	std::unique_ptr<TexDisplay> display;
+
+	virtual void init(int width, int height)
 	{
 		flip_image.flip_x = src_flip_x;
 		flip_image.flip_y = src_flip_y;
@@ -201,6 +205,9 @@ protected:
 
 			virtual_weight_radius.init(GL_RG, width, height);
 		}
+		src_width = width;
+		src_height = height;
+
 		pyramid.init(width, height, GL_RG16F, GL_RG, GL_HALF_FLOAT);
 
 		int w = width;
@@ -209,19 +216,25 @@ protected:
 		{
 			auto lvl = std::make_shared<Level>();
 			lvl->solver.num_iters = num_iters[std::min(size_t(i), num_iters.size() - 1)];
+
 			lvl->init(this, i, w, h);
 			stage.push_back(lvl);
-			w /= 2; h /= 2;
+
+			w /= 2;
+			h /= 2;
 		}
 
-		for(int i = 0; i + 1 < pyramid_depth; ++i)
-		{
+		for(int i = 0; i + 1 < pyramid_depth; ++i) {
 			stage[i]->upper = stage[i + 1];
 		}
-
-		mapping.init((width * 5) / 4, (height * 5) / 4, GL_RG);
-
 		have_init = true;
+	}
+
+	void rebase()
+	{
+		for(int i = 0; i < pyramid_depth; ++i) {
+			stage[i]->rebase(pyramid.out[i]);
+		}
 	}
 
 	void exec(const int64_t ts)
@@ -232,7 +245,6 @@ protected:
 		if(!gyro.avail()) {
 			return;
 		}
-		Gyro::State gyro_now;
 		try {
 			gyro_now = gyro.lookup(ts);
 		} catch(std::exception& ex) {
@@ -246,16 +258,16 @@ protected:
 
 		weight_radius.exec(flip_image.out);
 
-		auto src = weight_radius.out;
+		source = weight_radius.out;
 		if(is_fisheye) {
 			const auto R_WB = rpy_to_rot_zyx_deg<float>({RPY[1], -RPY[0], -RPY[2]});
 			virtual_cam.R_mat = R_BC * R_WB.transpose();
-			virtual_cam.exec(src);
+			virtual_cam.exec(source);
 
 			virtual_weight_radius.exec(virtual_cam.out);
-			src = virtual_weight_radius.out;
+			source = virtual_weight_radius.out;
 		}
-		pyramid.exec(src);
+		pyramid.exec(source);
 
 		// TODO: handle exceptions
 		for(int i = pyramid_depth - 1; i >= 0; --i) {
@@ -267,31 +279,8 @@ protected:
 			// back propagate most accurate result
 			stage[i]->H = Homography::Params(stage[i-1]->H).scale(0.5);
 		}
-		const auto H = stage[0]->H;
-		const auto T = H.transform();
 
-		std::cout << "homography: R_norm = " << H.R_norm << ", overlap = " << H.overlap << std::endl;
-
-		mapping.render(src, H);
-
-		if(T.pos.norm() > rebase_delta || T.scale > rebase_scale || T.scale < 1 / rebase_scale)
-		{
-			for(int i = 0; i < pyramid_depth; ++i) {
-				stage[i]->rebase(pyramid.out[i]);
-			}
-			mapping.update(T);
-
-			base_gyro = gyro_now;
-			have_base = true;
-		}
-
-//		const auto map = mapping.finalize();		// TODO: debugging
-
-//		show(display, flip_image.out, {1, 0.2, 1, 1});
-//		show(display, virtual_cam.out, {1, 0.1, 1, 1});
-//		show(display, pyramid_filter.out[5], {1, 0.5, 1, 1});
-//		show(display, stage[2]->smooth[1].out, {1, 0.1, 1, 1});
-//		show(display, stage[0]->solver.tex_debug, {1, 1, 1, 1});
+		update();
 	}
 
 	void on_image(std::shared_ptr<Image> img)
@@ -351,6 +340,8 @@ protected:
 		}
 	}
 
+	virtual void update() {}
+
 private:
 	static void gl_main_func(Thread& self)
 	{
@@ -370,15 +361,10 @@ private:
 private:
 	Thread gl_main;
 
-	Mat3f R_BC;			// mounting to frame
-
-	Gyro::State base_gyro;
-
 	int64_t time_offset = 0;	// [us]
 
 	bool have_init = false;
 	bool time_init = false;
-	bool have_base = false;
 
 };
 

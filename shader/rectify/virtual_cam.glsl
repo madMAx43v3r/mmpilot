@@ -19,26 +19,20 @@ uniform float uK4;              // r^4 coeff on angle-radius
 
 void main()
 {
-    vec2 pOut = gl_FragCoord.xy - uCenter;
+    vec2 p = gl_FragCoord.xy - uCenter;
 
     // Virtual camera ray direction
-    vec3 dirV = normalize(vec3(pOut * uInvF, 1));
+    vec3 dirV = normalize(vec3(p * uInvF, 1));
 
     // Rotate into fisheye camera coordinates
     vec3 dirF = normalize(uRot * dirV);
-
-    // If you only want front hemisphere rectification
-    if(dirF.z <= 0.0) {
-        outColor = vec4(0);
-        return;
-    }
 
     // Angle from optical axis
     float xy = length(dirF.xy);
     float theta = atan(xy, dirF.z);
 
     // Unit direction on image plane
-    vec2 v = (xy > 1e-8) ? (dirF.xy / xy) : vec2(0);
+    vec2 v = normalize(dirF.xy);
 
     // Distort in "angle radius" space: r (radians)
     float r  = theta;           // equidistant
