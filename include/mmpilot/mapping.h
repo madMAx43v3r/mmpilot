@@ -21,10 +21,29 @@ namespace mmpilot {
 
 class Mapping {
 public:
+	struct Node {
+		Transform2D pose;
+		std::shared_ptr<GL_Tex2D> image;
+	};
+
+	struct Buffer {
+		GLuint fbo = 0;
+		std::shared_ptr<GL_Tex2D> map;
+		std::shared_ptr<GL_Tex2D> weight;		// write
+		std::shared_ptr<GL_Tex2D> weight_read;	// read-back
+
+		Buffer(int width, int height, bool is_mono);
+		~Buffer();
+		void mirror();
+		void clear();
+	private:
+		GLuint fbo_copy[2] = {};
+	};
+
 	Transform2D state;
 
-	std::shared_ptr<GL_Tex2D> tex_map;
-	std::shared_ptr<GL_Tex2D> tex_weight;
+	std::shared_ptr<Buffer> buffer;
+
 	std::shared_ptr<GL_Tex2D> tex_debug;
 
 	void init(int width, int height, GLenum format);
@@ -36,40 +55,29 @@ public:
 	std::shared_ptr<GL_Tex2D> finalize();
 
 private:
-	struct Node {
-		Transform2D pose;
-		std::shared_ptr<GL_Tex2D> image;
-	};
-
 	void add_node();
 
 	void render_image(
-			std::shared_ptr<GL_Tex2D> img, const std::vector<Vec2f>& coords,
-			const GLuint fbo, const int width_, const int height_, bool do_clear);
+			std::shared_ptr<Buffer> buf,
+			std::shared_ptr<GL_Tex2D> img,
+			const std::vector<Vec2f>& coords);
 
 private:
 	int width = 0;
 	int height = 0;
 
+	bool have_init = false;
+	bool is_mono = false;
+
 	float scale_bias = 1;
 
 	std::vector<Node> nodes;
 
-	GLuint prog_map = 0;
-	GLuint prog_out = 0;
-
-	GLuint fbo_map = 0;
-	GLuint fbo_debug = 0;
+	GLuint prog = 0;
 
 	GLuint vao = 0;
 	GLuint vbo = 0;
 	GLuint ebo = 0;
-
-	GLenum format = 0;
-
-	bool have_init = false;
-	bool need_clear = true;
-	bool is_mono = false;
 
 };
 

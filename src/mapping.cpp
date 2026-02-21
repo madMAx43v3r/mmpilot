@@ -15,6 +15,52 @@ namespace mmpilot {
 
 static const Vec2f g_uv[4] = {{0,0}, {1,0}, {1,1}, {0,1}};
 
+Mapping::Buffer::Buffer(int width, int height, bool is_mono)
+{
+	map = std::make_shared<GL_Tex2D>(
+			width, height, is_mono ? GL_RG16F : GL_RGBA16F, is_mono ? GL_RG : GL_RGBA, GL_HALF_FLOAT);
+
+	weight      = std::make_shared<GL_Tex2D>(width, height, GL_R16F, GL_RED, GL_HALF_FLOAT);
+	weight_read = std::make_shared<GL_Tex2D>(width, height, GL_R16F, GL_RED, GL_HALF_FLOAT);
+
+	fbo = GL_create_FBO({map->id, weight->id});
+
+	fbo_copy[0] = GL_create_FBO(weight->id);
+	fbo_copy[1] = GL_create_FBO(weight_read->id);
+
+	clear();
+}
+
+Mapping::Buffer::~Buffer()
+{
+	glDeleteFramebuffers(1, &fbo);
+	glDeleteFramebuffers(2, fbo_copy);
+}
+
+void Mapping::Buffer::mirror()
+{
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo_copy[0]);
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo_copy[1]);
+	glBlitFramebuffer(
+		0, 0, weight->width, weight->height,
+		0, 0, weight_read->width, weight_read->height,
+		GL_COLOR_BUFFER_BIT, GL_NEAREST
+	);
+	GL_finish("Buffer::mirror()");
+}
+
+void Mapping::Buffer::clear()
+{
+	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+	glViewport(0, 0, map->width, map->height);
+	glDisable(GL_BLEND);
+	glDisable(GL_SCISSOR_TEST);
+	glClearColor(0, 0, 0, 0);
+	glClear(GL_COLOR_BUFFER_BIT);
+	GL_finish("Buffer::clear()");
+
+	mirror();
+}
 
 void Mapping::init(int width_, int height_, GLenum format)
 {
@@ -24,12 +70,6 @@ void Mapping::init(int width_, int height_, GLenum format)
 	width = width_;
 	height = height_;
 
-	if(format == GL_RED) {
-		format = GL_RG;
-	}
-	if(format == GL_RGB) {
-		format = GL_RGBA;
-	}
 	std::string shader;
 	switch(format) {
 		case GL_RG:
@@ -37,31 +77,22 @@ void Mapping::init(int width_, int height_, GLenum format)
 			shader = "render_mono.glsl";
 			break;
 		case GL_RGBA:
+			is_mono = false;
 			shader = "render_rgba.glsl";
 			break;
 		default:
 			throw std::logic_error("Mapping: invalid format");
 	}
 
-	tex_map     = std::make_shared<GL_Tex2D>(
-			width, height, is_mono ? GL_RG16F : GL_RGBA16F, format, GL_HALF_FLOAT);
-	tex_weight  = std::make_shared<GL_Tex2D>(
-			width, height, GL_R16F, GL_RED, GL_HALF_FLOAT);
-	tex_debug   = std::make_shared<GL_Tex2D>(
-			width, height, is_mono ? GL_R8 : GL_RGB8, is_mono ? GL_RED : GL_RGB, GL_UNSIGNED_BYTE);
+	buffer = std::make_shared<Buffer>(width, height, is_mono);
 
-	fbo_map = GL_create_FBO({tex_map->id, tex_weight->id});
-	fbo_debug = GL_create_FBO(tex_debug->id);
+	tex_debug = std::make_shared<GL_Tex2D>(
+			width, height, is_mono ? GL_R8 : GL_RGB8, is_mono ? GL_RED : GL_RGB, GL_UNSIGNED_BYTE);
 
 	{
 		const auto vs = GL_compile_shader(GL_VERTEX_SHADER,   "shader/mapping/vertex.glsl");
 		const auto fs = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/mapping/" + shader);
-		prog_map = GL_link_program(vs, fs);
-	}
-	{
-		const auto vs = render::get_fullscreen_vertex_shader();
-		const auto fs = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/mapping/compress.glsl");
-		prog_out = GL_link_program(vs, fs);
+		prog = GL_link_program(vs, fs);
 	}
 
 	const float vert[4 * 4] = {0};	// dummy
@@ -131,23 +162,17 @@ void Mapping::render(std::shared_ptr<GL_Tex2D> img, const Homography::Params& H)
 		const Vec2f p = c_map + H.project(Vec2f(w * uv.x(), h * uv.y()) - c_img);
 		coords.push_back(p);
 	}
-	render_image(img, coords, fbo_map, width, height, need_clear);
+	render_image(buffer, img, coords);
 
-	need_clear = false;
-
-	glUseProgram(prog_out);
-
-	GL_bind_tex(prog_out, "uMap", tex_map->id, 0);
-	GL_bind_tex(prog_out, "uWeight", tex_weight->id, 1);
-
-	render::fullscreen(fbo_debug, width, height);
-
-	GL_finish("Mapping::render()");
+	if(tex_debug) {
+		GL_blit_FBO(tex_debug, buffer->map);
+	}
 }
 
 void Mapping::render_image(
-		std::shared_ptr<GL_Tex2D> img, const std::vector<Vec2f>& coords,
-		const GLuint fbo, const int width_, const int height_, bool do_clear)
+		std::shared_ptr<Buffer> buf,
+		std::shared_ptr<GL_Tex2D> img,
+		const std::vector<Vec2f>& coords)
 {
 	if(coords.size() != 4) {
 		throw std::logic_error("render_image(): coords.size() != 4");
@@ -176,27 +201,22 @@ void Mapping::render_image(
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
 	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vert), vert);
 
-	glUseProgram(prog_map);
+	glUseProgram(prog);
 
-	GL_bind_tex(prog_map, "uSrc", img->id, 0);
+	GL_bind_tex(prog, "uSrc", img->id, 0);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-	GL_uniform_2f(prog_map, "uMapSize", width_, height_);
+	GL_bind_tex(prog, "uWeight", buf->weight_read->id, 1);
 
-	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-	glViewport(0, 0, width_, height_);
+	GL_uniform_2f(prog, "uMapSize", buf->map->width, buf->map->height);
 
-	if(do_clear) {
-		glDisable(GL_BLEND);
-		glDisable(GL_SCISSOR_TEST);
-		glClearColor(0, 0, 0, 0);
-		glClear(GL_COLOR_BUFFER_BIT);
-	}
-	glEnable(GL_BLEND);
-	glBlendEquation(GL_FUNC_ADD);
-	glBlendFunc(GL_ONE, GL_ONE);
+	glBindFramebuffer(GL_FRAMEBUFFER, buf->fbo);
+	glViewport(0, 0, buf->map->width, buf->map->height);
+
+	glDisable(GL_BLEND);
+	glDisable(GL_DEPTH_TEST);
 
 	glEnable(GL_SCISSOR_TEST);
 	glScissor(xmin, ymin, (xmax - xmin) + 1, (ymax - ymin) + 1);
@@ -205,31 +225,25 @@ void Mapping::render_image(
 	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
 
 	GL_finish("Mapping::render_image()");
+
+	glDisable(GL_SCISSOR_TEST);
+
+	buf->mirror();
 }
 
 void Mapping::add_node()
 {
-	const auto img = std::make_shared<GL_Tex2D>(
+	const auto image = std::make_shared<GL_Tex2D>(
 			width, height, is_mono ? GL_RG8 : GL_RGBA8, is_mono ? GL_RG : GL_RGBA, GL_UNSIGNED_BYTE);
-	const auto fbo = GL_create_FBO(img->id);
 
-	glUseProgram(prog_out);
-
-	GL_bind_tex(prog_out, "uMap", tex_map->id, 0);
-	GL_bind_tex(prog_out, "uWeight", tex_weight->id, 1);
-
-	render::fullscreen(fbo, width, height);
-
-	GL_finish("Mapping::add_node()");
-
-	glDeleteFramebuffers(1, &fbo);
+	GL_blit_FBO(image, buffer->map);
 
 	Node node;
 	node.pose = state;
-	node.image = img;
+	node.image = image;
 	nodes.push_back(node);
 
-	need_clear = true;
+	buffer->clear();
 }
 
 std::shared_ptr<GL_Tex2D> Mapping::finalize()
@@ -256,13 +270,8 @@ std::shared_ptr<GL_Tex2D> Mapping::finalize()
 
 	std::cout << "Mapping: map size = " << map_width << " x " << map_height << ", nodes = " << nodes.size() << std::endl;
 
-	auto map = std::make_shared<GL_Tex2D>(
-			map_width, map_height, is_mono ? GL_R16F : GL_RGB16F, is_mono ? GL_RED : GL_RGB, GL_HALF_FLOAT);
-	auto weight = std::make_shared<GL_Tex2D>(
-			map_width, map_height, GL_R16F, GL_RED, GL_HALF_FLOAT);
-	auto fbo_map = GL_create_FBO({map->id, weight->id});
+	auto buf = std::make_shared<Buffer>(map_width, map_height, is_mono);
 
-	bool do_clear = true;
 	for(const auto& node : nodes)
 	{
 		std::vector<Vec2f> coords;
@@ -273,25 +282,13 @@ std::shared_ptr<GL_Tex2D> Mapping::finalize()
 			const Vec2f p = node.pose.apply(q) - origin;
 			coords.push_back(p);
 		}
-		render_image(node.image, coords, fbo_map, map_width, map_height, do_clear);
-		do_clear = false;
+		render_image(buf, node.image, coords);
 	}
 
 	auto out = std::make_shared<GL_Tex2D>(
 			map_width, map_height, is_mono ? GL_R8 : GL_RGB8, is_mono ? GL_RED : GL_RGB, GL_UNSIGNED_BYTE);
-	auto fbo_out = GL_create_FBO(out->id);
 
-	glUseProgram(prog_out);
-
-	GL_bind_tex(prog_out, "uMap", map->id, 0);
-	GL_bind_tex(prog_out, "uWeight", weight->id, 1);
-
-	render::fullscreen(fbo_out, map_width, map_height);
-
-	GL_finish("Mapping::finalize()");
-
-	glDeleteFramebuffers(1, &fbo_map);
-	glDeleteFramebuffers(1, &fbo_out);
+	GL_blit_FBO(out, buf->map);
 
 	return out;
 }

@@ -5,12 +5,19 @@ layout(location = 0) out vec2  outMono;
 layout(location = 1) out float outWeight;
 
 uniform sampler2D uSrc;
+uniform sampler2D uWeight;
 
-in vec2  vUV;
+in vec2 vUV;
 
 void main() {
-    vec4 c = texture(uSrc, vUV);
+    vec2 c = texture(uSrc, vUV).xy;
 
-    outMono   = vec2(c.x * c.y, c.y);
+    float w = texelFetch(uWeight, ivec2(gl_FragCoord.xy), 0).x;
+    
+    if(c.y <= w) {
+        discard;
+    }
+
+    outMono   = c;
     outWeight = c.y;
 }
