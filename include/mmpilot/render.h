@@ -16,6 +16,8 @@ namespace render {
 
 void fullscreen(GLuint fbo, int width, int height);
 
+void fullscreen_ex(GLuint fbo, int width, int height);
+
 GLuint get_fullscreen_vertex_shader();
 
 void init();

@@ -27,17 +27,14 @@ public:
 	};
 
 	struct Buffer {
-		GLuint fbo = 0;
 		std::shared_ptr<GL_Tex2D> map;
-		std::shared_ptr<GL_Tex2D> weight;		// write
-		std::shared_ptr<GL_Tex2D> weight_read;	// read-back
+		std::shared_ptr<GL_Tex2D> weight;
+
+		GLuint fbo = 0;
 
 		Buffer(int width, int height, bool is_mono);
 		~Buffer();
-		void mirror();
 		void clear();
-	private:
-		GLuint fbo_copy[2] = {};
 	};
 
 	Transform2D state;
@@ -62,6 +59,8 @@ private:
 			std::shared_ptr<GL_Tex2D> img,
 			const std::vector<Vec2f>& coords);
 
+	void compress(GLuint fbo, std::shared_ptr<Buffer> buf);
+
 private:
 	int width = 0;
 	int height = 0;
@@ -73,11 +72,14 @@ private:
 
 	std::vector<Node> nodes;
 
-	GLuint prog = 0;
+	GLuint prog_render = 0;
+	GLuint prog_compress = 0;
 
 	GLuint vao = 0;
 	GLuint vbo = 0;
 	GLuint ebo = 0;
+
+	GLuint fbo_debug = 0;
 
 };
 

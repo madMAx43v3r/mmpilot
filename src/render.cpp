@@ -18,19 +18,25 @@ GLuint g_fullscreen_vertex_shader = 0;
 
 void fullscreen(GLuint fbo, int width, int height)
 {
+	glDisable(GL_BLEND);
+	glDisable(GL_SCISSOR_TEST);
+
+	fullscreen_ex(fbo, width, height);
+}
+
+void fullscreen_ex(GLuint fbo, int width, int height)
+{
+	glDisable(GL_DEPTH_TEST);
+
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 	glViewport(0, 0, width, height);
-
-	glDisable(GL_BLEND);
-	glDisable(GL_DEPTH_TEST);
-	glDisable(GL_SCISSOR_TEST);
 
 	// a dummy VAO is required in core-ish profiles; ES typically too
 	glBindVertexArray(g_dummy_vao);
 
 	glDrawArrays(GL_TRIANGLES, 0, 3);
 
-	GL_check("render::fullscreen()");
+	GL_check("render::fullscreen_ex()");
 }
 
 GLuint get_fullscreen_vertex_shader() {

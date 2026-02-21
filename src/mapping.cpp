@@ -20,13 +20,9 @@ Mapping::Buffer::Buffer(int width, int height, bool is_mono)
 	map = std::make_shared<GL_Tex2D>(
 			width, height, is_mono ? GL_RG16F : GL_RGBA16F, is_mono ? GL_RG : GL_RGBA, GL_HALF_FLOAT);
 
-	weight      = std::make_shared<GL_Tex2D>(width, height, GL_R16F, GL_RED, GL_HALF_FLOAT);
-	weight_read = std::make_shared<GL_Tex2D>(width, height, GL_R16F, GL_RED, GL_HALF_FLOAT);
+	weight = std::make_shared<GL_Tex2D>(width, height, GL_R16F, GL_RED, GL_HALF_FLOAT);
 
 	fbo = GL_create_FBO({map->id, weight->id});
-
-	fbo_copy[0] = GL_create_FBO(weight->id);
-	fbo_copy[1] = GL_create_FBO(weight_read->id);
 
 	clear();
 }
@@ -34,32 +30,16 @@ Mapping::Buffer::Buffer(int width, int height, bool is_mono)
 Mapping::Buffer::~Buffer()
 {
 	glDeleteFramebuffers(1, &fbo);
-	glDeleteFramebuffers(2, fbo_copy);
-}
-
-void Mapping::Buffer::mirror()
-{
-	glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo_copy[0]);
-	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo_copy[1]);
-	glBlitFramebuffer(
-		0, 0, weight->width, weight->height,
-		0, 0, weight_read->width, weight_read->height,
-		GL_COLOR_BUFFER_BIT, GL_NEAREST
-	);
-	GL_finish("Buffer::mirror()");
 }
 
 void Mapping::Buffer::clear()
 {
-	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-	glViewport(0, 0, map->width, map->height);
-	glDisable(GL_BLEND);
 	glDisable(GL_SCISSOR_TEST);
 	glClearColor(0, 0, 0, 0);
+	glViewport(0, 0, map->width, map->height);
+	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 	glClear(GL_COLOR_BUFFER_BIT);
 	GL_finish("Buffer::clear()");
-
-	mirror();
 }
 
 void Mapping::init(int width_, int height_, GLenum format)
@@ -70,15 +50,15 @@ void Mapping::init(int width_, int height_, GLenum format)
 	width = width_;
 	height = height_;
 
-	std::string shader;
+	std::string s_render;
 	switch(format) {
 		case GL_RG:
 			is_mono = true;
-			shader = "render_mono.glsl";
+			s_render = "render_mono.glsl";
 			break;
 		case GL_RGBA:
 			is_mono = false;
-			shader = "render_rgba.glsl";
+			s_render = "render_rgba.glsl";
 			break;
 		default:
 			throw std::logic_error("Mapping: invalid format");
@@ -89,10 +69,17 @@ void Mapping::init(int width_, int height_, GLenum format)
 	tex_debug = std::make_shared<GL_Tex2D>(
 			width, height, is_mono ? GL_R8 : GL_RGB8, is_mono ? GL_RED : GL_RGB, GL_UNSIGNED_BYTE);
 
+	fbo_debug = GL_create_FBO(tex_debug->id);
+
 	{
 		const auto vs = GL_compile_shader(GL_VERTEX_SHADER,   "shader/mapping/vertex.glsl");
-		const auto fs = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/mapping/" + shader);
-		prog = GL_link_program(vs, fs);
+		const auto fs = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/mapping/" + s_render);
+		prog_render = GL_link_program(vs, fs);
+	}
+	{
+		const auto vs = render::get_fullscreen_vertex_shader();
+		const auto fs = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/mapping/compress.glsl");
+		prog_compress = GL_link_program(vs, fs);
 	}
 
 	const float vert[4 * 4] = {0};	// dummy
@@ -165,7 +152,7 @@ void Mapping::render(std::shared_ptr<GL_Tex2D> img, const Homography::Params& H)
 	render_image(buffer, img, coords);
 
 	if(tex_debug) {
-		GL_blit_FBO(tex_debug, buffer->map);
+		compress(fbo_debug, buffer);
 	}
 }
 
@@ -201,42 +188,57 @@ void Mapping::render_image(
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
 	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vert), vert);
 
-	glUseProgram(prog);
+	glUseProgram(prog_render);
 
-	GL_bind_tex(prog, "uSrc", img->id, 0);
+	GL_bind_tex(prog_render, "uSrc", img->id, 0);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-	GL_bind_tex(prog, "uWeight", buf->weight_read->id, 1);
+	GL_bind_tex(prog_render, "uWeight", buf->weight->id, 1);
 
-	GL_uniform_2f(prog, "uMapSize", buf->map->width, buf->map->height);
+	GL_uniform_2f(prog_render, "uMapSize", buf->map->width, buf->map->height);
 
 	glBindFramebuffer(GL_FRAMEBUFFER, buf->fbo);
 	glViewport(0, 0, buf->map->width, buf->map->height);
 
-	glDisable(GL_BLEND);
-	glDisable(GL_DEPTH_TEST);
-
 	glEnable(GL_SCISSOR_TEST);
-	glScissor(xmin, ymin, (xmax - xmin) + 1, (ymax - ymin) + 1);
+	glScissor(xmin - 1, ymin - 1, (xmax - xmin) + 2, (ymax - ymin) + 2);
+
+	glEnable(GL_BLEND);
+	glBlendEquation(GL_FUNC_ADD);
+	glBlendFunc(GL_ONE, GL_ONE);
 
 	glBindVertexArray(vao);
 	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
 
 	GL_finish("Mapping::render_image()");
 
+	glDisable(GL_BLEND);
 	glDisable(GL_SCISSOR_TEST);
+}
 
-	buf->mirror();
+void Mapping::compress(GLuint fbo, std::shared_ptr<Buffer> buf)
+{
+	glUseProgram(prog_compress);
+
+	GL_bind_tex(prog_compress, "uMap", buffer->map->id, 0);
+	GL_bind_tex(prog_compress, "uWeight", buffer->weight->id, 1);
+
+	render::fullscreen(fbo, width, height);
+
+	GL_finish("Mapping::compress()");
 }
 
 void Mapping::add_node()
 {
 	const auto image = std::make_shared<GL_Tex2D>(
 			width, height, is_mono ? GL_RG8 : GL_RGBA8, is_mono ? GL_RG : GL_RGBA, GL_UNSIGNED_BYTE);
+	const auto fbo = GL_create_FBO(image->id);
 
-	GL_blit_FBO(image, buffer->map);
+	compress(fbo, buffer);
+
+	glDeleteFramebuffers(1, &fbo);
 
 	Node node;
 	node.pose = state;
@@ -287,8 +289,11 @@ std::shared_ptr<GL_Tex2D> Mapping::finalize()
 
 	auto out = std::make_shared<GL_Tex2D>(
 			map_width, map_height, is_mono ? GL_R8 : GL_RGB8, is_mono ? GL_RED : GL_RGB, GL_UNSIGNED_BYTE);
+	const auto fbo = GL_create_FBO(out->id);
 
-	GL_blit_FBO(out, buf->map);
+	compress(fbo, buf);
+
+	glDeleteFramebuffers(1, &fbo);
 
 	return out;
 }
