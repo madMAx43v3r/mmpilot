@@ -55,6 +55,11 @@ std::string to_string(const std::array<T, N>& v)
 	return out + "]";
 }
 
+template<typename T>
+T copy(const T& v) {
+	return T(v);
+}
+
 
 
 } // mmpilot

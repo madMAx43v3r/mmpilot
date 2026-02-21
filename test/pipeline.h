@@ -276,7 +276,7 @@ protected:
 
 		for(int i = 1; i < pyramid_depth; ++i) {
 			// back propagate most accurate result
-			stage[i]->H = Homography::Params(stage[i-1]->H).scale(0.5);
+			stage[i]->H = copy(stage[i-1]->H).scale(0.5);
 		}
 
 		update();
