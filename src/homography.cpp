@@ -153,13 +153,12 @@ Homography::Params Homography::solve(
 			W_sum += RwHxy_buf[i * 4 + 1];
 			H_xy  += RwHxy_buf[i * 4 + 2];
 		}
-		const float R_norm = 100 * sqrt(R_sum) / W_sum;
 		const float num_pixel = width * height;
 
-		params.R_norm = R_norm;
+		params.R_norm = 1000 * sqrt(R_sum) / W_sum;
 		params.overlap = W_sum / num_pixel;
 		params.H_xy << hessian(2), H_xy, H_xy, hessian(5);
-		params.H_xy *= 100 / num_pixel;
+		params.H_xy *= 1000 / num_pixel;
 
 //		std::cout << "G = " << std::endl << gradient.transpose() << std::endl;
 //		std::cout << "H = " << hessian.transpose() << std::endl;
@@ -167,13 +166,19 @@ Homography::Params Homography::solve(
 		// Apply damping
 		hessian *= damping;
 
-		// TODO: use H_xy
-
 		Vec6 delta = Vec6::Zero();
 		for(int i = 0; i < 6; ++i) {
 			if(hessian[i] > 0) {
 				delta[i] = -gradient[i] / hessian[i];
 			}
+		}
+		{
+			// use 2x2 system to solve for dx, dy
+			Mat2f H;
+			H << hessian(2), H_xy, H_xy, hessian(5);
+			const Vec2f d_xy = H.colPivHouseholderQr().solve(Vec2f(gradient(2), gradient(5)));
+			delta[2] = -d_xy.x();
+			delta[5] = -d_xy.y();
 		}
 
 		// Update params
