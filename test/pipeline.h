@@ -47,7 +47,7 @@ public:
 
 	Vec2f K_param = {0, 0};			// K2, K4
 
-	Vec3f RPY_cam = Vec3f(0, 0, -35);	// relative to frame [deg]
+	Vec3f RPY_cam = Vec3f(0, 5, -30 -90);	// relative to frame [deg]
 
 	int pyramid_depth = 4;
 
@@ -180,6 +180,7 @@ protected:
 
 	Mat3f R_BC;			// camera to body
 	Mat3f R_WB;			// body to world
+	Mat3f R_EB;			// camera to extrinsic
 
 	int in_width = 0;			// input to pipeline
 	int in_height = 0;			// input to pipeline
@@ -199,6 +200,13 @@ protected:
 		flip_image.flip_x = src_flip_x;
 		flip_image.flip_y = src_flip_y;
 
+		// shuffle matrix to make hand calibration easier
+		// defaults to camera looking down, XY aligned to body frame
+		R_EB <<  0,  1,  0,
+				-1,  0,  0,
+				 0,  0,  1;
+
+//		R_BC = rpy_to_rot_zyx_deg(RPY_cam) * R_EB;
 		R_BC = rpy_to_rot_zyx_deg(RPY_cam);
 
 		if(radius_mask > 0) {
@@ -284,7 +292,8 @@ protected:
 
 		const Vec3f RPY = gyro.get_rpy();
 
-		R_WB = rpy_to_rot_zyx_deg<float>({RPY[1], -RPY[0], -RPY[2]});
+//		R_WB = rpy_to_rot_zyx_deg<float>({RPY[1], -RPY[0], RPY[2]});
+		R_WB = gyro.matrix();
 
 		std::cout << "RPY = " << RPY[0] << " " << RPY[1] << " " << RPY[2] << std::endl;
 

@@ -33,7 +33,7 @@ public:
 		// RPY in deg
 		Vec3f get_rpy() const {
 			const auto raw = rot_zyx_to_rpy_deg(rot);
-			return Vec3f(raw.x(), raw.y(), angle_norm_360(-raw.z()));
+			return Vec3f(raw.x(), raw.y(), angle_norm_360(raw.z()));
 		}
 	};
 
