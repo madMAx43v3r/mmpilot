@@ -17,5 +17,5 @@ void main()
 
     vec3 RGB = vec3(Y) * (1.0 - Rn) + vec3(Rn, 0, 0);
 
-    out0 = vec4(RGB, R.y);
+    out0 = vec4(RGB, R.y > 0.0 ? 1.0 : 0.0);
 }
