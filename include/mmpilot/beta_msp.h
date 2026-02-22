@@ -75,9 +75,9 @@ public:
 	// MSP_RAW_IMU (102 / 0x0066): acc[3], gyro[3], mag[3] as int16 LE (18 bytes total)
 	class RawImu : public Sample {
 	public:
-		int16_t acc[3] = {0, 0, 0};    // raw accel ((8|16)g/4096 default)
-		int16_t gyro[3] = {0, 0, 0};   // raw gyro rate (1/16.4 deg/s at 2000 dps)
-		int16_t mag[3] = {0, 0, 0};    // raw mag (0 if not present)
+		std::array<int16_t, 3> acc = {0, 0, 0};    // raw accel ((8|16)g/4096 default)
+		std::array<int16_t, 3> gyro = {0, 0, 0};   // raw gyro rate (1/16.4 deg/s at 2000 dps)
+		std::array<int16_t, 3> mag = {0, 0, 0};    // raw mag (0 if not present)
 
 		void write(Recorder& out) const {
 			out.write_u32(MAGIC);
