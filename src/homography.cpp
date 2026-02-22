@@ -208,6 +208,8 @@ Homography::Params Homography::solve(
 		GL_bind_tex(prog_debug, "uImg", img->id, 0);
 		GL_bind_tex(prog_debug, "uRes", tex_residual->id, 1);
 
+		GL_uniform_2f(prog_debug, "uCenter", width / 2.f, height / 2.f);
+
 		render::fullscreen(fbo_debug, width, height);
 
 		GL_finish("Homography::solve()");

@@ -6,6 +6,8 @@ layout(location = 0) out vec4 out0;
 uniform sampler2D uImg;      // (Y, ...)
 uniform sampler2D uRes;      // residual (R, w)
 
+uniform vec2 uCenter;
+
 void main()
 {
     ivec2 p  = ivec2(gl_FragCoord.xy);
@@ -16,6 +18,11 @@ void main()
     float Rn = abs(R.x);
 
     vec3 RGB = vec3(Y) * (1.0 - Rn) + vec3(Rn, 0, 0);
+
+    vec2 q = vec2(p) - uCenter;
+    if(length(q) < 3.0) {
+        RGB = vec3(0.5, 1, 0.5);
+    }
 
     out0 = vec4(RGB, R.y > 0.0 ? 1.0 : 0.0);
 }
