@@ -43,11 +43,11 @@ public:
 
 	float FOV_in = 200;				// fisheye deg (diagonal)
 	float FOV_cam = 120;			// virtual deg (diagonal)
-	float FOV_circle = 0.9;			// for FOV_in
+	float FOV_circle = 1;			// for FOV_in
 
 	Vec2f K_param = {0, 0};			// K2, K4
 
-	Vec3f RPY_cam = Vec3f(0, 5, -30 -90);	// relative to frame [deg]
+	Vec3f RPY_cam = Vec3f::Zero();	// relative to frame [deg]
 
 	int pyramid_depth = 4;
 

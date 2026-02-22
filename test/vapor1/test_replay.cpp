@@ -29,6 +29,7 @@ int main(int argc, char** argv)
 	pipe_0.radius_mask = 0.9;
 	pipe_0.FOV_in = 190;
 	pipe_0.FOV_cam = 120;
+	pipe_0.RPY_cam = Vec3f(0, 5, -30 -90);
 	pipe_0.K_param  = Vec2f(0, 0);
 
 	const auto on_frame = [&](std::shared_ptr<Image> frame) {
