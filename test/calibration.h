@@ -8,14 +8,16 @@
 #ifndef TEST_CALIBRATION_H_
 #define TEST_CALIBRATION_H_
 
+#include <mmpilot/calib.h>
+
 #include "pipeline.h"
 
 
 class CalibrationPipe : public Pipeline {
 public:
-	float trigger_delta = 50;		// pixels traveled
+	float trigger_delta = 25;		// pixels traveled
 	float trigger_scale = 1.25;		// relative scale change
-	float trigger_angle = 5;		// [deg]
+	float trigger_angle = 10;		// [deg]
 
 	int reduction_chunk = 32;
 
@@ -59,7 +61,7 @@ protected:
 	{
 		Pipeline::rebase();
 
-		base_rpy = gyro_state.get_rpy();
+		base_gyro = gyro_state;
 
 		GL_blit_FBO(base_grad, in_gradient.out);
 		GL_blit_FBO(base_src_pos, virtual_cam.tex_src_pos);
@@ -72,7 +74,7 @@ protected:
 		in_gradient.exec(weight_radius.out);
 	}
 
-	void run()
+	void distortion()
 	{
 		glUseProgram(prog_jacobian);
 
@@ -138,8 +140,26 @@ protected:
 //		virtual_cam.K2 += delta[0];
 //		virtual_cam.K4 += delta[1];
 
-		std::cout << "calib: delta = " << delta.transpose() << std::endl;
+		std::cout << "calib: K2/K4 delta = " << delta.transpose() << std::endl;
 //		std::cout << "calib: K2 = " << virtual_cam.K2 << ", K4 = " << virtual_cam.K4 << std::endl;
+	}
+
+	void extrinsic(const calib::ExtrinsicSample& sample)
+	{
+		extr_samples.push_back(sample);
+
+		Mat3d R_BC = this->R_BC.cast<double>();
+
+		for(int iter = 0; iter < 10; ++iter)
+		{
+			const auto f_cam = virtual_cam.f_cam;
+			const auto delta = calib::solve_delta_extrinsic(R_BC, extr_samples, f_cam, f_cam, 1e-3);
+			calib::apply_delta_rot(R_BC, -delta);
+
+			const auto rpy = rot_zyx_to_rpy_deg(R_BC);
+
+			std::cout << "calib: iter " << iter << ": RPY(R_BC) = " << rpy.transpose() << " deg" << std::endl;
+		}
 	}
 
 	void update() override
@@ -147,16 +167,34 @@ protected:
 		const auto H = get_params();
 		const auto T = H.transform();
 
-		if(T.pos.norm() > trigger_delta || T.scale > trigger_scale || T.scale < 1 / trigger_scale)
+		const Vec3f delta_rpy = gyro_state.get_rpy() - base_gyro.get_rpy();
+		const float roll_pitch = Vec2f(delta_rpy.x(), delta_rpy.y()).norm();
+
+//		std::cout << "calib: roll_pitch = " << roll_pitch << " deg" << std::endl;
+
+//		if(roll_pitch > trigger_angle || T.pos.norm() > trigger_delta
+//			|| T.scale > trigger_scale || T.scale < 1 / trigger_scale)
 		{
-			const Vec3f delta_rpy = gyro_state.get_rpy() - base_rpy;
-			const float roll_pitch = Vec2f(delta_rpy.x(), delta_rpy.y()).norm();
+			if(roll_pitch > trigger_angle)
+			{
+				distortion();
 
-			std::cout << "calib: roll_pitch = " << roll_pitch << " deg" << std::endl;
+				if(T.pos.norm() < trigger_delta)
+				{
+					calib::ExtrinsicSample sample;
+					sample.dR_B = base_gyro.matrix().transpose() * gyro_state.matrix();
+					sample.trans = T.pos;
 
-			if(roll_pitch > trigger_angle) {
-				run();
+					std::cout << "calib: sample: trans = " << sample.trans.transpose() << std::endl;
+
+					extrinsic(sample);
+				}
 			}
+
+			total_shift += T.pos.norm();
+			std::cout << "total_shift[" << counter << "] = " << total_shift << std::endl;
+			counter++;
+
 			rebase();
 		}
 
@@ -166,15 +204,18 @@ protected:
 //		show(display, stage[3]->smooth[1].out, {1, 0.1, 1, 1});
 //		show(display, stage[0]->base_img, {0, 1, 1, 1});
 		show(display, stage[0]->solver.tex_debug, {1, 1, 1, 1});
-//		show(display, mapping.tex_debug, {1, 0, 1, 1});
-//		show(display, mapping.finalize(), {1, 0, 0, 1});
 	}
 
 private:
 	Vec2d gradient = Vec2d::Zero();
 	Vec2d hessian = Vec2d::Zero();
 
-	Vec3f base_rpy = Vec3f::Zero();
+	Gyro::State base_gyro;
+
+	std::vector<calib::ExtrinsicSample> extr_samples;
+
+	int counter = 0;
+	float total_shift = 0;
 
 	std::vector<float> GD_buf;
 
