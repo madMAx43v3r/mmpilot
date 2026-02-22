@@ -81,8 +81,9 @@ public:
 		{
 			const auto r = deg2rad(FOV_in) / 2;
 			const auto r2 = r * r;
-			const auto r4 = r2 * r2;
-			const auto scale = (r + K2 * r2 + K4 * r4) / r;
+			const auto r3 = r2 * r;
+			const auto r5 = r2 * r3;
+			const auto scale = (r + K2 * r3 + K4 * r5) / r;
 			f_in /= scale;
 			std::cout << "VirtualCam: distortion factor = " << scale << std::endl;
 		}

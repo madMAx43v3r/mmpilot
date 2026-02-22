@@ -33,15 +33,16 @@ void main()
     float theta = atan(xy, dirF.z);
 
     // Unit direction on image plane
-    vec2 v = normalize(dirF.xy);
+    vec2 v = dirF.xy / max(xy, 1e-8);
 
     // Distort in "angle radius" space: r (radians)
     float r  = theta;           // equidistant
     // float r = 2.0 * sin(theta / 2.0);   // equisolid
     // float r = 2.0 * tan(theta / 2.0);   // stereographic
     float r2 = r * r;
-    float r4 = r2 * r2;
-    float rd = r + uK2 * r2 + uK4 * r4;
+    float r3 = r2 * r;
+    float r5 = r3 * r2;
+    float rd = r + uK2 * r3 + uK4 * r5;
 
     // Reproject to fisheye
     vec2 q = (rd * uF) * v;

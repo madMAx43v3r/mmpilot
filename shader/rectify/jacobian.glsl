@@ -23,10 +23,11 @@ void main()
 
     float r  = src.z;
     float r2 = r * r;
-    float r4 = r2 * r2;
+    float r3 = r2 * r;
+    float r5 = r3 * r2;
 
-    vec2 dq_dK2 = (uF * r2) * v;
-    vec2 dq_dK4 = (uF * r4) * v;
+    vec2 dq_dK2 = (uF * r3) * v;
+    vec2 dq_dK4 = (uF * r5) * v;
 
     outJ = vec2(dot(I_xy, dq_dK2), dot(I_xy, dq_dK4));
 }
