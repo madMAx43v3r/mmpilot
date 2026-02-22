@@ -27,10 +27,9 @@ int main(int argc, char** argv)
 	pipe_0.is_debug = true;
 	pipe_0.src_flip_y = true;
 	pipe_0.radius_mask = 0.9;
-	pipe_0.K_param = {
-		0,
-		-0.0042
-	};
+	pipe_0.FOV_in = 190;
+	pipe_0.FOV_cam = 120;
+	pipe_0.K_param  = Vec2f(0, 0);
 
 	const auto on_frame = [&](std::shared_ptr<Image> frame) {
 		std::cout << "[" << frame->topic << "] ts = " << frame->timestamp

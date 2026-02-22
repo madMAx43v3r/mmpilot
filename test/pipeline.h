@@ -37,7 +37,7 @@ public:
 	bool is_fisheye = true;
 	bool is_debug = false;
 
-	int64_t camera_delay = 20000;	// [us]
+	int64_t camera_delay = 50000;	// [us]
 
 	float radius_mask = 1;			// proportional to width / 2
 
