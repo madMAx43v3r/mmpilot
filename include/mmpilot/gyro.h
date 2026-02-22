@@ -42,7 +42,7 @@ public:
 	float gyro_scale = 1 / 16.4;				// [deg/s]
 	float accel_scale = 1 / 2048.f;				// [g]
 
-	float att_window = 30;		// how fast to converge towards attitude [sec]
+	float att_window = 100;		// how fast to converge towards attitude [sec]
 
 	Vec3f att_scale = Vec3f(0.1, 0.1, 1);		// [deg]
 
