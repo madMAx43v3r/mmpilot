@@ -222,10 +222,10 @@ void Mapping::compress(GLuint fbo, std::shared_ptr<Buffer> buf)
 {
 	glUseProgram(prog_compress);
 
-	GL_bind_tex(prog_compress, "uMap", buffer->map->id, 0);
-	GL_bind_tex(prog_compress, "uWeight", buffer->weight->id, 1);
+	GL_bind_tex(prog_compress, "uMap", buf->map->id, 0);
+	GL_bind_tex(prog_compress, "uWeight", buf->weight->id, 1);
 
-	render::fullscreen(fbo, width, height);
+	render::fullscreen(fbo, buf->map->width, buf->map->height);
 
 	GL_finish("Mapping::compress()");
 }
@@ -267,8 +267,8 @@ std::shared_ptr<GL_Tex2D> Mapping::finalize()
 	}
 	const Vec2f origin = Vec2f(xmin - width / 2, ymin - height / 2);
 
-	const int map_width  = (xmax - origin.x()) + width / 2 + 1;
-	const int map_height = (ymax - origin.y()) + height / 2 + 1;
+	const int map_width  = (xmax - xmin) + width + 2;
+	const int map_height = (ymax - ymin) + height + 2;
 
 	std::cout << "Mapping: map size = " << map_width << " x " << map_height << ", nodes = " << nodes.size() << std::endl;
 
