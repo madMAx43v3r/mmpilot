@@ -40,7 +40,7 @@ int main(int argc, char** argv)
 		std::lock_guard<std::mutex> lock(mutex);
 		write_sample(rec, "msp.raw_imu", imu);
 
-		std::cout << "IMU: ts = " << imu.ts << ", gyro = [" << to_string(imu.gyro) << "]" << std::endl;
+		std::cout << "IMU: ts = " << imu.ts << ", gyro = " << to_string(imu.gyro) << std::endl;
 	};
 
 	msp.on_attitude = [&](const MSP2Client::Attitude& att)
@@ -87,7 +87,7 @@ int main(int argc, char** argv)
 		std::cout << "Frame " << frame.sequence << ": ts = " << frame.timestamp
 				<< ", width = " << frame.width << ", height = " << frame.height
 				<< ", stride = " << frame.stride << ", format = " << frame.pixel_format
-				<< ", size = " << out.data.size() << std::endl;
+				<< ", N(data) = " << out.data.size() << std::endl;
 
 		write_sample(rec, topic, out);
 	};
