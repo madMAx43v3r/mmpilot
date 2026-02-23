@@ -1,16 +1,18 @@
 /*
- * test_replay.cpp
+ * export_images.cpp
  *
- *  Created on: Feb 9, 2026
+ *  Created on: Feb 23, 2026
  *      Author: mad
  */
 
 #include <mmpilot/replay.h>
 #include <mmpilot/image.h>
-
-#include "../pipeline2.h"
+#include <mmpilot/beta_msp.h>
 
 #include <iostream>
+#include <fstream>
+
+using namespace mmpilot;
 
 
 int main(int argc, char** argv)
@@ -21,47 +23,39 @@ int main(int argc, char** argv)
 	std::cout << "offset = " << offset_sec << " sec" << std::endl;
 	std::cout << "file_name = " << file_name << std::endl;
 
-	Pipeline pipe_0;
-//	MappingPipe pipe_0;
-//	CalibrationPipe pipe_0;
-	pipe_0.is_debug = true;
-	pipe_0.src_flip_y = true;
-	pipe_0.radius_mask = 0.9;
-	pipe_0.FOV_in = 190;
-	pipe_0.FOV_cam = 120;
-	pipe_0.RPY_cam = Vec3f(0, 5, -30 -90);
-	pipe_0.K_param  = Vec2f(0, 0);
+	size_t counter = 0;
 
 	const auto on_frame = [&](std::shared_ptr<Image> frame) {
+		if(frame->exposure > 40000) {
+			return;
+		}
 		std::cout << "[" << frame->topic << "] ts = " << frame->timestamp
 				<< ", width = " << frame->width << ", height = " << frame->height
 				<< ", size = " << frame->data.size()
 				<< ", exposure = " << frame->exposure << ", gain = " << frame->analog_gain << std::endl;
+
+		if(frame->format == "JPEG") {
+			const auto& data = frame->data[0];
+
+			std::ofstream f("images/" + frame->topic + "_" + std::to_string(counter) + ".jpeg");
+			f.write((const char*)data.data(), data.size());
+			f.close();
+
+			counter++;
+		}
 	};
 
 	const auto on_frame_0 = [&](std::shared_ptr<Image> frame) {
 		on_frame(frame);
-		pipe_0.handle(frame);
-		pipe_0.sync();
-	};
-
-	const auto on_raw_imu = [&](std::shared_ptr<MSP2Client::RawImu> imu) {
-		pipe_0.handle(imu);
-	};
-
-	const auto on_att = [&](std::shared_ptr<MSP2Client::Attitude> att) {
-		pipe_0.handle(att);
 	};
 
 	Player player(file_name);
+	player.real_time = false;
 
 	player.decode["msp.raw_imu"] 	= &MSP2Client::RawImu::read;
 	player.decode["msp.attitude"] 	= &MSP2Client::Attitude::read;
 	player.decode["msp.rc"] 		= &MSP2Client::RcPacket::read;
 	player.decode["msp.raw_gps"] 	= &MSP2Client::RawGPS::read;
-
-	player.handle["msp.raw_imu"]  = dispatch<MSP2Client::RawImu>(on_raw_imu);
-	player.handle["msp.attitude"] = dispatch<MSP2Client::Attitude>(on_att);
 
 	player.decode["camera.wide"] = &Image::read;
 	player.handle["camera.wide"] = dispatch<Image>(on_frame_0);
@@ -74,6 +68,9 @@ int main(int argc, char** argv)
 
 	return 0;
 }
+
+
+
 
 
 

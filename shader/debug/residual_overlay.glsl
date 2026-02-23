@@ -10,7 +10,7 @@ uniform vec2 uCenter;
 
 void main()
 {
-    ivec2 p  = ivec2(gl_FragCoord.xy);
+    ivec2 p = ivec2(gl_FragCoord.xy);
 
     float Y = texelFetch(uImg, p, 0).x;
     vec4  R = texelFetch(uRes, p, 0);

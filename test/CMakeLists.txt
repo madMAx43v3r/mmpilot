@@ -4,9 +4,13 @@ if(LIBCAMERA_FOUND)
 	target_link_libraries(test_camera mmpilot_camera mmpilot_util)
 endif()
 
+add_executable(export_images export_images.cpp)
+
 add_executable(test_beta_msp test_beta_msp.cpp)
 add_executable(test_opengl_fbo test_opengl_fbo.cpp)
 add_executable(test_pose_graph test_pose_graph.cpp)
+
+target_link_libraries(export_images mmpilot_util)
 
 target_link_libraries(test_beta_msp mmpilot_util Threads::Threads)
 target_link_libraries(test_opengl_fbo EGL GLESv2)

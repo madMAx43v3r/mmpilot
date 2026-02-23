@@ -164,6 +164,9 @@ void Mapping::render_image(
 	if(coords.size() != 4) {
 		throw std::logic_error("render_image(): coords.size() != 4");
 	}
+	const int width = buf->map->width;
+	const int height = buf->map->height;
+
 	float xmin = std::numeric_limits<float>::max();
 	float ymin = std::numeric_limits<float>::max();
 	float xmax = std::numeric_limits<float>::min();
@@ -197,10 +200,10 @@ void Mapping::render_image(
 
 	GL_bind_tex(prog_render, "uWeight", buf->weight->id, 1);
 
-	GL_uniform_2f(prog_render, "uMapSize", buf->map->width, buf->map->height);
+	GL_uniform_2f(prog_render, "uMapSize", width, height);
 
 	glBindFramebuffer(GL_FRAMEBUFFER, buf->fbo);
-	glViewport(0, 0, buf->map->width, buf->map->height);
+	glViewport(0, 0, width, height);
 
 	glEnable(GL_SCISSOR_TEST);
 	glScissor(xmin - 1, ymin - 1, (xmax - xmin) + 2, (ymax - ymin) + 2);

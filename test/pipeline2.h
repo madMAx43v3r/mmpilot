@@ -1,0 +1,448 @@
+/*
+ * pipeline2.h
+ *
+ *  Created on: Feb 23, 2026
+ *      Author: mad
+ */
+
+#ifndef TEST_VAPOR1_PIPELINE2_H_
+#define TEST_VAPOR1_PIPELINE2_H_
+
+#include <mmpilot/render.h>
+#include <mmpilot/opengl.h>
+#include <mmpilot/display.h>
+#include <mmpilot/jpeg.h>
+#include <mmpilot/util.h>
+#include <mmpilot/image.h>
+#include <mmpilot/flip.h>
+#include <mmpilot/weight.h>
+#include <mmpilot/gradient.h>
+#include <mmpilot/pyramid.h>
+#include <mmpilot/smooth.h>
+#include <mmpilot/homography.h>
+#include <mmpilot/virtual_cam.h>
+#include <mmpilot/beta_msp.h>
+#include <mmpilot/gyro.h>
+#include <mmpilot/math.h>
+#include <mmpilot/flow.h>
+
+#include <mmpilot/egl.h>
+
+using namespace mmpilot;
+
+
+class Pipeline {
+public:
+	bool src_flip_x = false;
+	bool src_flip_y = false;
+	bool is_fisheye = true;
+	bool is_debug = false;
+
+	int64_t camera_delay = 50000;	// [us]
+
+	float radius_mask = 1;			// proportional to width / 2
+
+	float FOV_in = 200;				// fisheye deg (diagonal)
+	float FOV_cam = 120;			// virtual deg (diagonal)
+	float FOV_circle = 1;			// for FOV_in
+
+	Vec2f K_param = {0, 0};			// K2, K4
+
+	Vec3f RPY_cam = Vec3f::Zero();	// relative to frame [deg]
+
+	int pyramid_depth = 4;
+
+	std::vector<int> num_iters = {1, 3, 7, 12};
+
+	class Level {
+	public:
+		int level = 0;
+		int num_smooth = -1;
+
+		SmoothFilter smooth[3];
+		GradientFilter gradient;
+		Homography solver;
+		FlowFilter flow;
+
+		Homography::Params H;
+
+		std::shared_ptr<Level> upper;			// lower scale (upper level)
+		std::shared_ptr<GL_Tex2D> base_img;
+
+		void init(Pipeline* pipe, int level, int width, int height)
+		{
+			this->level = level;
+
+			if(num_smooth < 0) {
+				switch(level) {
+					case 0:  num_smooth = 1; break;
+					case 1:  num_smooth = 2; break;
+					default: num_smooth = 3;
+				}
+			}
+			for(int i = 0; i < num_smooth; ++i) {
+				smooth[i].init(width, height, GL_RG16F, GL_RG, GL_HALF_FLOAT);
+			}
+
+			gradient.init(width, height);
+			solver.init(width, height);
+			flow.init(width, height);
+
+			base_img = std::make_shared<GL_Tex2D>(width, height, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT);
+
+			fbo_copy[0] = GL_create_FBO(base_img->id);
+			fbo_copy[1] = GL_create_FBO(gradient.out->id);
+		}
+
+		void exec(std::shared_ptr<GL_Tex2D> img)
+		{
+			if(have_base) {
+				if(upper) {
+					H = Homography::Params(upper->H).scale(2);
+				}
+				H = solver.solve(base_img, img, H);
+
+				flow.exec(base_img, img, H);
+
+				std::cout << "params[" << level << "][" << solver.num_iters << "] = " << to_string(H) << std::endl;
+			} else {
+				rebase(img);
+			}
+		}
+
+		void rebase(std::shared_ptr<GL_Tex2D> img)
+		{
+			auto in = img;
+			for(int i = 0; i < num_smooth; ++i) {
+				smooth[i].exec(in);
+				in = smooth[i].out;
+			}
+			gradient.exec(in);
+
+			glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo_copy[1]);
+			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo_copy[0]);
+			glBlitFramebuffer(
+				0, 0, base_img->width, base_img->height,
+				0, 0, base_img->width, base_img->height,
+				GL_COLOR_BUFFER_BIT, GL_NEAREST
+			);
+
+			H = Homography::Params();
+			have_base = true;
+		}
+
+	private:
+		bool have_base = false;
+
+		GLuint fbo_copy[2] = {};
+	};
+
+	Pipeline()
+		:	gl_main(&Pipeline::gl_main_func)
+	{
+		gl_main.post([]{});
+		sync();
+	}
+
+	virtual ~Pipeline()
+	{
+		if(display) {
+			display->close();
+		}
+		gl_main.close();
+	}
+
+	void handle(std::shared_ptr<Image> img)
+	{
+		gl_main.post(std::bind(&Pipeline::on_image, this, img));
+	}
+
+	void handle(std::shared_ptr<Sample> sample)
+	{
+		gl_main.post(std::bind(&Pipeline::on_sample, this, sample));
+	}
+
+	void sync() {
+		gl_main.sync();
+	}
+
+protected:
+	Gyro gyro;
+	FlipImage flip_image;
+	WeightRadius weight_radius;
+	VirtualCam virtual_cam;
+	WeightRadius virtual_weight_radius;
+	PyramidFilter pyramid;
+
+	std::shared_ptr<GL_Tex2D> input_luma;
+
+	std::shared_ptr<GL_Tex2D> source;	// source image for pyramid
+
+	std::vector<std::shared_ptr<Level>> stage;
+
+	Gyro::State gyro_state;
+
+	Mat3f R_BC;			// camera to body
+	Mat3f R_WB;			// body to world
+	Mat3f R_EB;			// camera to extrinsic
+
+	int in_width = 0;			// input to pipeline
+	int in_height = 0;			// input to pipeline
+
+	int src_width = 0;			// input to pyramid
+	int src_height = 0;			// input to pyramid
+
+	bool have_base = false;
+
+	std::unique_ptr<TexDisplay> display;
+
+	virtual void init(int width, int height)
+	{
+		in_width = width;
+		in_height = height;
+
+		flip_image.flip_x = src_flip_x;
+		flip_image.flip_y = src_flip_y;
+
+		// shuffle matrix to make hand calibration easier
+		// defaults to camera looking down, XY aligned to body frame
+		R_EB <<  0,  1,  0,
+				-1,  0,  0,
+				 0,  0,  1;
+
+//		R_BC = rpy_to_rot_zyx_deg(RPY_cam) * R_EB;
+		R_BC = rpy_to_rot_zyx_deg(RPY_cam);
+
+		if(radius_mask > 0) {
+			weight_radius.radius = (width / 2) * radius_mask;
+		}
+		pyramid.depth = pyramid_depth;
+
+		input_luma = std::make_shared<GL_Tex2D>(width, height, GL_R8, GL_RED, GL_UNSIGNED_BYTE);
+
+		flip_image.init(width, height, GL_R8, GL_RED, GL_UNSIGNED_BYTE);
+
+		weight_radius.init(GL_RED, width, height);
+
+		if(is_fisheye) {
+			virtual_cam.FOV_in = FOV_in;
+			virtual_cam.FOV_cam = FOV_cam;
+			virtual_cam.FOV_circle = FOV_circle;
+			virtual_cam.K2 = K_param.x();
+			virtual_cam.K4 = K_param.y();
+			virtual_cam.init(GL_RG16F, GL_RG, GL_HALF_FLOAT);
+
+			width = virtual_cam.width;
+			height = virtual_cam.height;
+
+			virtual_weight_radius.init(GL_RG, width, height);
+		}
+		src_width = width;
+		src_height = height;
+
+		pyramid.init(width, height, GL_RG16F, GL_RG, GL_HALF_FLOAT);
+
+		int w = width;
+		int h = height;
+		for(int i = 0; i < pyramid_depth; ++i)
+		{
+			auto lvl = std::make_shared<Level>();
+			lvl->flow.debug = is_debug;
+			lvl->solver.debug = is_debug;
+			lvl->solver.num_iters = num_iters[std::min(size_t(i), num_iters.size() - 1)];
+
+			lvl->init(this, i, w, h);
+			stage.push_back(lvl);
+
+			w /= 2;
+			h /= 2;
+		}
+
+		for(int i = 0; i + 1 < pyramid_depth; ++i) {
+			stage[i]->upper = stage[i + 1];
+		}
+		have_init = true;
+	}
+
+	virtual void rebase()
+	{
+		for(int i = 0; i < pyramid_depth; ++i) {
+			stage[i]->rebase(pyramid.out[i]);
+		}
+	}
+
+	virtual void exec_filter(std::shared_ptr<GL_Tex2D> input)
+	{
+		flip_image.exec(input);
+
+		weight_radius.exec(flip_image.out);
+
+		source = weight_radius.out;
+		if(is_fisheye) {
+			virtual_cam.R_mat = R_BC * R_WB.transpose();
+			virtual_cam.exec(source);
+
+			virtual_weight_radius.exec(virtual_cam.out);
+			source = virtual_weight_radius.out;
+		}
+		pyramid.exec(source);
+	}
+
+	virtual void exec(const Gyro::State& gyro, std::shared_ptr<GL_Tex2D> input)
+	{
+		if(!have_init) {
+			throw std::logic_error("!have_init");
+		}
+		gyro_state = gyro;
+
+		const Vec3f RPY = gyro.get_rpy();
+
+//		R_WB = rpy_to_rot_zyx_deg<float>({RPY[1], -RPY[0], RPY[2]});
+		R_WB = gyro.matrix();
+
+		std::cout << "RPY = " << RPY[0] << " " << RPY[1] << " " << RPY[2] << std::endl;
+
+		exec_filter(input);
+
+		if(!have_base) {
+			rebase();
+			have_base = true;
+			return;
+		}
+
+		// top down processing
+		for(int i = pyramid_depth - 1; i >= 0; --i) {
+			stage[i]->exec(pyramid.out[i]);
+		}
+
+		// back propagate most accurate result
+		for(int i = 1; i < pyramid_depth; ++i) {
+			stage[i]->H = copy(stage[i-1]->H).scale(0.5);
+		}
+
+		update();
+
+//		show(display, pyramid.out[0]);
+//		show(display, stage[0]->base_img);
+		show(display, stage[0]->flow.tex_debug);
+	}
+
+	virtual void update()
+	{
+		rebase();
+	}
+
+	void reset(const Homography::Params& H)
+	{
+		stage[0]->H = H;
+
+		for(int i = 1; i < pyramid_depth; ++i) {
+			stage[i]->H = copy(stage[i-1]->H).scale(0.5);
+		}
+	}
+
+	Homography::Params get_params(const int i = 0)
+	{
+		if(i < 0 || i >= pyramid_depth) {
+			throw std::logic_error("get_params(): out of bounds");
+		}
+		return stage[i]->H;
+	}
+
+	void on_image(std::shared_ptr<Image> img)
+	{
+		const auto begin = get_time_micros();
+
+		if(img->format == "JPEG") {
+			int w, h;
+			const auto& data = img->data[0];
+			const auto img_luma = decode_jpeg_y(data.data(), data.size(), w, h);
+			const auto img_rgba = decode_jpeg_rgba(data.data(), data.size(), w, h);
+
+			std::cout << "[" << img->sequence << "] decode took " << (get_time_micros() - begin) / 1e3 << " ms" << std::endl;
+
+			if(!have_init) {
+				init(w, h);
+			}
+			input_luma->upload(img_luma.data(), w);
+
+//			show(display, img_rgba, w, h, 4);
+		}
+		else if(img->format == "YUV420") {
+			if(!have_init) {
+				init(img->width, img->height);
+			}
+			input_luma->upload(img->data[0].data(), img->stride);
+		}
+		else {
+			return;
+		}
+
+		{
+			const auto ts_off = img->ts - img->timestamp;
+			if(time_init) {
+				// keep updating offset to converge
+				time_offset = (time_offset * 63 + ts_off) / 64;
+			} else {
+				time_offset = ts_off;
+				time_init = true;
+			}
+			std::cout << "time_offset = " << time_offset << std::endl;
+		}
+		const auto ts = (time_offset + img->timestamp)
+				- img->exposure / 2
+				- camera_delay;
+
+		if(!gyro.avail()) {
+			return;
+		}
+		exec(gyro.lookup(ts), input_luma);
+
+		std::cout << "[" << img->sequence << "] total_time = " << (get_time_micros() - begin) / 1e3 << " ms" << std::endl;
+	}
+
+	void on_sample(std::shared_ptr<Sample> sample)
+	{
+		if(auto img = std::dynamic_pointer_cast<Image>(sample)) {
+			on_image(img);
+		}
+		else if(auto imu = std::dynamic_pointer_cast<MSP2Client::RawImu>(sample)) {
+			gyro.on_raw_imu(*imu);
+		}
+		else if(auto att = std::dynamic_pointer_cast<MSP2Client::Attitude>(sample)) {
+			gyro.on_attitude(*att);
+		}
+	}
+
+private:
+	static void gl_main_func(Thread& self)
+	{
+		auto egl = EGL_create_context();
+
+		GL_print_version();
+
+		render::init();
+
+		self.run();
+
+		render::cleanup();
+
+		egl.terminate();
+	}
+
+private:
+	Thread gl_main;
+
+	int64_t time_offset = 0;	// [us]
+
+	bool have_init = false;
+	bool time_init = false;
+
+};
+
+
+
+
+
+
+#endif /* TEST_VAPOR1_PIPELINE2_H_ */

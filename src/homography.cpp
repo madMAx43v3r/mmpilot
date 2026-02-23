@@ -211,9 +211,9 @@ Homography::Params Homography::solve(
 		GL_uniform_2f(prog_debug, "uCenter", width / 2.f, height / 2.f);
 
 		render::fullscreen(fbo_debug, width, height);
-
-		GL_finish("Homography::solve()");
 	}
+
+	GL_finish("Homography::solve()");
 
 	std::cout << "Homography[" << width << "x" << height << "]: took "
 				<< (get_time_micros() - begin) / 1000.f << " ms" << std::endl;
