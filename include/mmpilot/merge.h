@@ -33,7 +33,7 @@ public:
 
 	std::shared_ptr<GL_Tex2D> out;
 	std::shared_ptr<GL_Tex2D> tex_ref;
-	std::shared_ptr<GL_Tex2D> tex_debug;
+	std::shared_ptr<GL_Tex2D> tex_debug[2];
 	std::shared_ptr<GL_Tex2D> tex_buf[2][2];
 
 	void init(int width_, int height_, GLenum format)
@@ -79,8 +79,10 @@ public:
 		prog_debug = GL_link_program(vs, fs_debug);
 
 		if(debug) {
-			tex_debug = std::make_shared<GL_Tex2D>(width, height, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE);
-			fbo_debug = GL_create_FBO(tex_debug);
+			for(int i = 0; i < 2; ++i) {
+				tex_debug[i] = std::make_shared<GL_Tex2D>(width, height, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE);
+				fbo_debug[i] = GL_create_FBO(tex_debug[i]);
+			}
 		}
 		have_init = true;
 	}
@@ -161,10 +163,15 @@ public:
 		{
 			glUseProgram(prog_debug);
 
+			GL_bind_tex(prog_debug, "uImg0", in_img, 0);
+			GL_bind_tex(prog_debug, "uImg1", in_ref, 1);
+
+			render::fullscreen(fbo_debug[0], width, height);
+
 			GL_bind_tex(prog_debug, "uImg0", in_ref, 0);
 			GL_bind_tex(prog_debug, "uImg1", in_img, 1);
 
-			render::fullscreen(fbo_debug, width, height);
+			render::fullscreen(fbo_debug[1], width, height);
 		}
 
 		GL_finish("MergeFilter::exec()");
@@ -180,7 +187,7 @@ private:
 	GLuint fbo[2][2] = {};
 	GLuint fbo_ref = 0;
 	GLuint fbo_out = 0;
-	GLuint fbo_debug = 0;
+	GLuint fbo_debug[2] = {};
 
 	GLuint prog_warp = 0;
 	GLuint prog_blend = 0;

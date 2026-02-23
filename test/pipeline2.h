@@ -339,9 +339,9 @@ protected:
 
 		merge.exec(base, source, get_params());
 
-//		show(display, merge.out, {1, 0, 0, 1});
-//		show(display, merge.tex_debug);
-		show(display, merge.flow[1].tex_debug);
+//		show(display, merge.out, {1, 1, 1, 1});
+		show(display, merge.tex_debug[1]);
+//		show(display, merge.flow.stage[0]->flow[1].tex_debug);
 //		show(display, stage[0]->base_img);
 //		show(display, stage[0]->flow.tex_debug);
 
