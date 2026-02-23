@@ -10,6 +10,8 @@
 
 #include <GLES3/gl31.h>
 
+#include <array>
+
 
 namespace mmpilot {
 namespace render {
@@ -17,6 +19,8 @@ namespace render {
 void fullscreen(GLuint fbo, int width, int height);
 
 void fullscreen_ex(GLuint fbo, int width, int height);
+
+void clear(GLuint fbo, int width, int height, const std::array<float, 4>& color = {});
 
 GLuint get_fullscreen_vertex_shader();
 

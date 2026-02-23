@@ -54,7 +54,7 @@ public:
 		have_init = true;
 	}
 
-	void exec(std::shared_ptr<GL_Tex2D> in)
+	void exec(std::shared_ptr<GL_Tex2D> in, bool sync = true)
 	{
 		if(!have_init) {
 			init(in->width, in->height);
@@ -83,10 +83,12 @@ public:
 
 		render::fullscreen(fbo, width, height);
 
-		GL_finish("GradientFilter::exec()");
+		if(sync) {
+			GL_finish("GradientFilter::exec()");
 
-		std::cout << "GradientFilter[" << width << "x" << height << "]: took "
-				<< (get_time_micros() - begin) / 1000.f << " ms" << std::endl;
+			std::cout << "GradientFilter[" << width << "x" << height << "]: took "
+					<< (get_time_micros() - begin) / 1000.f << " ms" << std::endl;
+		}
 	}
 
 private:

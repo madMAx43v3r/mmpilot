@@ -34,12 +34,7 @@ Mapping::Buffer::~Buffer()
 
 void Mapping::Buffer::clear()
 {
-	glDisable(GL_SCISSOR_TEST);
-	glClearColor(0, 0, 0, 0);
-	glViewport(0, 0, map->width, map->height);
-	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-	glClear(GL_COLOR_BUFFER_BIT);
-	GL_finish("Buffer::clear()");
+	render::clear(fbo, map->width, map->height);
 }
 
 void Mapping::init(int width_, int height_, GLenum format)

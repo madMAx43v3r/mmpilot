@@ -88,6 +88,22 @@ public:
 };
 
 
+inline void GL_bind_tex(GLuint prog, const char* name, std::shared_ptr<GL_Tex2D> tex, GLint unit) {
+	GL_bind_tex(prog, name, tex->id, unit);
+}
+
+inline GLuint GL_create_FBO(std::shared_ptr<GL_Tex2D> tex) {
+	return GL_create_FBO(tex->id);
+}
+
+inline GLuint GL_create_FBO(const std::vector<std::shared_ptr<GL_Tex2D>>& tex) {
+	std::vector<GLuint> ids;
+	for(auto t : tex) {
+		ids.push_back(t->id);
+	}
+	return GL_create_FBO(ids);
+}
+
 inline void GL_blit_FBO(
 		std::shared_ptr<GL_Tex2D> dst, std::shared_ptr<GL_Tex2D> src)
 {

@@ -39,6 +39,16 @@ void fullscreen_ex(GLuint fbo, int width, int height)
 	GL_check("render::fullscreen_ex()");
 }
 
+void clear(GLuint fbo, int width, int height, const std::array<float, 4>& color)
+{
+	glDisable(GL_SCISSOR_TEST);
+	glClearColor(color[0], color[1], color[2], color[3]);
+	glViewport(0, 0, width, height);
+	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+	glClear(GL_COLOR_BUFFER_BIT);
+	GL_finish("render::clear()");
+}
+
 GLuint get_fullscreen_vertex_shader() {
 	return g_fullscreen_vertex_shader;
 }

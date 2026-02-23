@@ -14,19 +14,25 @@ uniform float uMinDet;          // det threshold, 1e-8
 void main() {
     vec2 p = gl_FragCoord.xy;
 
-    vec2 pix  = texelFetch(uImg, ivec2(p), 0).xy;
+    vec2 pix = texelFetch(uImg, ivec2(p), 0).xy;
 
     if(pix.y <= 0.0) {
-        discard;
+        outFlow = vec2(0);
+        return;
     }
     vec2 flow = texelFetch(uFlow, ivec2(p), 0).xy;
 
     vec2 uv = (p + flow) * uInvSize;
-    
+
+    if(uv.x < 0.0 || uv.y < 0.0 || uv.x >= 1.0 || uv.y >= 1.0) {
+        outFlow = flow;
+        return;
+    }
     vec4 ref = texture(uRef, uv);
 
     if(ref.w <= 0.0) {
-        discard;
+        outFlow = flow;
+        return;
     }
     float R = ref.x - pix.x;   // residual
 

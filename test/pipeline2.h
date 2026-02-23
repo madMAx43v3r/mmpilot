@@ -25,6 +25,7 @@
 #include <mmpilot/gyro.h>
 #include <mmpilot/math.h>
 #include <mmpilot/flow.h>
+#include <mmpilot/merge.h>
 
 #include <mmpilot/egl.h>
 
@@ -62,7 +63,7 @@ public:
 		SmoothFilter smooth[3];
 		GradientFilter gradient;
 		Homography solver;
-		FlowFilter flow;
+//		FlowFilter flow;
 
 		Homography::Params H;
 
@@ -86,7 +87,7 @@ public:
 
 			gradient.init(width, height);
 			solver.init(width, height);
-			flow.init(width, height);
+//			flow.init(width, height);
 
 			base_img = std::make_shared<GL_Tex2D>(width, height, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT);
 
@@ -102,7 +103,7 @@ public:
 				}
 				H = solver.solve(base_img, img, H);
 
-				flow.exec(base_img, img, H);
+//				flow.exec(base_img, img, H);
 
 				std::cout << "params[" << level << "][" << solver.num_iters << "] = " << to_string(H) << std::endl;
 			} else {
@@ -174,9 +175,13 @@ protected:
 	WeightRadius virtual_weight_radius;
 	PyramidFilter pyramid;
 
+	MergeFilter merge;
+
 	std::shared_ptr<GL_Tex2D> input_luma;
 
 	std::shared_ptr<GL_Tex2D> source;	// source image for pyramid
+
+	std::shared_ptr<GL_Tex2D> base_img;
 
 	std::vector<std::shared_ptr<Level>> stage;
 
@@ -193,6 +198,7 @@ protected:
 	int src_height = 0;			// input to pyramid
 
 	bool have_base = false;
+	bool merge_init = false;
 
 	std::unique_ptr<TexDisplay> display;
 
@@ -242,12 +248,15 @@ protected:
 
 		pyramid.init(width, height, GL_RG16F, GL_RG, GL_HALF_FLOAT);
 
+		merge.debug = is_debug;
+		merge.init(width, height, GL_RG);
+
 		int w = width;
 		int h = height;
 		for(int i = 0; i < pyramid_depth; ++i)
 		{
 			auto lvl = std::make_shared<Level>();
-			lvl->flow.debug = is_debug;
+//			lvl->flow.debug = is_debug;
 			lvl->solver.debug = is_debug;
 			lvl->solver.num_iters = num_iters[std::min(size_t(i), num_iters.size() - 1)];
 
@@ -269,6 +278,7 @@ protected:
 		for(int i = 0; i < pyramid_depth; ++i) {
 			stage[i]->rebase(pyramid.out[i]);
 		}
+		base_img = source;
 	}
 
 	virtual void exec_filter(std::shared_ptr<GL_Tex2D> input)
@@ -321,14 +331,20 @@ protected:
 		}
 
 		update();
-
-//		show(display, pyramid.out[0]);
-//		show(display, stage[0]->base_img);
-		show(display, stage[0]->flow.tex_debug);
 	}
 
 	virtual void update()
 	{
+		const auto base = merge_init ? merge.out : base_img;
+
+		merge.exec(base, source, get_params());
+
+//		show(display, merge.out, {1, 0, 0, 1});
+//		show(display, merge.tex_debug);
+		show(display, merge.flow[1].tex_debug);
+//		show(display, stage[0]->base_img);
+//		show(display, stage[0]->flow.tex_debug);
+
 		rebase();
 	}
 

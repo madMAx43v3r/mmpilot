@@ -49,22 +49,23 @@ public:
 
 		const auto vs = render::get_fullscreen_vertex_shader();
 		const auto fs = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/mapping/flow_mono.glsl");
-		const auto fs_init = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/mapping/flow_init_mono.glsl");
+		const auto fs_init = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/mapping/flow_init.glsl");
 		const auto fs_debug = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/debug/flow_overlay.glsl");
 		prog = GL_link_program(vs, fs);
 		prog_init = GL_link_program(vs, fs_init);
 		prog_debug = GL_link_program(vs, fs_debug);
 
-		tex_buf   = std::make_shared<GL_Tex2D>(width, height, GL_RG16F, GL_RG, GL_HALF_FLOAT);
-		tex_debug = std::make_shared<GL_Tex2D>(width, height, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE);
+		tex_buf = std::make_shared<GL_Tex2D>(width, height, GL_RG16F, GL_RG, GL_HALF_FLOAT);
+		fbo = GL_create_FBO(tex_buf);
 
-		fbo = GL_create_FBO(tex_buf->id);
-		fbo_debug = GL_create_FBO(tex_debug->id);
-
+		if(debug) {
+			tex_debug = std::make_shared<GL_Tex2D>(width, height, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE);
+			fbo_debug = GL_create_FBO(tex_debug);
+		}
 		have_init = true;
 	}
 
-	void exec(std::shared_ptr<GL_Tex2D> ref, std::shared_ptr<GL_Tex2D> img, const Homography::Params& H)
+	void exec(std::shared_ptr<GL_Tex2D> ref, std::shared_ptr<GL_Tex2D> img, const Homography::Params& H = {})
 	{
 		if(!have_init) {
 			init(img->width, img->height);
@@ -78,26 +79,24 @@ public:
 
 		render::fullscreen(fbo, width, height);
 
-		GL_finish("FlowFilter::exec()");
-
 		out = tex_buf;
 
 		glUseProgram(prog);
 
-		GL_bind_tex(prog, "uRef", ref->id, 0);
+		GL_bind_tex(prog, "uRef", ref, 0);
 
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-		GL_bind_tex(prog, "uImg", img->id, 1);
+		GL_bind_tex(prog, "uImg", img, 1);
 
 		GL_uniform_2f(prog, "uInvSize", 1. / width, 1. / height);
 		GL_uniform_1f(prog, "uDamping", damping);
 		GL_uniform_1f(prog, "uMinDet", min_det);
 
-		for(int k = 0; k < num_iter; ++k)
+		for(int iter = 0; iter < num_iter; ++iter)
 		{
-			GL_bind_tex(prog, "uFlow", out->id, 2);
+			GL_bind_tex(prog, "uFlow", out, 2);
 
 			render::fullscreen(fbo, width, height);
 
@@ -109,8 +108,8 @@ public:
 		{
 			glUseProgram(prog_debug);
 
-			GL_bind_tex(prog_debug, "uImg", img->id, 0);
-			GL_bind_tex(prog_debug, "uFlow", out->id, 1);
+			GL_bind_tex(prog_debug, "uImg", img, 0);
+			GL_bind_tex(prog_debug, "uFlow", out, 1);
 
 			GL_uniform_2f(prog_debug, "uCenter", width / 2., height / 2.);
 			GL_uniform_fv(prog_debug, "uParams", H);
