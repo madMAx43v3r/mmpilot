@@ -46,9 +46,10 @@ public:
 		int w = width;
 		int h = height;
 		for(int i = 1; i < depth; ++i) {
-			w /= 2; h /= 2;
+			w /= 2;
+			h /= 2;
 			auto tex = std::make_shared<GL_Tex2D>(w, h, int_format, format, type);
-			fbo.push_back(GL_create_FBO(tex->id));
+			fbo.push_back(GL_create_FBO(tex));
 			out.push_back(tex);
 		}
 		have_init = true;
@@ -68,7 +69,7 @@ public:
 		for(int i = 1; i < depth; ++i) {
 			glUseProgram(prog);
 
-			GL_bind_tex(prog, "uSrc", out[i-1]->id, 0);
+			GL_bind_tex(prog, "uSrc", out[i-1], 0);
 
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);

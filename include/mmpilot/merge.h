@@ -12,10 +12,7 @@
 #include <mmpilot/opengl.h>
 #include <mmpilot/render.h>
 #include <mmpilot/util.h>
-#include <mmpilot/smooth.h>
-#include <mmpilot/gradient.h>
-#include <mmpilot/homography.h>
-#include <mmpilot/flow.h>
+#include <mmpilot/multi_flow.h>
 
 #include <memory>
 #include <vector>
@@ -26,15 +23,13 @@ namespace mmpilot {
 
 class MergeFilter {
 public:
-	int num_iter = 3;
+	int num_iter = 1;
 
-	float weight = 0.3;			// 0..1
+	float weight = 0.1;			// 0..1
 
 	bool debug = false;
 
-	SmoothFilter smooth[2];
-	GradientFilter gradient[2];
-	FlowFilter flow[2];
+	MultiFlowFilter flow;
 
 	std::shared_ptr<GL_Tex2D> out;
 	std::shared_ptr<GL_Tex2D> tex_ref;
@@ -57,14 +52,10 @@ public:
 				throw std::logic_error("invalid format");
 		}
 
-		for(int i = 0; i < 2; ++i)
-		{
-			smooth[i].init(width, height, int_format, format, GL_HALF_FLOAT);
-			gradient[i].init(width, height);
+		flow.debug = debug;
+		flow.init(width, height);
 
-			flow[i].debug = debug;
-			flow[i].init(width, height);
-
+		for(int i = 0; i < 2; ++i) {
 			for(int k = 0; k < 2; ++k) {
 				tex_buf[i][k] = std::make_shared<GL_Tex2D>(width, height, int_format, format, GL_HALF_FLOAT);
 				fbo[i][k] = GL_create_FBO(tex_buf[i][k]);
@@ -123,14 +114,7 @@ public:
 			const int i = iter % 2;
 			const int k = (iter + 1) % 2;
 
-			smooth[0].exec(in_ref, false);
-			smooth[1].exec(in_img, false);
-
-			gradient[0].exec(smooth[0].out, false);
-			gradient[1].exec(smooth[1].out, false);
-
-			flow[0].exec(gradient[1].out, smooth[0].out);
-			flow[1].exec(gradient[0].out, smooth[1].out);
+			flow.exec(in_ref, in_img);
 
 			glUseProgram(prog_warp);
 
@@ -142,7 +126,7 @@ public:
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-			GL_bind_tex(prog_warp, "uFlow", flow[1].out, 1);
+			GL_bind_tex(prog_warp, "uFlow", flow.out[1], 1);
 
 			GL_uniform_1f(prog_warp, "uWeight", weight);
 
@@ -154,7 +138,7 @@ public:
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-			GL_bind_tex(prog_warp, "uFlow", flow[0].out, 1);
+			GL_bind_tex(prog_warp, "uFlow", flow.out[0], 1);
 
 			GL_uniform_1f(prog_warp, "uWeight", 1 - weight);
 

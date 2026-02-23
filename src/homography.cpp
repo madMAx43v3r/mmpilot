@@ -108,6 +108,7 @@ Homography::Params Homography::solve(
 		glUseProgram(prog_jacobian);
 
 		GL_bind_tex(prog_jacobian, "uRef", ref->id, 0);
+
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 

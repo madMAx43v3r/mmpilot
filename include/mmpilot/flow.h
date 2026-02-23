@@ -13,6 +13,7 @@
 #include <mmpilot/render.h>
 #include <mmpilot/util.h>
 #include <mmpilot/smooth.h>
+#include <mmpilot/gradient.h>
 #include <mmpilot/homography.h>
 
 #include <memory>
@@ -65,22 +66,19 @@ public:
 		have_init = true;
 	}
 
-	void exec(std::shared_ptr<GL_Tex2D> ref, std::shared_ptr<GL_Tex2D> img, const Homography::Params& H = {})
+	void exec(std::shared_ptr<GL_Tex2D> ref, std::shared_ptr<GL_Tex2D> img, std::shared_ptr<GL_Tex2D> flow_init = nullptr)
 	{
 		if(!have_init) {
 			init(img->width, img->height);
 		}
 		const auto begin = get_time_micros();
 
-		glUseProgram(prog_init);
-
-		GL_uniform_2f(prog_init, "uCenter", width / 2., height / 2.);
-		GL_uniform_fv(prog_init, "uParams", H);
-
-		render::fullscreen(fbo, width, height);
-
-		out = tex_buf;
-
+		if(flow_init) {
+			out = flow_init;
+		} else {
+			smooth.clear();
+			out = smooth.out;
+		}
 		glUseProgram(prog);
 
 		GL_bind_tex(prog, "uRef", ref, 0);
@@ -101,6 +99,7 @@ public:
 			render::fullscreen(fbo, width, height);
 
 			smooth.exec(tex_buf, false);
+
 			out = smooth.out;
 		}
 
@@ -110,9 +109,6 @@ public:
 
 			GL_bind_tex(prog_debug, "uImg", img, 0);
 			GL_bind_tex(prog_debug, "uFlow", out, 1);
-
-			GL_uniform_2f(prog_debug, "uCenter", width / 2., height / 2.);
-			GL_uniform_fv(prog_debug, "uParams", H);
 
 			render::fullscreen(fbo_debug, width, height);
 		}

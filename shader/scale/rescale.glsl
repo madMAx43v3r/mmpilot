@@ -1,17 +1,17 @@
 #version 310 es
 precision highp float;
 
-uniform sampler2D uSrc;
-
 layout(location = 0) out vec4 out0;
 
-uniform vec2 uInvSrcSize;       // (1/W, 1/H)
+uniform sampler2D uSrc;
+
+uniform vec2 uInvOutSize;       // (1/W, 1/H)
 
 void main()
 {
     vec2 p = gl_FragCoord.xy;
 
-    vec2 uv = p * (2.0 * uInvSrcSize);
+    vec2 uv = p * uInvOutSize;
 
     out0 = texture(uSrc, uv);
 }

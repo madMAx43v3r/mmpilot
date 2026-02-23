@@ -58,7 +58,7 @@ public:
 		have_init = true;
 	}
 
-	void exec(std::shared_ptr<GL_Tex2D> in, bool sync = true)
+	void exec(std::shared_ptr<GL_Tex2D> in, const bool sync = true)
 	{
 		if(!have_init) {
 			init(in->width, in->height, in->internal_fmt, in->format, in->type);
@@ -82,6 +82,10 @@ public:
 			std::cout << "SmoothFilter[" << width << "x" << height << "]: took "
 					<< (get_time_micros() - begin) / 1000.f << " ms" << std::endl;
 		}
+	}
+
+	void clear() {
+		render::clear(fbo, width, height);
 	}
 
 private:
