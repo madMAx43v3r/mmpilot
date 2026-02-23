@@ -8,8 +8,7 @@ uniform sampler2D uImg;         // (Y, w)
 uniform sampler2D uFlow;        // (dx, dy)
 
 uniform vec2  uInvSize;
-uniform float uDamping;         // damping, e.g. 1e-4
-uniform float uMinDet;          // det threshold, 1e-8
+uniform float uDamping;         // damping, e.g. 1e-3
 
 void main() {
     vec2 p = gl_FragCoord.xy;
@@ -53,14 +52,14 @@ void main() {
     float c = C + uDamping;
     float det = a * c - B * B;
 
-    if(det > uMinDet) {
-        // inv(H)*b
-        vec2 Hb = vec2(
-             c * D - B * E,
-            -B * D + a * E
-        );
-        // GN step: x -= inv(H)*b
-        flow -= Hb / det;
-    }
+    // inv(H)*b
+    vec2 Hb = vec2(
+            c * D - B * E,
+        -B * D + a * E
+    );
+    
+    // GN step: x -= inv(H)*b
+    flow -= Hb / det;
+
     outFlow = flow;
 }

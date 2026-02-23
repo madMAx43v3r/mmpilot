@@ -27,8 +27,7 @@ class FlowFilter {
 public:
 	int num_iter = 3;
 
-	float damping = 1e-4;
-	float min_det = 1e-8;
+	float damping = 1e-3;
 
 	bool debug = false;
 
@@ -90,7 +89,6 @@ public:
 
 		GL_uniform_2f(prog, "uInvSize", 1. / width, 1. / height);
 		GL_uniform_1f(prog, "uDamping", damping);
-		GL_uniform_1f(prog, "uMinDet", min_det);
 
 		for(int iter = 0; iter < num_iter; ++iter)
 		{
