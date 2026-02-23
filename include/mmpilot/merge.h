@@ -25,7 +25,7 @@ class MergeFilter {
 public:
 	int num_iter = 1;			// TODO: need more than 1?
 
-	float weight = 0.1;			// 0..1
+	float weight = 0.5;			// 0..1
 
 	bool debug = false;
 
@@ -155,7 +155,7 @@ public:
 		GL_bind_tex(prog_blend, "uSrc0", in_ref, 0);
 		GL_bind_tex(prog_blend, "uSrc1", in_img, 1);
 
-		GL_uniform_1f(prog_blend, "uWeight", weight);
+		GL_uniform_1f(prog_blend, "uFactor", weight);
 
 		render::fullscreen(fbo_out, width, height);
 

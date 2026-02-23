@@ -181,8 +181,6 @@ protected:
 
 	std::shared_ptr<GL_Tex2D> source;	// source image for pyramid
 
-	std::shared_ptr<GL_Tex2D> base_img;
-
 	std::vector<std::shared_ptr<Level>> stage;
 
 	Gyro::State gyro_state;
@@ -278,7 +276,6 @@ protected:
 		for(int i = 0; i < pyramid_depth; ++i) {
 			stage[i]->rebase(pyramid.out[i]);
 		}
-		base_img = source;
 	}
 
 	virtual void exec_filter(std::shared_ptr<GL_Tex2D> input)
@@ -335,9 +332,11 @@ protected:
 
 	virtual void update()
 	{
-		const auto base = merge_init ? merge.out : base_img;
+		const auto base = merge_init ? merge.out : source;
 
 		merge.exec(base, source, get_params());
+
+		merge_init = true;
 
 //		show(display, merge.out, {1, 1, 1, 1});
 		show(display, merge.tex_debug[0]);
