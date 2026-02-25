@@ -15,6 +15,7 @@ void main()
 
     float Rn = abs(L.x - R.x);
 
+    // vec3 RGB = vec3(R.x);
     vec3 RGB = vec3(R.x) * (1.0 - Rn) + vec3(Rn, 0, 0);
 
     out0 = vec4(RGB, L.y * R.y > 0.0 ? 1.0 : 0.0);

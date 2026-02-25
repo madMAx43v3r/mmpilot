@@ -23,7 +23,7 @@ namespace mmpilot {
 
 class MergeFilter {
 public:
-	int num_iter = 1;			// TODO: need more than 1?
+	int num_iter = 3;			// TODO: need more than 1?
 
 	float weight = 0.5;			// 0..1
 
@@ -71,7 +71,7 @@ public:
 		const auto vs = render::get_fullscreen_vertex_shader();
 		const auto fs_warp = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/mapping/flow_warp.glsl");
 		const auto fs_global_warp = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/mapping/global_warp.glsl");
-		const auto fs_blend = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/color/blend.glsl");
+		const auto fs_blend = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/mapping/blend_mono.glsl");
 		const auto fs_debug = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/debug/delta_mono.glsl");
 		prog_warp = GL_link_program(vs, fs_warp);
 		prog_blend = GL_link_program(vs, fs_blend);
@@ -154,8 +154,6 @@ public:
 
 		GL_bind_tex(prog_blend, "uSrc0", in_ref, 0);
 		GL_bind_tex(prog_blend, "uSrc1", in_img, 1);
-
-		GL_uniform_1f(prog_blend, "uFactor", weight);
 
 		render::fullscreen(fbo_out, width, height);
 

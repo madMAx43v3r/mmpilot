@@ -27,7 +27,7 @@ void main()
     outJ1 = vec2(0);
     outR  = vec2(0);
 
-    if(uv.x < 0.0 || uv.y < 0.0 || uv.x >= 1.0 || uv.y >= 1.0) {
+    if(uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) {
         return;
     }
     vec2 pix = texelFetch(uImg, ivec2(gl_FragCoord.xy), 0).xy;  // (Y, w)

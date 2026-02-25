@@ -21,9 +21,5 @@ void main()
 
     vec2 uv = q * uInvSize;
 
-    if(uv.x < 0.0 || uv.y < 0.0 || uv.x >= 1.0 || uv.y >= 1.0) {
-        outImg = vec4(0);
-    } else {
-        outImg = texture(uSrc, q * uInvSize);
-    }
+    outImg = texture(uSrc, uv);
 }
