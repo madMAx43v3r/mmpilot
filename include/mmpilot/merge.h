@@ -23,7 +23,7 @@ namespace mmpilot {
 
 class MergeFilter {
 public:
-	int num_iter = 3;			// TODO: need more than 1?
+	int num_iter = 3;
 
 	float weight = 0.5;			// 0..1
 

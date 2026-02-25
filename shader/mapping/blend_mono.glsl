@@ -15,11 +15,13 @@ void main()
 
     float lw = 0.5;
     float rw = 0.5;
-    float w_sum = L.y + R.y;
+    float lw2 = L.y * L.y;
+    float rw2 = R.y * R.y;
+    float w_sum = lw2 + rw2;
 
     if(w_sum > 0.001) {
-        lw = L.y / w_sum;
-        rw = R.y / w_sum;
+        lw = lw2 / w_sum;
+        rw = rw2 / w_sum;
     }
     out0 = L * lw + R * rw;
 }
