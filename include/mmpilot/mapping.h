@@ -12,6 +12,7 @@
 #include <mmpilot/texture.h>
 #include <mmpilot/homography.h>
 #include <mmpilot/transform.h>
+#include <mmpilot/merge.h>
 
 #include <vector>
 #include <iostream>
@@ -23,7 +24,9 @@ class Mapping {
 public:
 	struct Node {
 		Transform2D pose;
+		Homography::Params H;
 		std::shared_ptr<GL_Tex2D> image;
+		float weight = 1;
 	};
 
 	struct Buffer {
@@ -37,23 +40,24 @@ public:
 		void clear();
 	};
 
+	MergeFilter merge;
+
 	Transform2D state;
 
-	std::shared_ptr<Buffer> buffer;
-
+	std::shared_ptr<GL_Tex2D> tex_tmp;
 	std::shared_ptr<GL_Tex2D> tex_debug;
 
 	void init(int width, int height, GLenum format);
 
-	void update(const Transform2D& delta);
+	void update(std::shared_ptr<GL_Tex2D> img, const Homography::Params& H);
 
 	void render(std::shared_ptr<GL_Tex2D> img, const Homography::Params& H);
+
+	void optimize(Node& L, Node& R);
 
 	std::shared_ptr<GL_Tex2D> finalize();
 
 private:
-	void add_node();
-
 	void render_image(
 			std::shared_ptr<Buffer> buf,
 			std::shared_ptr<GL_Tex2D> img,

@@ -104,7 +104,7 @@ inline GLuint GL_create_FBO(const std::vector<std::shared_ptr<GL_Tex2D>>& tex) {
 	return GL_create_FBO(ids);
 }
 
-inline void GL_blit_FBO(
+inline void GL_blit(
 		std::shared_ptr<GL_Tex2D> dst, std::shared_ptr<GL_Tex2D> src)
 {
 	GLuint fbo[2] = {};

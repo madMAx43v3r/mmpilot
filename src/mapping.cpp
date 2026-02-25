@@ -59,7 +59,10 @@ void Mapping::init(int width_, int height_, GLenum format)
 			throw std::logic_error("Mapping: invalid format");
 	}
 
-	buffer = std::make_shared<Buffer>(width, height, is_mono);
+	merge.init(width, height, format);
+
+	tex_tmp = std::make_shared<GL_Tex2D>(
+			width, height, is_mono ? GL_RG8 : GL_RGBA8, is_mono ? GL_RG : GL_RGBA, GL_UNSIGNED_BYTE);
 
 	tex_debug = std::make_shared<GL_Tex2D>(
 			width, height, is_mono ? GL_R8 : GL_RGB8, is_mono ? GL_RED : GL_RGB, GL_UNSIGNED_BYTE);
@@ -102,12 +105,15 @@ void Mapping::init(int width_, int height_, GLenum format)
 	have_init = true;
 }
 
-void Mapping::update(const Transform2D& delta)
+void Mapping::update(std::shared_ptr<GL_Tex2D> img, const Homography::Params& H)
 {
 	if(!have_init) {
 		throw std::logic_error("not initialized");
 	}
-	add_node();
+	if(img->width != width || img->height != height) {
+		throw std::logic_error("dimension mismatch");
+	}
+	const auto delta = H.transform();
 
 	auto fixed = delta;
 	fixed.scale /= scale_bias;
@@ -118,6 +124,20 @@ void Mapping::update(const Transform2D& delta)
 		const float x = std::clamp(delta.scale, 0.95f, 1.05f);
 		scale_bias *= std::pow(x / scale_bias, a);
 	}
+	const auto image = std::make_shared<GL_Tex2D>(
+			width, height, is_mono ? GL_RG8 : GL_RGBA8, is_mono ? GL_RG : GL_RGBA, GL_UNSIGNED_BYTE);
+
+	GL_blit(image, img);
+
+	Node node;
+	node.H = H;
+	node.pose = state;
+	node.image = image;
+
+	if(nodes.size()) {
+		optimize(nodes.back(), node);
+	}
+	nodes.push_back(node);
 
 	std::cout << "Mapping delta = " << delta.pos.transpose()
 			<< ", rot = " << get_angle_deg(delta.rot)
@@ -131,7 +151,7 @@ void Mapping::update(const Transform2D& delta)
 void Mapping::render(std::shared_ptr<GL_Tex2D> img, const Homography::Params& H)
 {
 	if(!have_init) {
-		init((img->width * 5) / 4, (img->height * 5) / 4, img->format);
+		throw std::logic_error("not initialized");
 	}
 	const float w = img->width;
 	const float h = img->height;
@@ -144,10 +164,10 @@ void Mapping::render(std::shared_ptr<GL_Tex2D> img, const Homography::Params& H)
 		const Vec2f p = c_map + H.project(Vec2f(w * uv.x(), h * uv.y()) - c_img);
 		coords.push_back(p);
 	}
-	render_image(buffer, img, coords);
+//	render_image(buffer, img, coords);
 
 	if(tex_debug) {
-		compress(fbo_debug, buffer);
+//		compress(fbo_debug, buffer);
 	}
 }
 
@@ -228,22 +248,23 @@ void Mapping::compress(GLuint fbo, std::shared_ptr<Buffer> buf)
 	GL_finish("Mapping::compress()");
 }
 
-void Mapping::add_node()
+void Mapping::optimize(Node& L, Node& R)
 {
-	const auto image = std::make_shared<GL_Tex2D>(
-			width, height, is_mono ? GL_RG8 : GL_RGBA8, is_mono ? GL_RG : GL_RGBA, GL_UNSIGNED_BYTE);
-	const auto fbo = GL_create_FBO(image->id);
+	const auto w_sum = L.weight + R.weight;
 
-	compress(fbo, buffer);
+	merge.weight = R.weight / w_sum;
+	merge.exec(L.image, R.image, R.H);
 
-	glDeleteFramebuffers(1, &fbo);
+	GL_blit(tex_tmp, merge.out);
 
-	Node node;
-	node.pose = state;
-	node.image = image;
-	nodes.push_back(node);
+	merge.weight = L.weight / w_sum;
+	merge.exec(R.image, L.image, R.H.inverse());
 
-	buffer->clear();
+	GL_blit(L.image, merge.out);
+	GL_blit(R.image, tex_tmp);
+
+	L.weight = w_sum;
+	R.weight = w_sum;
 }
 
 std::shared_ptr<GL_Tex2D> Mapping::finalize()

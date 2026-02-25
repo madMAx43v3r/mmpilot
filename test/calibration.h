@@ -63,8 +63,8 @@ protected:
 
 		base_gyro = gyro_state;
 
-		GL_blit_FBO(base_grad, in_gradient.out);
-		GL_blit_FBO(base_src_pos, virtual_cam.tex_src_pos);
+		GL_blit(base_grad, in_gradient.out);
+		GL_blit(base_src_pos, virtual_cam.tex_src_pos);
 	}
 
 	void exec_filter(std::shared_ptr<GL_Tex2D> input) override

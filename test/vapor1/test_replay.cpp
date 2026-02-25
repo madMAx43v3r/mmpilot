@@ -9,6 +9,7 @@
 #include <mmpilot/image.h>
 
 #include "../pipeline2.h"
+#include "../mapping.h"
 
 #include <iostream>
 
