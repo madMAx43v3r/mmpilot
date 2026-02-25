@@ -18,11 +18,18 @@ static const Vec2f g_uv[4] = {{0,0}, {1,0}, {1,1}, {0,1}};
 Mapping::Buffer::Buffer(int width, int height, bool is_mono)
 {
 	map = std::make_shared<GL_Tex2D>(
-			width, height, is_mono ? GL_RG16F : GL_RGBA16F, is_mono ? GL_RG : GL_RGBA, GL_HALF_FLOAT);
+			width, height, is_mono ? GL_R8 : GL_RGB8, is_mono ? GL_RED : GL_RGB, GL_UNSIGNED_BYTE);
 
-	weight = std::make_shared<GL_Tex2D>(width, height, GL_R16F, GL_RED, GL_HALF_FLOAT);
+//	weight = std::make_shared<GL_Tex2D>(width, height, GL_R16F, GL_RED, GL_HALF_FLOAT);
 
-	fbo = GL_create_FBO({map->id, weight->id});
+	fbo = GL_create_FBO(map);
+
+	glGenRenderbuffers(1, &rbo);
+	glBindRenderbuffer(GL_RENDERBUFFER, rbo);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo);
 
 	clear();
 }
@@ -30,11 +37,12 @@ Mapping::Buffer::Buffer(int width, int height, bool is_mono)
 Mapping::Buffer::~Buffer()
 {
 	glDeleteFramebuffers(1, &fbo);
+	glDeleteRenderbuffers(1, &rbo);
 }
 
 void Mapping::Buffer::clear()
 {
-	render::clear(fbo, map->width, map->height);
+	render::clear(fbo, map->width, map->height, {}, 0);
 }
 
 void Mapping::init(int width_, int height_, GLenum format)
@@ -213,8 +221,6 @@ void Mapping::render_image(
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-	GL_bind_tex(prog_render, "uWeight", buf->weight->id, 1);
-
 	GL_uniform_2f(prog_render, "uMapSize", width, height);
 
 	glBindFramebuffer(GL_FRAMEBUFFER, buf->fbo);
@@ -223,16 +229,19 @@ void Mapping::render_image(
 	glEnable(GL_SCISSOR_TEST);
 	glScissor(xmin - 1, ymin - 1, (xmax - xmin) + 2, (ymax - ymin) + 2);
 
-	glEnable(GL_BLEND);
-	glBlendEquation(GL_FUNC_ADD);
-	glBlendFunc(GL_ONE, GL_ONE);
+	glEnable(GL_DEPTH_TEST);
+	glDepthFunc(GL_GREATER);
+	glDepthMask(GL_TRUE);
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, buf->rbo);
+
+	glDisable(GL_BLEND);
 
 	glBindVertexArray(vao);
 	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
 
 	GL_finish("Mapping::render_image()");
 
-	glDisable(GL_BLEND);
+	glDisable(GL_DEPTH_TEST);
 	glDisable(GL_SCISSOR_TEST);
 }
 
@@ -306,15 +315,15 @@ std::shared_ptr<GL_Tex2D> Mapping::finalize()
 		render_image(buf, node.image, coords);
 	}
 
-	auto out = std::make_shared<GL_Tex2D>(
-			map_width, map_height, is_mono ? GL_R8 : GL_RGB8, is_mono ? GL_RED : GL_RGB, GL_UNSIGNED_BYTE);
-	const auto fbo = GL_create_FBO(out->id);
+//	auto out = std::make_shared<GL_Tex2D>(
+//			map_width, map_height, is_mono ? GL_R8 : GL_RGB8, is_mono ? GL_RED : GL_RGB, GL_UNSIGNED_BYTE);
+//	const auto fbo = GL_create_FBO(out->id);
+//
+//	compress(fbo, buf);
+//
+//	glDeleteFramebuffers(1, &fbo);
 
-	compress(fbo, buf);
-
-	glDeleteFramebuffers(1, &fbo);
-
-	return out;
+	return buf->map;
 }
 
 

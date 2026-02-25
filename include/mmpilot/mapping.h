@@ -34,6 +34,7 @@ public:
 		std::shared_ptr<GL_Tex2D> weight;
 
 		GLuint fbo = 0;
+		GLuint rbo = 0;
 
 		Buffer(int width, int height, bool is_mono);
 		~Buffer();

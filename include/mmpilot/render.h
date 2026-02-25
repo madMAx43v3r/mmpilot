@@ -20,7 +20,7 @@ void fullscreen(GLuint fbo, int width, int height);
 
 void fullscreen_ex(GLuint fbo, int width, int height);
 
-void clear(GLuint fbo, int width, int height, const std::array<float, 4>& color = {});
+void clear(GLuint fbo, int width, int height, const std::array<float, 4>& color = {}, const float depth = 1);
 
 GLuint get_fullscreen_vertex_shader();
 
