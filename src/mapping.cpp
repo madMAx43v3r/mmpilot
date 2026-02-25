@@ -288,15 +288,17 @@ std::shared_ptr<GL_Tex2D> Mapping::finalize()
 
 	for(const auto& node : nodes) {
 		const auto& p = node.pose.pos;
-		xmin = std::min(xmin, p.x());
-		ymin = std::min(ymin, p.y());
-		xmax = std::max(xmax, p.x());
-		ymax = std::max(ymax, p.y());
+		const auto w = node.pose.scale * width;
+		const auto h = node.pose.scale * height;
+		xmin = std::min(xmin, p.x() - w / 2);
+		ymin = std::min(ymin, p.y() - h / 2);
+		xmax = std::max(xmax, p.x() + w / 2);
+		ymax = std::max(ymax, p.y() + h / 2);
 	}
-	const Vec2f origin = Vec2f(xmin - width / 2, ymin - height / 2);
+	const Vec2f origin = Vec2f(xmin, ymin);
 
-	const int map_width  = (xmax - xmin) + width + 2;
-	const int map_height = (ymax - ymin) + height + 2;
+	const int map_width  = (xmax - xmin);
+	const int map_height = (ymax - ymin);
 
 	std::cout << "Mapping: map size = " << map_width << " x " << map_height << ", nodes = " << nodes.size() << std::endl;
 
