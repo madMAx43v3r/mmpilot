@@ -13,6 +13,7 @@
 
 #include <list>
 #include <cstdint>
+#include <stdexcept>
 #include <iostream>
 
 
@@ -48,7 +49,7 @@ public:
 
 	void on_raw_imu(const MSP2Client::RawImu& imu)
 	{
-		if(history.empty() || imu.ts <= history.back().ts) {
+		if(history.empty() || imu.ts <= head_ts()) {
 			return;
 		}
 		const auto prev = history.back();
@@ -122,12 +123,12 @@ public:
 		if(history.empty()) {
 			throw std::runtime_error("Gyro::lookup(): history is empty");
 		}
-		if(ts <= history.front().ts) {
+		if(ts < front_ts()) {
 			std::cout << "Gyro::lookup(): requested ts beyond history: " << ts << std::endl;
 			return history.front();
 		}
-		if(ts >= history.back().ts) {
-			std::cout << "Gyro::lookup(): requested ts in future by " << (ts - history.back().ts) << " us" << std::endl;
+		if(ts > head_ts()) {
+			std::cout << "Gyro::lookup(): requested ts in future by " << (ts - head_ts()) << " us" << std::endl;
 			return history.back();
 		}
 
@@ -154,6 +155,14 @@ public:
 		out.ts = ts;
 		out.rot = slerp_R(a.rot, b.rot, t);
 		return out;
+	}
+
+	int64_t front_ts() const
+	{
+		if(history.empty()) {
+			return 0;
+		}
+		return history.front().ts;
 	}
 
 	int64_t head_ts() const
