@@ -62,7 +62,7 @@ public:
 		GradientFilter gradient;
 		Homography solver;
 
-		Homography::Params H;
+		Homography::Params A;
 
 		std::shared_ptr<Level> upper;			// lower scale (upper level)
 		std::shared_ptr<GL_Tex2D> base_img;
@@ -96,11 +96,11 @@ public:
 		{
 			if(have_base) {
 				if(upper) {
-					H = Homography::Params(upper->H).scale(2);
+					A = Homography::Params(upper->A).scale(2);
 				}
-				H = solver.solve(base_img, img, H);
+				A = solver.solve(base_img, img, A);
 
-				std::cout << "params[" << level << "][" << solver.num_iters << "] = " << to_string(H) << std::endl;
+				std::cout << "params[" << level << "][" << solver.num_iters << "] = " << to_string(A) << std::endl;
 			} else {
 				rebase(img);
 			}
@@ -123,7 +123,7 @@ public:
 				GL_COLOR_BUFFER_BIT, GL_NEAREST
 			);
 
-			H = Homography::Params();
+			A = Homography::Params();
 			have_base = true;
 		}
 
@@ -312,7 +312,7 @@ protected:
 
 		// back propagate most accurate result
 		for(int i = 1; i < pyramid_depth; ++i) {
-			stage[i]->H = copy(stage[i-1]->H).scale(0.5);
+			stage[i]->A = copy(stage[i-1]->A).scale(0.5);
 		}
 
 		update();
@@ -322,10 +322,10 @@ protected:
 
 	void reset(const Homography::Params& H)
 	{
-		stage[0]->H = H;
+		stage[0]->A = H;
 
 		for(int i = 1; i < pyramid_depth; ++i) {
-			stage[i]->H = copy(stage[i-1]->H).scale(0.5);
+			stage[i]->A = copy(stage[i-1]->A).scale(0.5);
 		}
 	}
 
@@ -334,7 +334,7 @@ protected:
 		if(i < 0 || i >= pyramid_depth) {
 			throw std::logic_error("get_params(): out of bounds");
 		}
-		return stage[i]->H;
+		return stage[i]->A;
 	}
 
 	void on_image(std::shared_ptr<Image> img)

@@ -29,7 +29,7 @@ int main(int argc, char** argv)
 	pipe_0.src_flip_y = true;
 	pipe_0.radius_mask = 0.9;
 	pipe_0.FOV_in = 190;
-	pipe_0.FOV_cam = 120;
+	pipe_0.FOV_cam = 110;
 	pipe_0.RPY_cam = Vec3f(0, 5, -30 -90);
 	pipe_0.K_param  = Vec2f(0, 0);
 
@@ -54,6 +54,10 @@ int main(int argc, char** argv)
 		pipe_0.handle(att);
 	};
 
+	const auto on_gps = [&](std::shared_ptr<MSP2Client::RawGPS> gps) {
+		pipe_0.handle(gps);
+	};
+
 	Player player(file_name);
 
 	player.decode["msp.raw_imu"] 	= &MSP2Client::RawImu::read;
@@ -63,6 +67,7 @@ int main(int argc, char** argv)
 
 	player.handle["msp.raw_imu"]  = dispatch<MSP2Client::RawImu>(on_raw_imu);
 	player.handle["msp.attitude"] = dispatch<MSP2Client::Attitude>(on_att);
+	player.handle["msp.raw_gps"]  = dispatch<MSP2Client::RawGPS>(on_gps);
 
 	player.decode["camera.wide"] = &Image::read;
 	player.handle["camera.wide"] = dispatch<Image>(on_frame_0);

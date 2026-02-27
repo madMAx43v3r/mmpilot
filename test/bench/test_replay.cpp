@@ -8,7 +8,7 @@
 #include <mmpilot/replay.h>
 #include <mmpilot/image.h>
 
-#include "../pipeline.h"
+#include "../pipeline2.h"
 
 #include <iostream>
 

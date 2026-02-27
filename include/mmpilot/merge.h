@@ -12,6 +12,7 @@
 #include <mmpilot/opengl.h>
 #include <mmpilot/render.h>
 #include <mmpilot/util.h>
+#include <mmpilot/affine.h>
 #include <mmpilot/multi_flow.h>
 
 #include <memory>
@@ -87,7 +88,7 @@ public:
 		have_init = true;
 	}
 
-	void exec(std::shared_ptr<GL_Tex2D> ref, std::shared_ptr<GL_Tex2D> img, const Homography::Params& H)
+	void exec(std::shared_ptr<GL_Tex2D> ref, std::shared_ptr<GL_Tex2D> img, const Affine::Params& A)
 	{
 		if(!have_init) {
 			init(img->width, img->height, img->format);
@@ -104,7 +105,7 @@ public:
 
 		GL_uniform_2f(prog_render, "uCenter", width / 2., height / 2.);
 		GL_uniform_2f(prog_render, "uInvSize", 1. / width, 1. / height);
-		GL_uniform_fv(prog_render, "uParams", H);
+		GL_uniform_fv(prog_render, "uParams", A);
 
 		render::fullscreen(fbo_ref, width, height);
 

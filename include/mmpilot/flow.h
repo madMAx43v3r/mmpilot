@@ -49,10 +49,8 @@ public:
 
 		const auto vs = render::get_fullscreen_vertex_shader();
 		const auto fs = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/mapping/flow_mono.glsl");
-		const auto fs_init = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/mapping/flow_init.glsl");
 		const auto fs_debug = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/debug/flow_overlay.glsl");
 		prog = GL_link_program(vs, fs);
-		prog_init = GL_link_program(vs, fs_init);
 		prog_debug = GL_link_program(vs, fs_debug);
 
 		tex_buf = std::make_shared<GL_Tex2D>(width, height, GL_RG16F, GL_RG, GL_HALF_FLOAT);
@@ -124,7 +122,6 @@ private:
 	GLuint fbo = 0;
 	GLuint fbo_debug = 0;
 	GLuint prog = 0;
-	GLuint prog_init = 0;
 	GLuint prog_debug = 0;
 
 	bool have_init = false;

@@ -113,7 +113,7 @@ void Mapping::init(int width_, int height_, GLenum format)
 	have_init = true;
 }
 
-void Mapping::update(std::shared_ptr<GL_Tex2D> img, const Homography::Params& H)
+void Mapping::update(std::shared_ptr<GL_Tex2D> img, const Affine::Params& A)
 {
 	if(!have_init) {
 		throw std::logic_error("not initialized");
@@ -121,7 +121,7 @@ void Mapping::update(std::shared_ptr<GL_Tex2D> img, const Homography::Params& H)
 	if(img->width != width || img->height != height) {
 		throw std::logic_error("dimension mismatch");
 	}
-	const auto delta = H.transform();
+	const auto delta = A.transform();
 
 	auto fixed = delta;
 	fixed.scale /= scale_bias;
@@ -138,7 +138,7 @@ void Mapping::update(std::shared_ptr<GL_Tex2D> img, const Homography::Params& H)
 	GL_blit(image, img);
 
 	Node node;
-	node.H = H;
+	node.H = A;
 	node.pose = state;
 	node.image = image;
 
@@ -156,7 +156,7 @@ void Mapping::update(std::shared_ptr<GL_Tex2D> img, const Homography::Params& H)
 			<< " deg, scale = " << state.scale << ", bias = " << scale_bias << std::endl;
 }
 
-void Mapping::render(std::shared_ptr<GL_Tex2D> img, const Homography::Params& H)
+void Mapping::render(std::shared_ptr<GL_Tex2D> img, const Affine::Params& A)
 {
 	if(!have_init) {
 		throw std::logic_error("not initialized");
@@ -169,7 +169,7 @@ void Mapping::render(std::shared_ptr<GL_Tex2D> img, const Homography::Params& H)
 	std::vector<Vec2f> coords;
 	for(int i = 0; i < 4; ++i) {
 		const auto& uv = g_uv[i];
-		const Vec2f p = c_map + H.project(Vec2f(w * uv.x(), h * uv.y()) - c_img);
+		const Vec2f p = c_map + A.project(Vec2f(w * uv.x(), h * uv.y()) - c_img);
 		coords.push_back(p);
 	}
 //	render_image(buffer, img, coords);

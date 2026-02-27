@@ -10,7 +10,7 @@
 
 #include <mmpilot/opengl.h>
 #include <mmpilot/texture.h>
-#include <mmpilot/homography.h>
+#include <mmpilot/affine.h>
 #include <mmpilot/transform.h>
 #include <mmpilot/merge.h>
 
@@ -24,7 +24,7 @@ class Mapping {
 public:
 	struct Node {
 		Transform2D pose;
-		Homography::Params H;
+		Affine::Params H;
 		std::shared_ptr<GL_Tex2D> image;
 		float weight = 1;
 	};
@@ -50,9 +50,9 @@ public:
 
 	void init(int width, int height, GLenum format);
 
-	void update(std::shared_ptr<GL_Tex2D> img, const Homography::Params& H);
+	void update(std::shared_ptr<GL_Tex2D> img, const Affine::Params& A);
 
-	void render(std::shared_ptr<GL_Tex2D> img, const Homography::Params& H);
+	void render(std::shared_ptr<GL_Tex2D> img, const Affine::Params& A);
 
 	void optimize(Node& L, Node& R);
 

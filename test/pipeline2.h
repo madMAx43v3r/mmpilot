@@ -19,13 +19,13 @@
 #include <mmpilot/gradient.h>
 #include <mmpilot/pyramid.h>
 #include <mmpilot/smooth.h>
-#include <mmpilot/homography.h>
 #include <mmpilot/virtual_cam.h>
 #include <mmpilot/beta_msp.h>
 #include <mmpilot/gyro.h>
 #include <mmpilot/math.h>
 #include <mmpilot/flow.h>
 #include <mmpilot/merge.h>
+#include <mmpilot/affine.h>
 
 #include <mmpilot/egl.h>
 
@@ -62,10 +62,9 @@ public:
 
 		SmoothFilter smooth[3];
 		GradientFilter gradient;
-		Homography solver;
-//		FlowFilter flow;
+		Affine solver;
 
-		Homography::Params H;
+		Affine::Params A;
 
 		std::shared_ptr<Level> upper;			// lower scale (upper level)
 		std::shared_ptr<GL_Tex2D> base_img;
@@ -87,7 +86,6 @@ public:
 
 			gradient.init(width, height);
 			solver.init(width, height);
-//			flow.init(width, height);
 
 			base_img = std::make_shared<GL_Tex2D>(width, height, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT);
 
@@ -99,13 +97,11 @@ public:
 		{
 			if(have_base) {
 				if(upper) {
-					H = Homography::Params(upper->H).scale(2);
+					A = Affine::Params(upper->A).scale(2);
 				}
-				H = solver.solve(base_img, img, H);
+				A = solver.solve(base_img, img, A);
 
-//				flow.exec(base_img, img, H);
-
-				std::cout << "params[" << level << "][" << solver.num_iters << "] = " << to_string(H) << std::endl;
+				std::cout << "params[" << level << "][" << solver.num_iters << "] = " << to_string(A) << std::endl;
 			} else {
 				rebase(img);
 			}
@@ -128,7 +124,7 @@ public:
 				GL_COLOR_BUFFER_BIT, GL_NEAREST
 			);
 
-			H = Homography::Params();
+			A = Affine::Params();
 			have_base = true;
 		}
 
@@ -254,7 +250,6 @@ protected:
 		for(int i = 0; i < pyramid_depth; ++i)
 		{
 			auto lvl = std::make_shared<Level>();
-//			lvl->flow.debug = is_debug;
 			lvl->solver.debug = is_debug;
 			lvl->solver.num_iters = num_iters[std::min(size_t(i), num_iters.size() - 1)];
 
@@ -324,7 +319,7 @@ protected:
 
 		// back propagate most accurate result
 		for(int i = 1; i < pyramid_depth; ++i) {
-			stage[i]->H = copy(stage[i-1]->H).scale(0.5);
+			stage[i]->A = copy(stage[i-1]->A).scale(0.5);
 		}
 
 		update();
@@ -340,28 +335,28 @@ protected:
 
 //		show(display, merge.out, {1, 1, 1, 1});
 		show(display, merge.tex_debug[0]);
-//		show(display, merge.flow.stage[0]->flow[1].tex_debug);
+//		show(display, merge.flow.stage[0]->flow[0].tex_debug);
 //		show(display, stage[0]->base_img);
 //		show(display, stage[0]->flow.tex_debug);
 
 		rebase();
 	}
 
-	void reset(const Homography::Params& H)
+	void reset(const Affine::Params& H)
 	{
-		stage[0]->H = H;
+		stage[0]->A = H;
 
 		for(int i = 1; i < pyramid_depth; ++i) {
-			stage[i]->H = copy(stage[i-1]->H).scale(0.5);
+			stage[i]->A = copy(stage[i-1]->A).scale(0.5);
 		}
 	}
 
-	Homography::Params get_params(const int i = 0)
+	Affine::Params get_params(const int i = 0)
 	{
 		if(i < 0 || i >= pyramid_depth) {
 			throw std::logic_error("get_params(): out of bounds");
 		}
-		return stage[i]->H;
+		return stage[i]->A;
 	}
 
 	void on_image(std::shared_ptr<Image> img)
@@ -426,6 +421,10 @@ protected:
 		}
 		else if(auto att = std::dynamic_pointer_cast<MSP2Client::Attitude>(sample)) {
 			gyro.on_attitude(*att);
+		}
+		else if(auto gps = std::dynamic_pointer_cast<MSP2Client::RawGPS>(sample)) {
+			std::cout << "gps: lat=" << gps->lat << ", lon=" << gps->lon
+					<< ", alt=" << gps->alt << ", sats=" << int(gps->num_sats) << std::endl;
 		}
 	}
 

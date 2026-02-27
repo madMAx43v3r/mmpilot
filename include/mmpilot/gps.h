@@ -102,7 +102,6 @@ public:
 		out.speed = lerp(a.speed, b.speed, t);
 		out.heading = lerp_deg(a.heading, b.heading, t);
 
-		// For discrete fields, pick more recent (or choose based on t)
 		if(t < 0.5) {
 			out.num_sats = a.num_sats;
 			out.fix_type = a.fix_type;

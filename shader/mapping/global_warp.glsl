@@ -8,16 +8,19 @@ uniform sampler2D uSrc;
 uniform vec2 uCenter;
 uniform vec2 uInvSize;
 
-uniform float uParams[6];      // p0..p5
+uniform float uParams[4];      // affine
 
 void main()
 {
     vec2 p = gl_FragCoord.xy - uCenter;
 
-    float uN = uParams[0] * p.x + uParams[1] * p.y + uParams[2];
-    float vN = uParams[3] * p.x + uParams[4] * p.y + uParams[5];
+    float ca = cos(uParams[2]);
+    float sa = sin(uParams[2]);
 
-    vec2 q = vec2(uN, vN) + uCenter;
+    vec2 q = uCenter + vec2(
+        (ca * p.x - sa * p.y) * uParams[3] + uParams[0],
+        (sa * p.x + ca * p.y) * uParams[3] + uParams[1]
+    );
 
     vec2 uv = q * uInvSize;
 

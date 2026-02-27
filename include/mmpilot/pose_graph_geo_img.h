@@ -14,7 +14,7 @@
  *       (log_s_j - log_s_i) ≈ log(dscale_ij)
  *
  * Notes:
- *   - No GPS delta edges. Absolute GPS priors anchor the graph => no need to fix node0.
+ *   - No GPS delta edges. Absolute GPS priors anchor the graph.
  *   - EN conversion uses WGS84 radii of curvature evaluated at midpoint latitude, and avg altitude for edges.
  *   - For GPS unary priors, EN scale is evaluated at gps_lat and node altitude alt_m.
  *   - dscale is assumed isotropic (same for x/y).
@@ -26,8 +26,8 @@
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
 
-#include <vector>
 #include <cmath>
+#include <vector>
 #include <stdexcept>
 #include <algorithm>
 
@@ -461,11 +461,12 @@ private:
 		kN = (M + alt_m);
 	}
 
+	// returns angle in [-pi,pi)
 	static T angle_wrap_pi(T a)
 	{
 		const T two_pi = T(2) * T(M_PI);
 		a = std::fmod(a + T(M_PI), two_pi);
-		if(a < T(0)) {
+		if(a < 0) {
 			a += two_pi;
 		}
 		return a - T(M_PI);
