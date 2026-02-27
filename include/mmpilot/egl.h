@@ -8,26 +8,30 @@
 #ifndef INCLUDE_MMPILOT_EGL_H_
 #define INCLUDE_MMPILOT_EGL_H_
 
-#include <EGL/egl.h>
-
 #include <string>
 
+
+typedef void *EGLContext;
+typedef void *EGLDisplay;
+typedef void *EGLSurface;
 
 namespace mmpilot {
 
 struct EglCtx {
-	EGLContext ctx = EGL_NO_CONTEXT;
-	EGLDisplay display = EGL_NO_DISPLAY;
-	EGLSurface surface = EGL_NO_SURFACE;
+	EGLContext ctx;
+	EGLDisplay display;
+	EGLSurface surface;
 
+	EglCtx();
 	~EglCtx();
+
 	void terminate();
 };
 
 
 EglCtx EGL_create_context(int gles_major = 3);
 
-std::string EGL_error_name(EGLint e);
+std::string EGL_error_name(int e);
 
 void EGL_check(const char* where);
 

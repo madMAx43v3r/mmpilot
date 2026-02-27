@@ -125,7 +125,7 @@ Affine::Params Affine::solve(
 		A_xy << hessian(0), H_xy,
 				H_xy, hessian(1);
 
-		params.R_norm = 1000 * sqrt(R_sum) / W_sum;
+		params.R_norm = 1000 * sqrt(R_sum / W_sum);
 		params.overlap = W_sum / num_pixel;
 		params.H_xy = A_xy * 1000;
 
@@ -154,7 +154,7 @@ Affine::Params Affine::solve(
 		// Update params
 		const auto step_norm = delta.norm();
 
-		std::cout << "iter " << iter << ": delta = " << delta.transpose() << std::endl;
+//		std::cout << "iter " << iter << ": delta = " << delta.transpose() << std::endl;
 
 		if(!std::isfinite(step_norm)) {
 			break;

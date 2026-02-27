@@ -23,11 +23,14 @@
 #ifndef INCLUDE_MMPILOT_POSE_GRAPH_GEO_IMG_H_
 #define INCLUDE_MMPILOT_POSE_GRAPH_GEO_IMG_H_
 
+#include <mmpilot/wgs84.h>
+
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
 
 #include <cmath>
 #include <vector>
+#include <memory>
 #include <stdexcept>
 #include <algorithm>
 
@@ -47,6 +50,8 @@ public:
 	using Vector = Eigen::Matrix<T, Eigen::Dynamic, 1>;
 
 	struct Node {
+		int k = -1;			  // index
+
 		// Optimized:
 		T lat = T(0);   // latitude [rad]
 		T lon = T(0);   // longitude [rad]
@@ -63,12 +68,14 @@ public:
 		// info on EN-meter residual [dE; dN]
 		Mat2 gps_info = Mat2::Zero();
 
-		int64_t ts = 0;		  // timestamp [usec]
+		T scale() const {
+			return std::exp(ls);
+		}
 
 		// Attach/update absolute GPS measurement prior for node k.
 		// info_EN weights residual in meters in EN frame:
 		//   r = [dE; dN] = [kE*(lon-lon_gps), kN*(lat-lat_gps)]
-		void set_gps(int k, T lat_rad, T lon_rad, T alt_m, const Mat2& info_EN)
+		void set_gps(T lat_rad, T lon_rad, T alt_m, const Mat2& info_EN)
 		{
 			gps_valid = true;
 			gps_lat = lat_rad;
@@ -98,7 +105,11 @@ public:
 	};
 
 	struct Result {
-		double error = 0;
+		double gps_error = 0;		// GPS positions [m]
+		double img_error = 0;		// image delta [m]
+		double yaw_error = 0;		// image rotation [rad]
+		double scl_error = 0;		// image scale [m/px]
+
 		int num_iters = 0;
 		bool converged = false;
 	};
@@ -107,35 +118,31 @@ public:
 		return int(nodes_.size());
 	}
 
-	Node& node(const int k) {
+	std::shared_ptr<Node> node(const int k) {
 		if(k < 0 || k >= node_count()) {
 			throw std::runtime_error("node index out of range");
 		}
 		return nodes_[k];
 	}
 
-	std::vector<Node>& nodes() {
+	const std::vector<std::shared_ptr<Node>>& nodes() const {
 		return nodes_;
 	}
-	const std::vector<Node>& nodes() const {
-		return nodes_;
-	}
-	const std::vector<Edge>& edges() const {
+	const std::vector<std::shared_ptr<Edge>>& edges() const {
 		return edges_;
 	}
 
 	// Add node with initial guess
-	int add_node(T lat_rad = T(0), T lon_rad = T(0), T yaw_rad = T(0), T m_per_px = T(1))
+	std::shared_ptr<Node> add_node(T lat_rad = T(0), T lon_rad = T(0), T yaw_rad = T(0), T m_per_px = T(1))
 	{
-		Node n;
-		n.lat = lat_rad;
-		n.lon = lon_rad;
-
-		n.yaw = yaw_rad;
-		n.ls = std::log(std::max(m_per_px, T(1e-9)));
-
+		auto n = std::make_shared<Node>();
+		n->k = nodes_.size();
+		n->lat = lat_rad;
+		n->lon = lon_rad;
+		n->yaw = yaw_rad;
+		n->ls = std::log(std::max(m_per_px, T(1e-9)));
 		nodes_.push_back(n);
-		return int(nodes_.size()) - 1;
+		return n;
 	}
 
 	// Add image edge i->j:
@@ -156,19 +163,19 @@ public:
 		if(info_scl <= 0) {
 			throw std::runtime_error("add_edge(): info_scl must be > 0");
 		}
-		Edge e;
-		e.i = i;
-		e.j = j;
-		e.dpx = dpx;
-		e.dyaw = dyaw;
-		e.dscale = dscale;
-		e.info_pos = info_pos;
-		e.info_yaw = info_yaw;
-		e.info_scl = info_scl;
+		auto e = std::make_shared<Edge>();
+		e->i = i;
+		e->j = j;
+		e->dpx = dpx;
+		e->dyaw = dyaw;
+		e->dscale = dscale;
+		e->info_pos = info_pos;
+		e->info_yaw = info_yaw;
+		e->info_scl = info_scl;
 		edges_.push_back(e);
 	}
 
-	Result solve(int max_iters = 50, T step_tol = T(1e-6), T lambda = T(1e-9))
+	Result solve(int max_iters = 100, T step_tol = T(1e-6), T lambda = T(1e-9))
 	{
 		Result out;
 		const int N = node_count();
@@ -179,7 +186,7 @@ public:
 		// Must have at least one absolute anchor (GPS prior) or the system will be singular.
 		bool any_gps = false;
 		for(const auto& n : nodes_) {
-			if(n.gps_valid) {
+			if(n->gps_valid) {
 				any_gps = true;
 				break;
 			}
@@ -195,7 +202,8 @@ public:
 		{
 			Ht.clear();
 
-			double err = 0;
+			out = Result();
+
 			Vector g = Vector::Zero(M);
 
 			auto add_block = [&](const int r, const int c, const MatD& B) {
@@ -217,7 +225,7 @@ public:
 			// ---- Unary absolute GPS priors ----
 			for(int k = 0; k < N; ++k)
 			{
-				const Node& nk = nodes_[k];
+				const auto& nk = *nodes_[k];
 				if(!nk.gps_valid) {
 					continue;
 				}
@@ -225,13 +233,13 @@ public:
 
 				// Evaluate EN scales at gps_lat (stable), using node altitude
 				T kE, kN;
-				en_scales_wgs84(nk.gps_lat, nk.gps_alt, kE, kN);
+				wgs84_en_scale(nk.gps_lat, nk.gps_alt, kE, kN);
 
 				const Vec2 r(
 						kE * (nk.lon - nk.gps_lon), // dE
 						kN * (nk.lat - nk.gps_lat)  // dN
 				);
-				err += double(r.transpose() * (nk.gps_info * r));
+				out.gps_error += double(r.transpose() * (nk.gps_info * r));
 
 				Mat2D J = Mat2D::Zero();
 				J(0, 1) = kE; // d(dE)/d(lon)
@@ -241,10 +249,11 @@ public:
 			}
 
 			// ---- Binary image edges ----
-			for(const auto& e : edges_)
+			for(const auto& e_ : edges_)
 			{
-				const Node& ni = nodes_[e.i];
-				const Node& nj = nodes_[e.j];
+				const auto& e  = *e_;
+				const auto& ni = *nodes_[e.i];
+				const auto& nj = *nodes_[e.j];
 
 				const int bi = block_index(e.i);
 				const int bj = block_index(e.j);
@@ -254,7 +263,7 @@ public:
 				const T alt_mid = (ni.gps_alt + nj.gps_alt) / 2;
 
 				T kE, kN;
-				en_scales_wgs84(lat_mid, alt_mid, kE, kN);
+				wgs84_en_scale(lat_mid, alt_mid, kE, kN);
 
 				// Predicted EN delta from lat/lon
 				const Vec2 dp_EN(kE * (nj.lon - ni.lon), kN * (nj.lat - ni.lat));
@@ -273,7 +282,7 @@ public:
 
 					const Vec2 r = dp_EN - en_img;	// residual in EN-meters
 
-					err += r.transpose() * (e.info_pos * r);
+					out.img_error += r.transpose() * (e.info_pos * r);
 
 					Mat2D Ji = Mat2D::Zero();
 					Mat2D Jj = Mat2D::Zero();
@@ -304,7 +313,7 @@ public:
 				{
 					const T r = angle_wrap_pi((nj.yaw - ni.yaw) - e.dyaw);
 
-					err += double(r * (double(e.info_yaw) * r));
+					out.yaw_error += double(r * (double(e.info_yaw) * r));
 
 					VecD gi = VecD::Zero();
 					VecD gj = VecD::Zero();
@@ -336,7 +345,7 @@ public:
 					const T lds = std::log(std::max(e.dscale, T(1e-9)));
 					const T r = (nj.ls - ni.ls) - lds;
 
-					err += r * double(e.info_scl * r);
+					out.scl_error += r * double(e.info_scl * r);
 
 					VecD gi = VecD::Zero();
 					VecD gj = VecD::Zero();
@@ -393,17 +402,17 @@ public:
 			T max_step = 0;
 			for(int k = 0; k < N; ++k)
 			{
-				Node& n = nodes_[k];
+				const auto& n = nodes_[k];
 
 				const T dlat = dx[D * k + 0];
 				const T dlon = dx[D * k + 1];
 				const T dyaw = dx[D * k + 2];
 				const T dls  = dx[D * k + 3];
 
-				n.lat += dlat;
-				n.lon += dlon;
-				n.yaw += dyaw;
-				n.ls  += dls;
+				n->lat += dlat;
+				n->lon += dlon;
+				n->yaw += dyaw;
+				n->ls  += dls;
 
 				max_step = std::max(max_step, std::abs(dlat));
 				max_step = std::max(max_step, std::abs(dlon));
@@ -411,7 +420,6 @@ public:
 				max_step = std::max(max_step, std::abs(dls));
 			}
 
-			out.error = err;
 			out.num_iters = it + 1;
 
 			if(max_step < step_tol) {
@@ -422,9 +430,15 @@ public:
 		return out;
 	}
 
+	void clear()
+	{
+		nodes_.clear();
+		edges_.clear();
+	}
+
 private:
-	std::vector<Node> nodes_;
-	std::vector<Edge> edges_;
+	std::vector<std::shared_ptr<Node>> nodes_;
+	std::vector<std::shared_ptr<Edge>> edges_;
 
 	static int block_index(int node_id) {
 		return D * node_id;
@@ -438,27 +452,6 @@ private:
 		if(i == j) {
 			throw std::runtime_error("edge: i == j");
 		}
-	}
-
-	// WGS84 scales: meters per radian for lon (East) and lat (North)
-	// kE = (N + h) * cos(lat)
-	// kN = (M + h)
-	static void en_scales_wgs84(const T lat_rad, const T alt_m, T& kE, T& kN)
-	{
-		const T a = T(6378137.0);
-		const T f = T(1.0 / 298.257223563);
-		const T e2 = f * (T(2) - f);
-
-		const T s = std::sin(lat_rad);
-		const T c = std::cos(lat_rad);
-
-		const T denom = std::sqrt(T(1) - e2 * s * s);
-
-		const T N = a / denom;                                   // prime vertical
-		const T M = a * (T(1) - e2) / (denom * denom * denom);   // meridional
-
-		kE = (N + alt_m) * c;
-		kN = (M + alt_m);
 	}
 
 	// returns angle in [-pi,pi)

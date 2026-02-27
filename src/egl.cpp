@@ -8,12 +8,19 @@
 #include <mmpilot/egl.h>
 #include <mmpilot/util.h>
 
+#include <EGL/egl.h>
 #include <EGL/eglext.h>
 
 #include <vector>
 
 
 namespace mmpilot {
+
+EglCtx::EglCtx() {
+	ctx = EGL_NO_CONTEXT;
+	display = EGL_NO_DISPLAY;
+	surface = EGL_NO_SURFACE;
+}
 
 EglCtx::~EglCtx() {
 	terminate();
@@ -126,7 +133,7 @@ EglCtx EGL_create_context(int gles_major)
 	return e;
 }
 
-std::string EGL_error_name(EGLint e)
+std::string EGL_error_name(int e)
 {
 	switch (e) {
 		case EGL_SUCCESS: return "EGL_SUCCESS";

@@ -164,7 +164,7 @@ public:
 	}
 
 protected:
-	Gyro gyro;
+	Gyro gyro_api;
 	FlipImage flip_image;
 	WeightRadius weight_radius;
 	VirtualCam virtual_cam;
@@ -179,7 +179,9 @@ protected:
 
 	std::vector<std::shared_ptr<Level>> stage;
 
-	Gyro::State gyro_state;
+	Gyro::State gyro;
+
+	int64_t ts = 0;
 
 	Mat3f R_BC;			// camera to body
 	Mat3f R_WB;			// body to world
@@ -290,12 +292,15 @@ protected:
 		pyramid.exec(source);
 	}
 
-	virtual void exec(const Gyro::State& gyro, std::shared_ptr<GL_Tex2D> input)
+	virtual void exec(std::shared_ptr<GL_Tex2D> input)
 	{
 		if(!have_init) {
 			throw std::logic_error("!have_init");
 		}
-		gyro_state = gyro;
+		if(!gyro_api.avail()) {
+			return;
+		}
+		gyro = gyro_api.lookup(ts);
 
 		const Vec3f RPY = gyro.get_rpy();
 
@@ -399,32 +404,30 @@ protected:
 			}
 			std::cout << "time_offset = " << time_offset << std::endl;
 		}
-		const auto ts = (time_offset + img->timestamp)
+		ts = (time_offset + img->timestamp)
 				- img->exposure / 2
 				- camera_delay;
 
-		if(!gyro.avail()) {
-			return;
-		}
-		exec(gyro.lookup(ts), input_luma);
+		exec(input_luma);
 
 		std::cout << "[" << img->sequence << "] total_time = " << (get_time_micros() - begin) / 1e3 << " ms" << std::endl;
 	}
 
-	void on_sample(std::shared_ptr<Sample> sample)
+	virtual void on_sample(std::shared_ptr<Sample> sample)
 	{
 		if(auto img = std::dynamic_pointer_cast<Image>(sample)) {
 			on_image(img);
 		}
 		else if(auto imu = std::dynamic_pointer_cast<MSP2Client::RawImu>(sample)) {
-			gyro.on_raw_imu(*imu);
+			gyro_api.on_raw_imu(*imu);
 		}
 		else if(auto att = std::dynamic_pointer_cast<MSP2Client::Attitude>(sample)) {
-			gyro.on_attitude(*att);
+			gyro_api.on_attitude(*att);
 		}
 		else if(auto gps = std::dynamic_pointer_cast<MSP2Client::RawGPS>(sample)) {
 			std::cout << "gps: lat=" << gps->lat << ", lon=" << gps->lon
-					<< ", alt=" << gps->alt << ", sats=" << int(gps->num_sats) << std::endl;
+					<< ", speed=" << gps->speed << ", heading=" << gps->course
+					<< ", alt=" << (gps->alt & 0xFF) << ", sats=" << int(gps->num_sats) << ", fix=" << int(gps->fix_type) << std::endl;
 		}
 	}
 

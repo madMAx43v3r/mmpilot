@@ -27,16 +27,25 @@ protected:
 
 	void update() override
 	{
-		const auto H = get_params();
+		const auto A = get_params();
 
-		std::cout << "homography: R_norm = " << H.R_norm << ", overlap = " << H.overlap << std::endl;
+		std::cout << "affine: R_norm = " << A.R_norm << ", overlap = " << A.overlap << std::endl;
 
-		mapping.update(source, H);
+		mapping.update(ts, source, A);
 
 		rebase();
 
 //		show(display, mapping.tex_debug, {1, 0, 1, 1});
 		show(display, mapping.finalize());
+	}
+
+	void on_sample(std::shared_ptr<Sample> sample) override
+	{
+		Pipeline::on_sample(sample);
+
+		if(auto gps = std::dynamic_pointer_cast<MSP2Client::RawGPS>(sample)) {
+			mapping.on_gps(gps);
+		}
 	}
 
 

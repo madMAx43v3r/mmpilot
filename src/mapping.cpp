@@ -45,6 +45,15 @@ void Mapping::Buffer::clear()
 	render::clear(fbo, map->width, map->height, {}, 0);
 }
 
+Transform2D Mapping::Node::pose(const WGS84& origin) const
+{
+	Transform2D out;
+	out.pos = origin.get_en(node->lat, node->lon).cast<float>();
+	out.set_rot(node->yaw);
+	out.scale = node->scale();
+	return out;
+}
+
 void Mapping::init(int width_, int height_, GLenum format)
 {
 	if(have_init) {
@@ -113,7 +122,35 @@ void Mapping::init(int width_, int height_, GLenum format)
 	have_init = true;
 }
 
-void Mapping::update(std::shared_ptr<GL_Tex2D> img, const Affine::Params& A)
+void Mapping::set_gps(std::shared_ptr<PoseGraph::Node> n, std::shared_ptr<const GPS::State> gps)
+{
+	if(!gps || gps->fix_type <= 0) {
+		return;
+	}
+	n->set_gps(	deg2rad(gps->lat),
+				deg2rad(gps->lon),
+				gps_alt_override.value_or(gps->alt),
+				Mat2d::Identity() / (gps_sigma * gps_sigma));
+}
+
+void Mapping::on_gps(std::shared_ptr<MSP2Client::RawGPS> gps)
+{
+	if(gps) {
+		gps_api.on_gps(*gps);
+	}
+	auto it = waiting_gps.begin();
+	while(it != waiting_gps.end()) {
+		auto node = *it;
+		if(auto gps = gps_api.lookup(node->ts)) {
+			set_gps(node->node, gps);
+			it = waiting_gps.erase(it);
+		} else {
+			it++;
+		}
+	}
+}
+
+void Mapping::update(const int64_t ts, std::shared_ptr<GL_Tex2D> img, const Affine::Params& A)
 {
 	if(!have_init) {
 		throw std::logic_error("not initialized");
@@ -121,39 +158,45 @@ void Mapping::update(std::shared_ptr<GL_Tex2D> img, const Affine::Params& A)
 	if(img->width != width || img->height != height) {
 		throw std::logic_error("dimension mismatch");
 	}
-	const auto delta = A.transform();
-
-	auto fixed = delta;
-	fixed.scale /= scale_bias;
-
-	state.add(fixed);
-	{
-		const float a = 0.05;
-		const float x = std::clamp(delta.scale, 0.95f, 1.05f);
-		scale_bias *= std::pow(x / scale_bias, a);
+	const auto gps = gps_api.lookup(ts, false);
+	if(!gps) {
+		return;
 	}
+	// TODO: merge images until minimum delta move
+
 	const auto image = std::make_shared<GL_Tex2D>(
 			width, height, is_mono ? GL_RG8 : GL_RGBA8, is_mono ? GL_RG : GL_RGBA, GL_UNSIGNED_BYTE);
 
 	GL_blit(image, img);
 
-	Node node;
-	node.H = A;
-	node.pose = state;
-	node.image = image;
+	auto gnode = graph.add_node(deg2rad(gps->lat), deg2rad(gps->lon));
+
+	auto node = std::make_shared<Node>();
+	node->ts = ts;
+	node->A = A;
+	node->node = gnode;
+	node->image = image;
+
+	if(gps->ts == ts) {
+		set_gps(gnode, gps);
+	} else {
+		waiting_gps.push_back(node);
+	}
 
 	if(nodes.size()) {
-		optimize(nodes.back(), node);
+		const auto prev = nodes.back();
+
+		const auto info_pos = Mat2d::Identity() / pow(dxy_sigma, 2);
+		const auto info_yaw = 1 / pow(dyaw_sigma, 2);
+		const auto info_scl = 1 / pow(dscale_sigma, 2);
+
+		graph.add_edge(prev->node->k, gnode->k,
+				A.translation().cast<double>(), A.alpha(), A.scale(),
+				info_pos, info_yaw, info_scl);
+
+		optimize(prev, node);
 	}
 	nodes.push_back(node);
-
-	std::cout << "Mapping delta = " << delta.pos.transpose()
-			<< ", rot = " << get_angle_deg(delta.rot)
-			<< " deg, scale = " << delta.scale << std::endl;
-
-	std::cout << "Mapping pos   = " << state.pos.transpose()
-			<< ", rot = " << get_angle_deg(state.rot)
-			<< " deg, scale = " << state.scale << ", bias = " << scale_bias << std::endl;
 }
 
 void Mapping::render(std::shared_ptr<GL_Tex2D> img, const Affine::Params& A)
@@ -257,65 +300,92 @@ void Mapping::compress(GLuint fbo, std::shared_ptr<Buffer> buf)
 	GL_finish("Mapping::compress()");
 }
 
-void Mapping::optimize(Node& L, Node& R)
+void Mapping::optimize(std::shared_ptr<Node> L, std::shared_ptr<Node> R)
 {
-	const auto w_sum = L.weight + R.weight;
+	const auto w_sum = L->weight + R->weight;
 
-	merge.weight = R.weight / w_sum;
-	merge.exec(L.image, R.image, R.H);
+	merge.weight = R->weight / w_sum;
+	merge.exec(L->image, R->image, R->A);
 
 	GL_blit(tex_tmp, merge.out);
 
-	merge.weight = L.weight / w_sum;
-	merge.exec(R.image, L.image, R.H.inverse());
+	merge.weight = L->weight / w_sum;
+	merge.exec(R->image, L->image, R->A.inverse());
 
-	GL_blit(L.image, merge.out);
-	GL_blit(R.image, tex_tmp);
+	GL_blit(L->image, merge.out);
+	GL_blit(R->image, tex_tmp);
 
-	L.weight = w_sum;
-	R.weight = w_sum;
+	L->weight = w_sum;
+	R->weight = w_sum;
 }
 
 std::shared_ptr<GL_Tex2D> Mapping::finalize()
 {
-	if(nodes.empty()) {
+	if(nodes.size() < 3) {
 		return nullptr;
 	}
+	const auto res = graph.solve();
+
+	std::cout << "Mapping: gps_error = " << res.gps_error << " m, img_error = " << res.img_error
+			<< " m, yaw_error = " << rad2deg(res.yaw_error) << " deg, scl_error = " << res.scl_error << " m/px, iters = " << res.num_iters << std::endl;
+
+	double lat0 = 0;
+	double lon0 = 0;
+	double alt0 = 10000;
+	double avg_scale = 0;
+	for(const auto& n : nodes) {
+		const auto& node = n->node;
+		lat0 += node->lat;
+		lon0 += node->lon;
+		avg_scale += node->ls;
+		if(node->gps_valid) {
+			alt0 = std::min(alt0, node->gps_alt);
+		}
+	}
+	lat0 /= nodes.size();
+	lon0 /= nodes.size();
+	avg_scale = std::exp(avg_scale / nodes.size());
+
+	std::cout << "Mapping: lat0 = " << rad2deg(lat0) << " deg, lon0 = " << rad2deg(lon0)
+			<< " deg, alt0 = " << alt0 << " m, avg_scale = " << avg_scale << " m/px" << std::endl;
+
+	WGS84 wgs(lat0, lon0, alt0);
+
 	float xmin = std::numeric_limits<float>::max();
 	float ymin = std::numeric_limits<float>::max();
 	float xmax = std::numeric_limits<float>::min();
 	float ymax = std::numeric_limits<float>::min();
 
 	for(const auto& node : nodes) {
-		const auto& p = node.pose.pos;
-		const auto w = node.pose.scale * width;
-		const auto h = node.pose.scale * height;
-		xmin = std::min(xmin, p.x() - w / 2);
-		ymin = std::min(ymin, p.y() - h / 2);
-		xmax = std::max(xmax, p.x() + w / 2);
-		ymax = std::max(ymax, p.y() + h / 2);
+		const auto p = node->pose(wgs);
+		const auto w = p.scale * width;
+		const auto h = p.scale * height;
+		xmin = std::min(xmin, p.pos.x() - w / 2);
+		ymin = std::min(ymin, p.pos.y() - h / 2);
+		xmax = std::max(xmax, p.pos.x() + w / 2);
+		ymax = std::max(ymax, p.pos.y() + h / 2);
 	}
 	const Vec2f origin = Vec2f(xmin, ymin);
 
-	const int map_width  = (xmax - xmin);
-	const int map_height = (ymax - ymin);
+	const int map_width  = (xmax - xmin) + 1;
+	const int map_height = (ymax - ymin) + 1;
 
 	std::cout << "Mapping: map size = " << map_width << " x " << map_height << ", nodes = " << nodes.size() << std::endl;
 
 	auto buf = std::make_shared<Buffer>(map_width, map_height, is_mono);
 
-	for(const auto& node : nodes)
-	{
-		std::vector<Vec2f> coords;
-		for(int i = 0; i < 4; ++i)
-		{
-			const auto& uv = g_uv[i];
-			const Vec2f q = Vec2f(width * uv.x(), height * uv.y()) - Vec2f(width, height) / 2;
-			const Vec2f p = node.pose.apply(q) - origin;
-			coords.push_back(p);
-		}
-		render_image(buf, node.image, coords);
-	}
+//	for(const auto& node : nodes)
+//	{
+//		std::vector<Vec2f> coords;
+//		for(int i = 0; i < 4; ++i)
+//		{
+//			const auto& uv = g_uv[i];
+//			const Vec2f q = Vec2f(width * uv.x(), height * uv.y()) - Vec2f(width, height) / 2;
+//			const Vec2f p = node.pose.apply(q) - origin;
+//			coords.push_back(p);
+//		}
+//		render_image(buf, node.image, coords);
+//	}
 
 //	auto out = std::make_shared<GL_Tex2D>(
 //			map_width, map_height, is_mono ? GL_R8 : GL_RGB8, is_mono ? GL_RED : GL_RGB, GL_UNSIGNED_BYTE);

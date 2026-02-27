@@ -12,6 +12,7 @@
 #include <mmpilot/math.h>
 
 #include <list>
+#include <memory>
 #include <cstdint>
 #include <stdexcept>
 #include <iostream>
@@ -25,7 +26,7 @@ public:
 	public:
 		int64_t ts = 0;			// [us]
 
-		int fix_type = 0;		// 0 = no fix, 2 = 2D, 3 = 3D
+		int fix_type = 0;		// 0 = no fix, 1 = 2D, 2 = 3D
 		int num_sats = 0;
 
 		double lat = 0;			// [deg]
@@ -40,6 +41,9 @@ public:
 
 	void on_gps(const MSP2Client::RawGPS& gps)
 	{
+		if(gps.fix_type <= 0) {
+			return;
+		}
 		if(gps.ts <= head_ts()) {
 			return;
 		}
@@ -63,18 +67,22 @@ public:
 		}
 	}
 
-	State lookup(const int64_t ts) const
+	std::shared_ptr<const State> lookup(const int64_t ts, const bool strict = true) const
 	{
 		if(history.empty()) {
 			throw std::runtime_error("GPS::lookup(): history is empty");
 		}
 		if(ts < front_ts()) {
-			std::cout << "GPS::lookup(): requested ts beyond history: " << ts << std::endl;
-			return history.front();
+			if(strict) {
+				return nullptr;
+			}
+			return std::make_shared<State>(history.front());
 		}
 		if(ts > head_ts()) {
-			std::cout << "GPS::lookup(): requested ts in future by " << (ts - head_ts()) << " us" << std::endl;
-			return history.back();
+			if(strict) {
+				return nullptr;
+			}
+			return std::make_shared<State>(history.back());
 		}
 
 		// Find bracketing states [a,b] with a.ts <= ts <= b.ts
@@ -94,20 +102,20 @@ public:
 		const double dt = b.ts - a.ts;
 		const double t = (dt > 0) ? ((ts - a.ts) / dt) : 0;
 
-		State out;
-		out.ts = ts;
-		out.lat = lerp(a.lat, b.lat, t);
-		out.lon = lerp(a.lon, b.lon, t);
-		out.alt = lerp(a.alt, b.alt, t);
-		out.speed = lerp(a.speed, b.speed, t);
-		out.heading = lerp_deg(a.heading, b.heading, t);
+		auto out = std::make_shared<State>();
+		out->ts = ts;
+		out->lat = lerp(a.lat, b.lat, t);
+		out->lon = lerp(a.lon, b.lon, t);
+		out->alt = lerp(a.alt, b.alt, t);
+		out->speed = lerp(a.speed, b.speed, t);
+		out->heading = lerp_deg(a.heading, b.heading, t);
 
 		if(t < 0.5) {
-			out.num_sats = a.num_sats;
-			out.fix_type = a.fix_type;
+			out->num_sats = a.num_sats;
+			out->fix_type = a.fix_type;
 		} else {
-			out.num_sats = b.num_sats;
-			out.fix_type = b.fix_type;
+			out->num_sats = b.num_sats;
+			out->fix_type = b.fix_type;
 		}
 		return out;
 	}

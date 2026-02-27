@@ -36,7 +36,7 @@ public:
 	// (x, y, alpha, scale)
 	class Params : public std::array<float, 4> {
 	public:
-		float R_norm = 0;		// normalized (factor 100)
+		float R_norm = 0;		// normalized (factor 1000)
 		float overlap = 0;		// (0 to 1)
 		Mat2f H_xy = Mat2f::Identity();
 
@@ -60,6 +60,10 @@ public:
 
 		const float& p(size_t i) const {
 			return (*this)[i];
+		}
+
+		float alpha() const {
+			return p(2);
 		}
 
 		float scale() const {

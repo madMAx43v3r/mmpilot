@@ -27,6 +27,10 @@ public:
 		normalize_rot(rot);
 	}
 
+	void set_rot(float alpha) {
+		rot = get_rotation_matrix(alpha);
+	}
+
 	Vec2f apply(const Vec2f& p) const
 	{
 		return pos + rot * (p * scale);

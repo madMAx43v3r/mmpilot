@@ -18,14 +18,17 @@ namespace mmpilot {
 using Vec2f = Eigen::Matrix<float, 2, 1>;
 using Vec2d = Eigen::Matrix<double, 2, 1>;
 
+using Vec3f = Eigen::Matrix<float, 3, 1>;
+using Vec3d = Eigen::Matrix<double, 3, 1>;
+
 using Mat2f = Eigen::Matrix<float, 2, 2>;
 using Mat2d = Eigen::Matrix<double, 2, 2>;
 
 using Mat3f = Eigen::Matrix<float, 3, 3>;
 using Mat3d = Eigen::Matrix<double, 3, 3>;
 
-using Vec3f = Eigen::Matrix<float, 3, 1>;
-using Vec3d = Eigen::Matrix<double, 3, 1>;
+template<typename T> using Vec2 = Eigen::Matrix<T, 2, 1>;
+template<typename T> using Vec3 = Eigen::Matrix<T, 3, 1>;
 
 
 template<typename T>
