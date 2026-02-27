@@ -33,7 +33,6 @@ int main(int argc, char** argv)
 	pipe_0.FOV_cam = 110;
 	pipe_0.RPY_cam = Vec3f(0, 5, -30 -90);
 	pipe_0.K_param  = Vec2f(0, 0);
-	pipe_0.merge.weight = 0.1;
 
 	const auto on_frame = [&](std::shared_ptr<Image> frame) {
 		std::cout << "[" << frame->topic << "] ts = " << frame->timestamp

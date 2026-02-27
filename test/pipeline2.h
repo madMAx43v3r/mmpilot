@@ -245,6 +245,7 @@ protected:
 		pyramid.init(width, height, GL_RG16F, GL_RG, GL_HALF_FLOAT);
 
 		merge.debug = is_debug;
+		merge.weight = 0.1;
 		merge.init(width, height, GL_RG);
 
 		int w = width;
