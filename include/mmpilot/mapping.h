@@ -30,8 +30,10 @@ public:
 
 	double gps_sigma = 5;			// GPS position [m]
 	double dxy_sigma = 0.2;			// image delta [m]
-	double dyaw_sigma = 0.01;		// image rotation [rad]
-	double dscale_sigma = 0.01;		// image scale [log(m/px)]
+	double dyaw_sigma = 0.002;		// image rotation [rad]
+	double dscale_sigma = 0.02;		// image scale [log(m/px)]
+
+	int64_t gps_delay = 100 * 1000;		// [us]
 
 	std::optional<double> gps_alt_override;
 

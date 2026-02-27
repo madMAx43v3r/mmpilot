@@ -184,14 +184,13 @@ public:
 		}
 
 		// Must have at least one absolute anchor (GPS prior) or the system will be singular.
-		bool any_gps = false;
+		int num_gps = 0;
 		for(const auto& n : nodes_) {
 			if(n->gps_valid) {
-				any_gps = true;
-				break;
+				num_gps++;
 			}
 		}
-		if(!any_gps && edges_.empty()) {
+		if(num_gps < 2) {
 			return out;
 		}
 		const int M = D * N;	// number of unknowns

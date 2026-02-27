@@ -136,7 +136,9 @@ void Mapping::set_gps(std::shared_ptr<PoseGraph::Node> n, std::shared_ptr<const 
 void Mapping::on_gps(std::shared_ptr<MSP2Client::RawGPS> gps)
 {
 	if(gps) {
-		gps_api.on_gps(*gps);
+		auto gps_ = *gps;
+		gps_.ts -= gps_delay;
+		gps_api.on_gps(gps_);
 	}
 	auto it = waiting_gps.begin();
 	while(it != waiting_gps.end()) {
@@ -148,6 +150,7 @@ void Mapping::on_gps(std::shared_ptr<MSP2Client::RawGPS> gps)
 			it++;
 		}
 	}
+//	std::cout << "Mapping: waiting_gps = " << waiting_gps.size() << std::endl;
 }
 
 void Mapping::update(const int64_t ts, std::shared_ptr<GL_Tex2D> img, const Affine::Params& A)
