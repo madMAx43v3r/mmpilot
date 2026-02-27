@@ -175,7 +175,7 @@ public:
 		edges_.push_back(e);
 	}
 
-	Result solve(int max_iters = 100, T step_tol = T(1e-6), T lambda = T(1e-9))
+	Result solve(int max_iters = 100, T step_tol = T(1e-6), T lambda = T(1e-3))
 	{
 		Result out;
 		const int N = node_count();
@@ -183,14 +183,13 @@ public:
 			return out;
 		}
 
-		// Must have at least one absolute anchor (GPS prior) or the system will be singular.
 		int num_gps = 0;
 		for(const auto& n : nodes_) {
 			if(n->gps_valid) {
 				num_gps++;
 			}
 		}
-		if(num_gps < 2) {
+		if(num_gps < 3) {
 			return out;
 		}
 		const int M = D * N;	// number of unknowns
