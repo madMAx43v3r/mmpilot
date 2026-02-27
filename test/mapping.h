@@ -35,8 +35,11 @@ protected:
 
 		rebase();
 
+		const auto map = mapping.finalize();
+
+//		show(display, stage[0]->solver.tex_debug);
 //		show(display, mapping.tex_debug, {1, 0, 1, 1});
-		show(display, mapping.finalize());
+		show(display, map);
 	}
 
 	void on_sample(std::shared_ptr<Sample> sample) override

@@ -194,7 +194,7 @@ void Mapping::update(const int64_t ts, std::shared_ptr<GL_Tex2D> img, const Affi
 				A.translation().cast<double>(), A.alpha(), A.scale(),
 				info_pos, info_yaw, info_scl);
 
-		optimize(prev, node);
+//		optimize(prev, node);
 	}
 	nodes.push_back(node);
 }
@@ -332,22 +332,23 @@ std::shared_ptr<GL_Tex2D> Mapping::finalize()
 	double lat0 = 0;
 	double lon0 = 0;
 	double alt0 = 10000;
-	double avg_scale = 0;
+	double map_scale = 0;
 	for(const auto& n : nodes) {
 		const auto& node = n->node;
 		lat0 += node->lat;
 		lon0 += node->lon;
-		avg_scale += node->ls;
+		map_scale += node->ls;
 		if(node->gps_valid) {
 			alt0 = std::min(alt0, node->gps_alt);
 		}
+		std::cout << "Node[" << node->k << "] yaw = " << rad2deg(node->yaw) << " deg, scale = " << node->scale() << " m/px" << std::endl;
 	}
 	lat0 /= nodes.size();
 	lon0 /= nodes.size();
-	avg_scale = std::exp(avg_scale / nodes.size());
+	map_scale = std::exp(map_scale / nodes.size());
 
 	std::cout << "Mapping: lat0 = " << rad2deg(lat0) << " deg, lon0 = " << rad2deg(lon0)
-			<< " deg, alt0 = " << alt0 << " m, avg_scale = " << avg_scale << " m/px" << std::endl;
+			<< " deg, alt0 = " << alt0 << " m, map_scale = " << map_scale << " m/px" << std::endl;
 
 	WGS84 wgs(lat0, lon0, alt0);
 
@@ -358,34 +359,35 @@ std::shared_ptr<GL_Tex2D> Mapping::finalize()
 
 	for(const auto& node : nodes) {
 		const auto p = node->pose(wgs);
-		const auto w = p.scale * width;
-		const auto h = p.scale * height;
+		const auto w = p.scale * std::max(width, height);
 		xmin = std::min(xmin, p.pos.x() - w / 2);
-		ymin = std::min(ymin, p.pos.y() - h / 2);
+		ymin = std::min(ymin, p.pos.y() - w / 2);
 		xmax = std::max(xmax, p.pos.x() + w / 2);
-		ymax = std::max(ymax, p.pos.y() + h / 2);
+		ymax = std::max(ymax, p.pos.y() + w / 2);
 	}
 	const Vec2f origin = Vec2f(xmin, ymin);
 
-	const int map_width  = (xmax - xmin) + 1;
-	const int map_height = (ymax - ymin) + 1;
+	const int map_width  = ((xmax - xmin) + 1) / map_scale;
+	const int map_height = ((ymax - ymin) + 1) / map_scale;
 
 	std::cout << "Mapping: map size = " << map_width << " x " << map_height << ", nodes = " << nodes.size() << std::endl;
 
 	auto buf = std::make_shared<Buffer>(map_width, map_height, is_mono);
 
-//	for(const auto& node : nodes)
-//	{
-//		std::vector<Vec2f> coords;
-//		for(int i = 0; i < 4; ++i)
-//		{
-//			const auto& uv = g_uv[i];
-//			const Vec2f q = Vec2f(width * uv.x(), height * uv.y()) - Vec2f(width, height) / 2;
-//			const Vec2f p = node.pose.apply(q) - origin;
-//			coords.push_back(p);
-//		}
-//		render_image(buf, node.image, coords);
-//	}
+	for(const auto& node : nodes)
+	{
+		const auto pose = node->pose(wgs);
+
+		std::vector<Vec2f> coords;
+		for(int i = 0; i < 4; ++i)
+		{
+			const auto& uv = g_uv[i];
+			const Vec2f q = Vec2f(width * uv.x(), height * uv.y()) - Vec2f(width, height) / 2;
+			const Vec2f p = pose.apply(q) - origin;
+			coords.push_back(p / map_scale);
+		}
+		render_image(buf, node->image, coords);
+	}
 
 //	auto out = std::make_shared<GL_Tex2D>(
 //			map_width, map_height, is_mono ? GL_R8 : GL_RGB8, is_mono ? GL_RED : GL_RGB, GL_UNSIGNED_BYTE);

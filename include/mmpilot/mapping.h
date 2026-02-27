@@ -28,10 +28,10 @@ public:
 	using WGS84 = mmpilot::WGS84<double>;
 	using PoseGraph = PoseGraphGeoImg<double>;
 
-	double gps_sigma = 5;			// GPS position stddev [m]
-	double dxy_sigma = 0.2;			// image delta stddev [m]
-	double dyaw_sigma = 0.05;		// image rotation stddev [rad]
-	double dscale_sigma = 0.1;		// image scale stddev [log(m/px)]
+	double gps_sigma = 5;			// GPS position [m]
+	double dxy_sigma = 0.2;			// image delta [m]
+	double dyaw_sigma = 0.01;		// image rotation [rad]
+	double dscale_sigma = 0.01;		// image scale [log(m/px)]
 
 	std::optional<double> gps_alt_override;
 

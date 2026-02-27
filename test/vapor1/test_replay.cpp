@@ -22,8 +22,9 @@ int main(int argc, char** argv)
 	std::cout << "offset = " << offset_sec << " sec" << std::endl;
 	std::cout << "file_name = " << file_name << std::endl;
 
-	Pipeline pipe_0;
-//	MappingPipe pipe_0;
+//	Pipeline pipe_0;
+	MappingPipe pipe_0;
+	pipe_0.mapping.gps_alt_override = 150;
 //	CalibrationPipe pipe_0;
 	pipe_0.is_debug = true;
 	pipe_0.src_flip_y = true;
