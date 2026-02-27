@@ -142,7 +142,7 @@ public:
 		uint8_t  num_sats = 0;
 		int32_t  lat = 0;		// degrees * 1e7
 		int32_t  lon = 0;		// degrees * 1e7
-		int32_t  alt = 0;		// cm
+		int32_t  alt = 0;		// m
 		uint16_t speed = 0;		// cm/s
 		uint16_t course = 0;	// deg * 10
 
@@ -504,9 +504,9 @@ private:
 		gps.num_sats  = p[1];
 		gps.lat      = read_i32_le(p, 2);
 		gps.lon      = read_i32_le(p, 6);
-		gps.alt      = read_i32_le(p, 10);
-		gps.speed    = read_u16_le(p, 14);
-		gps.course   = read_u16_le(p, 16);
+		gps.alt      = read_i16_le(p, 10);
+		gps.speed    = read_u16_le(p, 12);
+		gps.course   = read_u16_le(p, 14);
 		return gps;
 	}
 
