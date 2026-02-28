@@ -56,7 +56,7 @@ static void assemble_equations(
 	}
 }
 
-Affine::Params Affine::solve(
+Affine::Params Affine::exec(
 		std::shared_ptr<GL_Tex2D> ref, std::shared_ptr<GL_Tex2D> img, const Params& init_p)
 {
 	if(!have_init) {

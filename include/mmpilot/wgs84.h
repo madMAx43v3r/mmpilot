@@ -65,7 +65,7 @@ Vec3<T> ecef_to_enu_delta(const Vec3<T>& d, const T lat0, const T lon0)
 	const T cl   = std::cos(lon0);
 
 	Vec3<T> enu;
-	enu.x() = (-sl) * d.x() + (cl) * d.y() + T(0) * d.z();                 // East
+	enu.x() = (-sl) * d.x() + (cl) * d.y() + T(0) * d.z();                  // East
 	enu.y() = (-sphi*cl) * d.x() + (-sphi*sl) * d.y() + ( cphi) * d.z();    // North
 	enu.z() = ( cphi*cl) * d.x() + ( cphi*sl) * d.y() + ( sphi) * d.z();    // Up
 	return enu;

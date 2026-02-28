@@ -10,7 +10,7 @@
 
 #include <mmpilot/opengl.h>
 #include <mmpilot/texture.h>
-#include <mmpilot/affine.h>
+#include <mmpilot/multi_affine.h>
 #include <mmpilot/transform.h>
 #include <mmpilot/merge.h>
 #include <mmpilot/gps.h>
@@ -29,19 +29,22 @@ public:
 	using PoseGraph = PoseGraphGeoImg<double>;
 
 	float node_delta = 20;			// min edge length [px]
+	float max_loop_delta = 300;		// maximum initial image shift [px]
+	float min_loop_factor = 5;		// relative to node_delta [px]
 
 	double gps_sigma = 5;			// GPS position [m]
 	double dxy_sigma = 0.2;			// image delta [m]
 	double dyaw_sigma = 0.002;		// image rotation [rad]
 	double dscale_sigma = 0.02;		// image scale [log(m/px)]
 
-	int64_t gps_delay = 100 * 1000;		// [us]
+	int64_t gps_delay = 50 * 1000;		// [us]
 
 	std::optional<double> gps_alt_override;
 
 	struct Node {
 		int64_t ts = 0;			// [us]
 		float weight = 1;
+		float distance = 0;		// from start [px]
 		Transform2D delta;
 		std::shared_ptr<GL_Tex2D> image;
 		std::shared_ptr<PoseGraph::Node> node;
@@ -62,6 +65,7 @@ public:
 	};
 
 	MergeFilter merge;
+	MultiAffine affine;
 
 	Transform2D delta;
 
@@ -88,7 +92,7 @@ private:
 
 	void optimize(std::shared_ptr<Node> L, std::shared_ptr<Node> R);
 
-	void set_gps(std::shared_ptr<PoseGraph::Node> n, std::shared_ptr<const GPS::State> gps);
+	void set_gps(std::shared_ptr<Node> node, std::shared_ptr<const GPS::State> gps);
 
 private:
 	int width = 0;

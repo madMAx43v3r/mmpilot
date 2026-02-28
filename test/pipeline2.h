@@ -69,7 +69,7 @@ public:
 		std::shared_ptr<Level> upper;			// lower scale (upper level)
 		std::shared_ptr<GL_Tex2D> base_img;
 
-		void init(Pipeline* pipe, int level, int width, int height)
+		void init(int level, int width, int height)
 		{
 			this->level = level;
 
@@ -97,9 +97,9 @@ public:
 		{
 			if(have_base) {
 				if(upper) {
-					A = Affine::Params(upper->A).scale(2);
+					A = copy(upper->A).scale(2);
 				}
-				A = solver.solve(base_img, img, A);
+				A = solver.exec(base_img, img, A);
 
 				std::cout << "params[" << level << "][" << solver.num_iters << "] = " << to_string(A) << std::endl;
 			} else {
@@ -256,7 +256,7 @@ protected:
 			lvl->solver.debug = is_debug;
 			lvl->solver.num_iters = num_iters[std::min(size_t(i), num_iters.size() - 1)];
 
-			lvl->init(this, i, w, h);
+			lvl->init(i, w, h);
 			stage.push_back(lvl);
 
 			w /= 2;

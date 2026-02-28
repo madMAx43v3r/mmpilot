@@ -62,7 +62,7 @@ public:
 			return (*this)[i];
 		}
 
-		float alpha() const {
+		float yaw() const {
 			return p(2);
 		}
 
@@ -122,7 +122,7 @@ public:
 
 	~Affine();
 
-	Params solve(std::shared_ptr<GL_Tex2D> ref, std::shared_ptr<GL_Tex2D> img, const Params& init_p);
+	Params exec(std::shared_ptr<GL_Tex2D> ref, std::shared_ptr<GL_Tex2D> img, const Params& init_p);
 
 	void init(int width, int height);
 

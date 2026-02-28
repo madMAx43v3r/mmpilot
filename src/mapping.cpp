@@ -78,6 +78,10 @@ void Mapping::init(int width_, int height_, GLenum format)
 
 	merge.init(width, height, format);
 
+	affine.depth = 4;
+	affine.damping = 2;
+	affine.init(width, height);
+
 	tex_tmp = std::make_shared<GL_Tex2D>(
 			width, height, is_mono ? GL_RG8 : GL_RGBA8, is_mono ? GL_RG : GL_RGBA, GL_UNSIGNED_BYTE);
 
@@ -122,15 +126,82 @@ void Mapping::init(int width_, int height_, GLenum format)
 	have_init = true;
 }
 
-void Mapping::set_gps(std::shared_ptr<PoseGraph::Node> n, std::shared_ptr<const GPS::State> gps)
+void Mapping::set_gps(std::shared_ptr<Node> node, std::shared_ptr<const GPS::State> gps)
 {
 	if(!gps || gps->fix_type <= 0) {
 		return;
 	}
-	n->set_gps(	deg2rad(gps->lat),
-				deg2rad(gps->lon),
-				gps_alt_override.value_or(gps->alt),
-				Mat2d::Identity() / (gps_sigma * gps_sigma));
+	const auto lat = deg2rad(gps->lat);
+	const auto lon = deg2rad(gps->lon);
+	const auto alt = gps_alt_override.value_or(gps->alt);
+
+	const auto gps_info = Mat2d::Identity() / (gps_sigma * gps_sigma);
+
+	node->node->set_gps(lat, lon, alt, gps_info);
+
+	// update graph
+	if(!graph.solve().converged) {
+		return;
+	}
+
+	// ------------ try to close loop
+	WGS84 wgs(lat, lon, alt);
+
+	// current pixel scale
+	const auto scale = std::exp(node->node->ls);	// [m/px]
+
+	// find best base
+	// as far back as possible, but also low GPS delta
+	double base_score = 0;
+	std::shared_ptr<Node> base;
+	for(const auto& n : nodes)
+	{
+		const auto& prev = n->node;
+		if(prev->gps_valid && n != node)
+		{
+			const auto dist = node->distance - n->distance;							// [px]
+			if(dist > node_delta * min_loop_factor)
+			{
+				const auto delta = wgs.get_en(prev->lat, prev->lon).norm() / scale;		// [px]
+				if(delta < max_loop_delta)
+				{
+					const auto score = dist / std::max(delta, 1.);
+					if(score > base_score) {
+						base = n;
+						base_score = score;
+//						std::cout << "Mapping: Search " << prev->k << ": score = " << score
+//								<< ", dist = " << dist << " px, delta = " << delta << " px" << std::endl;
+					}
+				}
+			}
+		}
+	}
+	if(!base) {
+		return;
+	}
+
+	// solve affine loop closure
+	const auto& prev = base->node;
+
+	const Vec2d init_delta =
+			get_rotation_matrix(prev->yaw).transpose()
+			* (wgs.get_en(prev->lat, prev->lon) / scale);		// [px]
+
+	const auto init_dyaw = angle_norm_pi(prev->yaw - node->node->yaw);		// [rad]
+	const auto init_dscale = std::exp(prev->ls) / scale;
+
+	auto A = Affine::Params(init_delta.x(), init_delta.y(), init_dyaw, init_dscale);
+
+	A = affine.exec(node->image, base->image, A);
+
+	std::cout << "Mapping: Loop " << node->node->k << " -> " << prev->k
+			<< ": delta = (" << init_delta.x() << ", " << init_delta.y()
+			<< ") / (" << A.translation().x() << ", " << A.translation().y() << ") px"
+			<< ", yaw = " << rad2deg(init_dyaw) << " / " << rad2deg(A.yaw()) << " deg"
+			<< ", scale = " << init_dscale << " / " << A.scale()
+			<< ", R_norm = " << A.R_norm << ", overlap = " << A.overlap << std::endl;
+
+	// TODO
 }
 
 void Mapping::on_gps(std::shared_ptr<MSP2Client::RawGPS> gps)
@@ -144,7 +215,7 @@ void Mapping::on_gps(std::shared_ptr<MSP2Client::RawGPS> gps)
 	while(it != waiting_gps.end()) {
 		auto node = *it;
 		if(auto gps = gps_api.lookup(node->ts)) {
-			set_gps(node->node, gps);
+			set_gps(node, gps);
 			it = waiting_gps.erase(it);
 		} else {
 			it++;
@@ -198,7 +269,7 @@ void Mapping::update(const int64_t ts, std::shared_ptr<GL_Tex2D> img, const Affi
 	node->image = image;
 
 	if(gps->ts == ts) {
-		set_gps(gnode, gps);
+		set_gps(node, gps);
 	} else {
 		waiting_gps.push_back(node);
 	}
@@ -206,15 +277,19 @@ void Mapping::update(const int64_t ts, std::shared_ptr<GL_Tex2D> img, const Affi
 	if(nodes.size()) {
 		const auto prev = nodes.back();
 
+		node->distance = prev->distance + delta.pos.norm();
+
 		const auto info_pos = Mat2d::Identity() / pow(dxy_sigma, 2);
 		const auto info_yaw = 1 / pow(dyaw_sigma, 2);
 		const auto info_scl = 1 / pow(dscale_sigma, 2);
 
-		graph.add_edge(prev->node->k, gnode->k,
-				delta.pos.cast<double>(), get_angle(delta.rot), delta.scale,
-				info_pos, info_yaw, info_scl);
+		const auto alpha = get_angle(delta.rot);
 
-//		optimize(prev, node);
+		std::cout << "Mapping: Edge: delta = " << delta.pos.norm() << " px, rot = " << rad2deg(alpha) << " deg, scale = " << delta.scale << std::endl;
+
+		graph.add_edge(prev->node->k, gnode->k,
+				delta.pos.cast<double>(), alpha, delta.scale,
+				info_pos, info_yaw, info_scl);
 	}
 	nodes.push_back(node);
 

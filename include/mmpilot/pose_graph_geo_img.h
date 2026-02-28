@@ -151,7 +151,7 @@ public:
 	//   - info_pos: 2x2 info for EN position residual
 	//   - info_yaw: scalar info (inverse variance) for yaw residual
 	//   - info_scl: scalar info (inverse variance) for log-scale residual
-	void add_edge(
+	std::shared_ptr<Edge> add_edge(
 			int i, int j, const Vec2& dpx, T dyaw, T dscale,
 			const Mat2& info_pos, T info_yaw, T info_scl)
 	{
@@ -173,6 +173,7 @@ public:
 		e->info_yaw = info_yaw;
 		e->info_scl = info_scl;
 		edges_.push_back(e);
+		return e;
 	}
 
 	Result solve(int max_iters = 100, T step_tol = T(1e-6), T lambda = T(1e-3))
@@ -223,33 +224,33 @@ public:
 			// ---- Unary absolute GPS priors ----
 			for(int k = 0; k < N; ++k)
 			{
-				const auto& nk = *nodes_[k];
-				if(!nk.gps_valid) {
+				const auto& n = *nodes_[k];
+				if(!n.gps_valid) {
 					continue;
 				}
 				const int bk = block_index(k);
 
 				// Evaluate EN scales at gps_lat (stable), using node altitude
 				T kE, kN;
-				wgs84_en_scale(nk.gps_lat, nk.gps_alt, kE, kN);
+				wgs84_en_scale(n.gps_lat, n.gps_alt, kE, kN);
 
 				const Vec2 r(
-						kE * (nk.lon - nk.gps_lon), // dE
-						kN * (nk.lat - nk.gps_lat)  // dN
+						kE * (n.lon - n.gps_lon), // dE
+						kN * (n.lat - n.gps_lat)  // dN
 				);
-				out.gps_error += double(r.transpose() * (nk.gps_info * r));
+				out.gps_error += double(r.transpose() * (n.gps_info * r));
 
 				Mat2D J = Mat2D::Zero();
 				J(0, 1) = kE; // d(dE)/d(lon)
 				J(1, 0) = kN; // d(dN)/d(lat)
 
-				accumulate_unary_2d(add_block, add_g, bk, J, r, nk.gps_info);
+				accumulate_unary_2d(add_block, add_g, bk, J, r, n.gps_info);
 			}
 
 			// ---- Binary image edges ----
-			for(const auto& e_ : edges_)
+			for(const auto& p_e : edges_)
 			{
-				const auto& e  = *e_;
+				const auto& e  = *p_e;
 				const auto& ni = *nodes_[e.i];
 				const auto& nj = *nodes_[e.j];
 
