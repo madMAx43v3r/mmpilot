@@ -29,8 +29,9 @@ public:
 	using PoseGraph = PoseGraphGeoImg<double>;
 
 	float node_delta = 20;			// min edge length [px]
-	float max_loop_delta = 300;		// maximum initial image shift [px]
-	float min_loop_factor = 5;		// relative to node_delta [px]
+	float max_loop_delta = 200;		// maximum initial image shift [px]
+	float min_loop_factor = 10;		// relative to node_delta
+	float max_loop_error = 3;		// average square pixel error
 
 	double gps_sigma = 5;			// GPS position [m]
 	double dxy_sigma = 0.2;			// image delta [m]

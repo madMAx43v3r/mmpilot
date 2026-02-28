@@ -24,7 +24,6 @@ protected:
 
 		mapping.merge.debug = true;
 		mapping.affine.debug = true;
-//		mapping.affine.num_iters = {1, 0};
 
 		mapping.init(src_width, src_height, GL_RG);
 	}
@@ -43,8 +42,8 @@ protected:
 
 //		show(display, stage[0]->solver.tex_debug);
 //		show(display, mapping.merge.tex_debug[0]);
-		show(display, mapping.affine.stage[0]->solver.tex_debug);
-//		show(display, map);
+//		show(display, mapping.affine.stage[0]->solver.tex_debug);
+		show(display, map);
 	}
 
 	void on_sample(std::shared_ptr<Sample> sample) override

@@ -25,6 +25,7 @@ namespace mmpilot {
 class MergeFilter {
 public:
 	int num_iter = 3;
+	int reduction_chunk = 16;
 
 	float weight = 0.5;			// 0..1
 
@@ -34,6 +35,7 @@ public:
 
 	std::shared_ptr<GL_Tex2D> out;
 	std::shared_ptr<GL_Tex2D> tex_ref;
+	std::shared_ptr<GL_Tex2D> tex_error;
 	std::shared_ptr<GL_Tex2D> tex_debug[2];
 	std::shared_ptr<GL_Tex2D> tex_buf[2][2];
 
@@ -63,19 +65,23 @@ public:
 			}
 		}
 
-		out     = std::make_shared<GL_Tex2D>(width, height, int_format, format, GL_HALF_FLOAT);
-		tex_ref = std::make_shared<GL_Tex2D>(width, height, int_format, format, GL_HALF_FLOAT);
+		out       = std::make_shared<GL_Tex2D>(width, height, int_format, format, GL_HALF_FLOAT);
+		tex_ref   = std::make_shared<GL_Tex2D>(width, height, int_format, format, GL_HALF_FLOAT);
+		tex_error = std::make_shared<GL_Tex2D>(width, reduction_chunk, GL_RG32F, GL_RG, GL_FLOAT);
 
 		fbo_out = GL_create_FBO(out);
 		fbo_ref = GL_create_FBO(tex_ref);
+		fbo_error = GL_create_FBO(tex_error);
 
 		const auto vs = render::get_fullscreen_vertex_shader();
 		const auto fs_warp = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/mapping/flow_warp.glsl");
 		const auto fs_global_warp = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/mapping/global_warp.glsl");
 		const auto fs_blend = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/mapping/blend_mono.glsl");
+		const auto fs_error = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/mapping/error_mono.glsl");
 		const auto fs_debug = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/debug/delta_mono.glsl");
 		prog_warp = GL_link_program(vs, fs_warp);
 		prog_blend = GL_link_program(vs, fs_blend);
+		prog_error = GL_link_program(vs, fs_error);
 		prog_render = GL_link_program(vs, fs_global_warp);
 		prog_debug = GL_link_program(vs, fs_debug);
 
@@ -88,7 +94,7 @@ public:
 		have_init = true;
 	}
 
-	void exec(std::shared_ptr<GL_Tex2D> ref, std::shared_ptr<GL_Tex2D> img, const Affine::Params& A)
+	double exec(std::shared_ptr<GL_Tex2D> ref, std::shared_ptr<GL_Tex2D> img, const Affine::Params& A)
 	{
 		if(!have_init) {
 			init(img->width, img->height, img->format);
@@ -158,6 +164,36 @@ public:
 
 		render::fullscreen(fbo_out, width, height);
 
+		glUseProgram(prog_error);
+
+		GL_bind_tex(prog_error, "uSrc0", in_ref, 0);
+		GL_bind_tex(prog_error, "uSrc1", in_img, 1);
+
+		GL_uniform_1i(prog_error, "uHeight", height);
+		GL_uniform_1i(prog_error, "uChunkSize", reduction_chunk);
+
+		render::fullscreen(fbo_error, width, reduction_chunk);
+
+		GL_finish("MergeFilter::exec()");
+
+		GL_read_FBO_RG(fbo_error, 0, width, reduction_chunk, error_buf);
+
+		// reduce over height first
+		for(int y = 1; y < reduction_chunk; ++y) {
+			for(int x = 0; x < width * 2; ++x) {
+				error_buf[x] += error_buf[y * width * 2 + x];
+			}
+		}
+
+		// reduce over width to get final error sum
+		double error = 0;
+		double total = 0;
+		for(int x = 0; x < width; ++x) {
+			error += error_buf[x * 2 + 0];
+			total += error_buf[x * 2 + 1];
+		}
+		error = (1000 * error) / total;
+
 		if(debug)
 		{
 			glUseProgram(prog_debug);
@@ -177,20 +213,26 @@ public:
 
 		std::cout << "MergeFilter[" << width << "x" << height << "]: took "
 				<< (get_time_micros() - begin) / 1000.f << " ms" << std::endl;
+
+		return error;
 	}
 
 private:
 	int width = 0;
 	int height = 0;
 
+	std::vector<float> error_buf;
+
 	GLuint fbo[2][2] = {};
 	GLuint fbo_ref = 0;
 	GLuint fbo_out = 0;
+	GLuint fbo_error = 0;
 	GLuint fbo_debug[2] = {};
 
 	GLuint prog_warp = 0;
 	GLuint prog_blend = 0;
 	GLuint prog_render = 0;
+	GLuint prog_error = 0;
 	GLuint prog_debug = 0;
 
 	bool have_init = false;

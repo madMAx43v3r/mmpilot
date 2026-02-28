@@ -1,7 +1,7 @@
 #version 310 es
 precision highp float;
 
-layout(location = 0) out vec2 out0;
+layout(location = 0) out vec2 outImg;
 
 uniform sampler2D uSrc0;
 uniform sampler2D uSrc1;
@@ -23,5 +23,5 @@ void main()
         lw = lw2 / w_sum;
         rw = rw2 / w_sum;
     }
-    out0 = L * lw + R * rw;
+    outImg = L * lw + R * rw;
 }

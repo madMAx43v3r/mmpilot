@@ -194,14 +194,28 @@ void Mapping::set_gps(std::shared_ptr<Node> node, std::shared_ptr<const GPS::Sta
 
 	A = affine.exec(node->image, base->image, A);
 
+	merge.weight = 0.5;
+	const auto err = merge.exec(node->image, base->image, A);
+
+	if(err > max_loop_error) {
+		return;
+	}
 	std::cout << "Mapping: Loop " << node->node->k << " -> " << prev->k
 			<< ": delta = (" << init_delta.x() << ", " << init_delta.y()
 			<< ") / (" << A.translation().x() << ", " << A.translation().y() << ") px"
 			<< ", yaw = " << rad2deg(init_dyaw) << " / " << rad2deg(A.yaw()) << " deg"
 			<< ", scale = " << init_dscale << " / " << A.scale()
-			<< ", R_norm = " << A.R_norm << ", overlap = " << A.overlap << std::endl;
+			<< ", error = " << err << std::endl;
 
-	// TODO
+	const auto info_pos = Mat2d::Identity() / pow(dxy_sigma, 2);
+	const auto info_yaw = 1 / pow(dyaw_sigma, 2);
+	const auto info_scl = 1 / pow(dscale_sigma, 2);
+
+	const auto alpha = get_angle(delta.rot);
+
+	graph.add_edge(node->node->k, prev->k,
+			A.translation().cast<double>(), A.yaw(), A.scale(),
+			info_pos, info_yaw, info_scl);
 }
 
 void Mapping::on_gps(std::shared_ptr<MSP2Client::RawGPS> gps)
