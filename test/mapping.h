@@ -22,6 +22,8 @@ protected:
 	{
 		Pipeline::init(width, height);
 
+		mapping.merge.debug = true;
+
 		mapping.init(src_width, src_height, GL_RG);
 	}
 
@@ -38,7 +40,7 @@ protected:
 		const auto map = mapping.finalize();
 
 //		show(display, stage[0]->solver.tex_debug);
-//		show(display, mapping.tex_debug, {1, 0, 1, 1});
+//		show(display, mapping.merge.tex_debug[0]);
 		show(display, map);
 	}
 

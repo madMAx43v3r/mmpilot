@@ -165,18 +165,35 @@ void Mapping::update(const int64_t ts, std::shared_ptr<GL_Tex2D> img, const Affi
 	if(!gps) {
 		return;
 	}
-	// TODO: merge images until minimum delta move
+	delta.add(A.transform());
 
+	if(merge_count) {
+		merge.weight = 1.f / (merge_count + 1);
+		merge.exec(merge.out, img, A);
+		merge_count++;
+	}
+
+	if(delta.pos.norm() < node_delta) {
+		// merge images until minimum delta move
+		if(merge_count <= 0) {
+			GL_blit(merge.out, img);
+			merge_count = 1;
+		}
+		return;
+	}
 	const auto image = std::make_shared<GL_Tex2D>(
 			width, height, is_mono ? GL_RG8 : GL_RGBA8, is_mono ? GL_RG : GL_RGBA, GL_UNSIGNED_BYTE);
 
-	GL_blit(image, img);
-
+	if(merge_count > 0) {
+		GL_blit(image, merge.out);
+	} else {
+		GL_blit(image, img);
+	}
 	auto gnode = graph.add_node(deg2rad(gps->lat), deg2rad(gps->lon));
 
 	auto node = std::make_shared<Node>();
 	node->ts = ts;
-	node->A = A;
+	node->delta = delta;
 	node->node = gnode;
 	node->image = image;
 
@@ -194,12 +211,15 @@ void Mapping::update(const int64_t ts, std::shared_ptr<GL_Tex2D> img, const Affi
 		const auto info_scl = 1 / pow(dscale_sigma, 2);
 
 		graph.add_edge(prev->node->k, gnode->k,
-				A.translation().cast<double>(), A.alpha(), A.scale(),
+				delta.pos.cast<double>(), get_angle(delta.rot), delta.scale,
 				info_pos, info_yaw, info_scl);
 
 //		optimize(prev, node);
 	}
 	nodes.push_back(node);
+
+	delta = Transform2D();
+	merge_count = 0;
 }
 
 void Mapping::render(std::shared_ptr<GL_Tex2D> img, const Affine::Params& A)
@@ -308,12 +328,12 @@ void Mapping::optimize(std::shared_ptr<Node> L, std::shared_ptr<Node> R)
 	const auto w_sum = L->weight + R->weight;
 
 	merge.weight = R->weight / w_sum;
-	merge.exec(L->image, R->image, R->A);
+//	merge.exec(L->image, R->image, R->A);
 
 	GL_blit(tex_tmp, merge.out);
 
 	merge.weight = L->weight / w_sum;
-	merge.exec(R->image, L->image, R->A.inverse());
+//	merge.exec(R->image, L->image, R->A.inverse());
 
 	GL_blit(L->image, merge.out);
 	GL_blit(R->image, tex_tmp);

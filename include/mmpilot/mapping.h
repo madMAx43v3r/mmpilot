@@ -28,6 +28,8 @@ public:
 	using WGS84 = mmpilot::WGS84<double>;
 	using PoseGraph = PoseGraphGeoImg<double>;
 
+	float node_delta = 20;			// min edge length [px]
+
 	double gps_sigma = 5;			// GPS position [m]
 	double dxy_sigma = 0.2;			// image delta [m]
 	double dyaw_sigma = 0.002;		// image rotation [rad]
@@ -40,7 +42,7 @@ public:
 	struct Node {
 		int64_t ts = 0;			// [us]
 		float weight = 1;
-		Affine::Params A;
+		Transform2D delta;
 		std::shared_ptr<GL_Tex2D> image;
 		std::shared_ptr<PoseGraph::Node> node;
 
@@ -60,6 +62,8 @@ public:
 	};
 
 	MergeFilter merge;
+
+	Transform2D delta;
 
 	std::shared_ptr<GL_Tex2D> tex_tmp;
 	std::shared_ptr<GL_Tex2D> tex_debug;
@@ -89,6 +93,7 @@ private:
 private:
 	int width = 0;
 	int height = 0;
+	int merge_count = 0;
 
 	bool have_init = false;
 	bool is_mono = false;
