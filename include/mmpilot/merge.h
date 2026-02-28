@@ -33,7 +33,9 @@ public:
 
 	MultiFlowFilter flow;
 
-	std::shared_ptr<GL_Tex2D> out;
+	std::shared_ptr<GL_Tex2D> out_blend;
+	std::shared_ptr<GL_Tex2D> out_warp[2];
+
 	std::shared_ptr<GL_Tex2D> tex_ref;
 	std::shared_ptr<GL_Tex2D> tex_error;
 	std::shared_ptr<GL_Tex2D> tex_debug[2];
@@ -65,11 +67,11 @@ public:
 			}
 		}
 
-		out       = std::make_shared<GL_Tex2D>(width, height, int_format, format, GL_HALF_FLOAT);
+		out_blend = std::make_shared<GL_Tex2D>(width, height, int_format, format, GL_HALF_FLOAT);
 		tex_ref   = std::make_shared<GL_Tex2D>(width, height, int_format, format, GL_HALF_FLOAT);
 		tex_error = std::make_shared<GL_Tex2D>(width, reduction_chunk, GL_RG32F, GL_RG, GL_FLOAT);
 
-		fbo_out = GL_create_FBO(out);
+		fbo_out = GL_create_FBO(out_blend);
 		fbo_ref = GL_create_FBO(tex_ref);
 		fbo_error = GL_create_FBO(tex_error);
 
@@ -94,7 +96,7 @@ public:
 		have_init = true;
 	}
 
-	double exec(std::shared_ptr<GL_Tex2D> ref, std::shared_ptr<GL_Tex2D> img, const Affine::Params& A)
+	double exec(std::shared_ptr<GL_Tex2D> ref, std::shared_ptr<GL_Tex2D> img, const Affine::Params& A, const bool sync = true)
 	{
 		if(!have_init) {
 			init(img->width, img->height, img->format);
@@ -123,7 +125,7 @@ public:
 			const int i = iter % 2;
 			const int k = (iter + 1) % 2;
 
-			flow.exec(in_ref, in_img);
+			flow.exec(in_ref, in_img, false);
 
 			glUseProgram(prog_warp);
 
@@ -156,6 +158,9 @@ public:
 			in_ref = tex_buf[k][0];
 			in_img = tex_buf[k][1];
 		}
+
+		out_warp[0] = in_ref;
+		out_warp[1] = in_img;
 
 		glUseProgram(prog_blend);
 
@@ -209,11 +214,12 @@ public:
 			render::fullscreen(fbo_debug[1], width, height);
 		}
 
-		GL_finish("MergeFilter::exec()");
+		if(sync) {
+			GL_finish("MergeFilter::exec()");
 
-		std::cout << "MergeFilter[" << width << "x" << height << "]: took "
-				<< (get_time_micros() - begin) / 1000.f << " ms" << std::endl;
-
+			std::cout << "MergeFilter[" << width << "x" << height << "]: took "
+					<< (get_time_micros() - begin) / 1000.f << " ms" << std::endl;
+		}
 		return error;
 	}
 

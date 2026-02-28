@@ -333,7 +333,7 @@ protected:
 
 	virtual void update()
 	{
-		const auto base = merge_init ? merge.out : source;
+		const auto base = merge_init ? merge.out_blend : source;
 
 		merge.exec(base, source, get_params());
 

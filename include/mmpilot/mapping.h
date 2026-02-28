@@ -16,6 +16,7 @@
 #include <mmpilot/gps.h>
 #include <mmpilot/pose_graph_geo_img.h>
 
+#include <set>
 #include <vector>
 #include <optional>
 #include <iostream>
@@ -29,11 +30,15 @@ public:
 	using PoseGraph = PoseGraphGeoImg<double>;
 
 	float node_delta = 20;			// min edge length [px]
+
 	float max_loop_delta = 200;		// maximum initial image shift [px]
 	float min_loop_factor = 10;		// relative to node_delta
 	float max_loop_error = 3;		// average square pixel error
 
-	double gps_sigma = 5;			// GPS position [m]
+	double max_merge_delta = 300;		// [px]
+	double max_merge_error = 5;			// average square pixel error
+
+	double gps_sigma = 3;			// GPS position [m]
 	double dxy_sigma = 0.2;			// image delta [m]
 	double dyaw_sigma = 0.002;		// image rotation [rad]
 	double dscale_sigma = 0.02;		// image scale [log(m/px)]
@@ -44,13 +49,17 @@ public:
 
 	struct Node {
 		int64_t ts = 0;			// [us]
-		float weight = 1;
-		float distance = 0;		// from start [px]
+		double distance = 0;		// from start [px]
 		Transform2D delta;
+		std::set<int> merged;		// node indices
 		std::shared_ptr<GL_Tex2D> image;
 		std::shared_ptr<PoseGraph::Node> node;
 
 		Transform2D pose(const WGS84& origin) const;
+
+		float weight() const {
+			return 1 + merged.size();
+		}
 	};
 
 	struct Buffer {
@@ -70,7 +79,9 @@ public:
 
 	Transform2D delta;
 
-	std::shared_ptr<GL_Tex2D> tex_tmp;
+	std::vector<std::shared_ptr<Node>> nodes;
+
+	std::shared_ptr<GL_Tex2D> tex_tmp;		// TODO: needed?
 	std::shared_ptr<GL_Tex2D> tex_debug;
 
 	void init(int width, int height, GLenum format);
@@ -81,7 +92,7 @@ public:
 
 	void on_gps(std::shared_ptr<MSP2Client::RawGPS> gps);
 
-	std::shared_ptr<GL_Tex2D> finalize();
+	std::shared_ptr<GL_Tex2D> finalize(const int num_iter);
 
 private:
 	void render_image(
@@ -105,8 +116,6 @@ private:
 
 	GPS gps_api;
 	PoseGraph graph;
-
-	std::vector<std::shared_ptr<Node>> nodes;
 
 	std::list<std::shared_ptr<Node>> waiting_gps;
 

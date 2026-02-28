@@ -139,6 +139,8 @@ void Mapping::set_gps(std::shared_ptr<Node> node, std::shared_ptr<const GPS::Sta
 
 	node->node->set_gps(lat, lon, alt, gps_info);
 
+	return;
+
 	// update graph
 	if(!graph.solve().converged) {
 		return;
@@ -195,6 +197,8 @@ void Mapping::set_gps(std::shared_ptr<Node> node, std::shared_ptr<const GPS::Sta
 	A = affine.exec(node->image, base->image, A);
 
 	merge.weight = 0.5;
+	merge.num_iter = 3;
+
 	const auto err = merge.exec(node->image, base->image, A);
 
 	if(err > max_loop_error) {
@@ -253,15 +257,17 @@ void Mapping::update(const int64_t ts, std::shared_ptr<GL_Tex2D> img, const Affi
 	delta.add(A.transform());
 
 	if(merge_count) {
+		merge.num_iter = 3;
 		merge.weight = 1.f / (merge_count + 1);
-		merge.exec(merge.out, img, A);
+
+		merge.exec(merge.out_blend, img, A);
 		merge_count++;
 	}
 
 	if(delta.pos.norm() < node_delta) {
 		// merge images until minimum delta move
 		if(merge_count <= 0) {
-			GL_blit(merge.out, img);
+			GL_blit(merge.out_blend, img);
 			merge_count = 1;
 		}
 		return;
@@ -270,7 +276,7 @@ void Mapping::update(const int64_t ts, std::shared_ptr<GL_Tex2D> img, const Affi
 			width, height, is_mono ? GL_RG8 : GL_RGBA8, is_mono ? GL_RG : GL_RGBA, GL_UNSIGNED_BYTE);
 
 	if(merge_count > 0) {
-		GL_blit(image, merge.out);
+		GL_blit(image, merge.out_blend);
 	} else {
 		GL_blit(image, img);
 	}
@@ -414,24 +420,50 @@ void Mapping::compress(GLuint fbo, std::shared_ptr<Buffer> buf)
 
 void Mapping::optimize(std::shared_ptr<Node> L, std::shared_ptr<Node> R)
 {
-	const auto w_sum = L->weight + R->weight;
+	const auto& ln = L->node;
+	const auto& rn = R->node;
 
-	merge.weight = R->weight / w_sum;
-//	merge.exec(L->image, R->image, R->A);
+	WGS84 wgs(ln->lat, ln->lon, ln->gps_alt);
 
-	GL_blit(tex_tmp, merge.out);
+	const auto lns = std::exp(ln->ls);		// left scale [m/px]
 
-	merge.weight = L->weight / w_sum;
-//	merge.exec(R->image, L->image, R->A.inverse());
+	const Vec2d init_delta =
+			get_rotation_matrix(ln->yaw).transpose()
+			* (wgs.get_en(rn->lat, rn->lon) / lns);		// [px]
 
-	GL_blit(L->image, merge.out);
-	GL_blit(R->image, tex_tmp);
+	if(init_delta.norm() > max_merge_delta) {
+		return;
+	}
+	const auto init_dyaw = angle_norm_pi(rn->yaw - ln->yaw);		// [rad]
+	const auto init_dscale = std::exp(rn->ls) / lns;
 
-	L->weight = w_sum;
-	R->weight = w_sum;
+	auto A = Affine::Params(init_delta.x(), init_delta.y(), init_dyaw, init_dscale);
+
+	A = affine.exec(L->image, R->image, A);
+
+	const auto w_sum = L->weight() + R->weight();
+
+	merge.num_iter = 1;
+	merge.weight = R->weight() / w_sum;
+
+	const auto err = merge.exec(L->image, R->image, A);
+
+	std::cout << "Mapping: Merge " << ln->k << " -> " << rn->k
+			<< ": delta = (" << init_delta.x() << ", " << init_delta.y()
+			<< ") / (" << A.translation().x() << ", " << A.translation().y() << ") px"
+			<< ", yaw = " << rad2deg(init_dyaw) << " / " << rad2deg(A.yaw()) << " deg"
+			<< ", scale = " << init_dscale << " / " << A.scale()
+			<< ", weight = (" << L->weight() << " -> " << R->weight()
+			<< "), error = " << err << (err < max_merge_error ? " (OK)" : "") << std::endl;
+
+	if(err < max_merge_error) {
+		GL_blit(R->image, merge.out_warp[1]);
+		R->merged.insert(ln->k);
+		R->merged.insert(L->merged.begin(), L->merged.end());
+	}
 }
 
-std::shared_ptr<GL_Tex2D> Mapping::finalize()
+std::shared_ptr<GL_Tex2D> Mapping::finalize(const int num_iter)
 {
 	if(nodes.size() < 3) {
 		return nullptr;
@@ -441,9 +473,38 @@ std::shared_ptr<GL_Tex2D> Mapping::finalize()
 	std::cout << "Mapping: gps_error = " << res.gps_error << " m, img_error = " << res.img_error
 			<< " m, yaw_error = " << rad2deg(res.yaw_error) << " deg, scl_error = " << res.scl_error << " m/px, iters = " << res.num_iters << std::endl;
 
+	if(!res.converged) {
+		return nullptr;
+	}
+
+	// ------------  Merge images
+	for(int iter = 0; iter < num_iter; ++iter)
+	{
+		for(const auto& L : nodes) {
+			const auto& ln = L->node;
+			const auto lns = std::exp(ln->ls);		// [m/px]
+
+			WGS84 wgs(ln->lat, ln->lon, ln->gps_alt);
+
+			for(const auto& R : nodes) {
+				const auto& rn = R->node;
+				if(R->merged.count(ln->k)) {
+					continue;
+				}
+				const auto delta = wgs.get_en(rn->lat, rn->lon) / lns;		// [px]
+
+				if(delta.norm() < max_merge_delta && R != L)
+				{
+					optimize(L, R);
+				}
+			}
+		}
+	}
+
+	// ------------ Compute map origin + scale
 	double lat0 = 0;
 	double lon0 = 0;
-	double alt0 = 10000;
+	double alt0 = 1e6;
 	double map_scale = 0;
 	for(const auto& n : nodes) {
 		const auto& node = n->node;
@@ -462,6 +523,7 @@ std::shared_ptr<GL_Tex2D> Mapping::finalize()
 	std::cout << "Mapping: lat0 = " << rad2deg(lat0) << " deg, lon0 = " << rad2deg(lon0)
 			<< " deg, alt0 = " << alt0 << " m, map_scale = " << map_scale << " m/px" << std::endl;
 
+	// ------------ Compute map size
 	WGS84 wgs(lat0, lon0, alt0);
 
 	float xmin = std::numeric_limits<float>::max();
@@ -484,6 +546,7 @@ std::shared_ptr<GL_Tex2D> Mapping::finalize()
 
 	std::cout << "Mapping: map size = " << map_width << " x " << map_height << ", nodes = " << nodes.size() << std::endl;
 
+	// ------------ Render map
 	auto buf = std::make_shared<Buffer>(map_width, map_height, is_mono);
 
 	for(const auto& node : nodes)

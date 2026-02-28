@@ -38,12 +38,20 @@ protected:
 
 		rebase();
 
-		const auto map = mapping.finalize();
+		const bool done = mapping.nodes.size() >= 30;
+
+		const auto map = mapping.finalize(done ? 1 : 0);
 
 //		show(display, stage[0]->solver.tex_debug);
 //		show(display, mapping.merge.tex_debug[0]);
 //		show(display, mapping.affine.stage[0]->solver.tex_debug);
 		show(display, map);
+
+		if(done) {
+			bool dummy;
+			std::cin >> dummy;
+			::exit(0);
+		}
 	}
 
 	void on_sample(std::shared_ptr<Sample> sample) override

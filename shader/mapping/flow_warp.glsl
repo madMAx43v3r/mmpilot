@@ -14,6 +14,11 @@ void main() {
 
     vec2 flow = texelFetch(uFlow, ivec2(p), 0).xy;
 
+    if(length(flow) < 0.01) {
+        // lossless pass-through
+        outImg = texelFetch(uImg, ivec2(p), 0);
+        return;
+    }
     vec2 q = p + flow * uWeight;
 
     vec2 uv = q * uInvSize;

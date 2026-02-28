@@ -23,7 +23,7 @@ void main() {
 
     vec2 uv = (p + flow) * uInvSize;
 
-    if(uv.x < 0.0 || uv.y < 0.0 || uv.x >= 1.0 || uv.y >= 1.0) {
+    if(uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) {
         outFlow = flow;
         return;
     }

@@ -300,8 +300,11 @@ public:
 					// (because en_img = R*(s*dpx))
 					const Vec2 den_dls = en_img;
 
+					// align map Y to north
 					Ji(0, 2) += -den_dyaw[0];
 					Ji(1, 2) += -den_dyaw[1];
+
+					// compensate scale drift
 					Ji(0, 3) += -den_dls[0];
 					Ji(1, 3) += -den_dls[1];
 
