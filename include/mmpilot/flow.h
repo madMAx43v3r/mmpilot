@@ -27,7 +27,7 @@ class FlowFilter {
 public:
 	int num_iter = 3;
 
-	float damping = 1e-3;
+	float damping = 1e-2;
 
 	bool debug = false;
 
