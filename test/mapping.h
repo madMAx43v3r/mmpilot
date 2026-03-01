@@ -32,8 +32,6 @@ protected:
 	{
 		const auto A = get_params();
 
-		std::cout << "affine: R_norm = " << A.R_norm << ", overlap = " << A.overlap << std::endl;
-
 		mapping.exec(ts, source, A);
 
 		rebase();

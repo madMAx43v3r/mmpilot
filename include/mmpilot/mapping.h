@@ -49,18 +49,14 @@ public:
 
 	struct Node {
 		int64_t ts = 0;			// [us]
+		float weight = 1;
 		double distance = 0;		// from start [px]
 		Transform2D delta;
-		std::set<int> merged;		// node indices
 		std::shared_ptr<GL_Tex2D> out;
 		std::shared_ptr<GL_Tex2D> image;
 		std::shared_ptr<PoseGraph::Node> node;
 
 		Transform2D pose(const WGS84& origin) const;
-
-		float weight() const {
-			return 1 + merged.size();
-		}
 	};
 
 	struct Buffer {

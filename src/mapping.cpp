@@ -341,7 +341,7 @@ void Mapping::optimize(std::shared_ptr<Node> L, std::shared_ptr<Node> R, const b
 		// we need to warp the remaining errors
 
 		merge.num_iter = 1;
-		merge.weight = R->weight() / (1 + R->weight());
+		merge.weight = R->weight / (1 + R->weight);
 
 		const auto err = merge.exec(L->image, R_img, A);
 
@@ -355,7 +355,7 @@ void Mapping::optimize(std::shared_ptr<Node> L, std::shared_ptr<Node> R, const b
 				R->out = R->image->clone();
 			}
 			GL_blit(R->out, merge.out_warp[1]);
-			R->merged.insert(ln->k);
+			R->weight += 1;
 		}
 	} else {
 		// optimize affine to close loops
@@ -398,6 +398,8 @@ std::shared_ptr<GL_Tex2D> Mapping::finalize(const int num_iter)
 	if(nodes.size() < 3) {
 		return nullptr;
 	}
+	const auto begin = get_time_micros();
+
 	auto res = graph.solve();
 
 	std::cout << "Mapping: Odometry: gps_error = " << res.gps_error << " m, img_error = " << res.img_error
@@ -413,9 +415,6 @@ std::shared_ptr<GL_Tex2D> Mapping::finalize(const int num_iter)
 
 			for(const auto& R : nodes) {
 				const auto& rn = R->node;
-				if(R->merged.count(ln->k)) {
-					continue;
-				}
 				const auto delta = wgs.get_en(rn->lat, rn->lon) / lns;		// [px]
 
 				if(delta.norm() < max_loop_delta && R != L)
@@ -474,9 +473,6 @@ std::shared_ptr<GL_Tex2D> Mapping::finalize(const int num_iter)
 
 			for(const auto& R : nodes) {
 				const auto& rn = R->node;
-				if(R->merged.count(ln->k)) {
-					continue;
-				}
 				const auto delta = wgs.get_en(rn->lat, rn->lon) / lns;		// [px]
 
 				if(delta.norm() < max_merge_delta && R != L)
@@ -491,7 +487,7 @@ std::shared_ptr<GL_Tex2D> Mapping::finalize(const int num_iter)
 			if(node->out) {
 				GL_blit(node->image, node->out);
 			}
-			node->merged.clear();
+			node->weight = 1;
 		}
 	}
 
@@ -555,7 +551,7 @@ std::shared_ptr<GL_Tex2D> Mapping::finalize(const int num_iter)
 			const Vec2f p = pose.apply(q) - origin;
 			coords.push_back(p / map_scale);
 		}
-		render(buf, node->out ? node->out : node->image, coords);
+		render(buf, node->image, coords);
 	}
 
 //	auto out = std::make_shared<GL_Tex2D>(
@@ -565,6 +561,9 @@ std::shared_ptr<GL_Tex2D> Mapping::finalize(const int num_iter)
 //	compress(fbo, buf);
 //
 //	glDeleteFramebuffers(1, &fbo);
+
+	std::cout << "Mapping[" << width << "x" << height << "]: took "
+					<< (get_time_micros() - begin) / 1e6f << " sec" << std::endl;
 
 	return buf->map;
 }
