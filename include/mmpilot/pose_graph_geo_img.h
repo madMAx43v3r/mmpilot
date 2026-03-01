@@ -91,11 +91,19 @@ public:
 		int i = -1;
 		int j = -1;
 
+		bool is_loop = false;		// if edge is loop closure (disable north snap + scale drift)
+		bool is_outlier = false;
+
+		Vec2 dp_en = Vec2::Zero();		// delta in EN [m]
+		Vec2 err_en = Vec2::Zero();		// edge error in EN [m]
+		T err_yaw = T(0);				// yaw error [rad]
+		T err_scl = T(0);				// scale error [log(m/px)]
+
 		// Image measurement i->j:
-		Vec2 dpx = Vec2::Zero();    // image delta (dx, dy) in pixel
+		Vec2 dpx = Vec2::Zero();    // image delta (dx, dy) in pixels
 
 		T dyaw = T(0);              // relative rotation measurement: yaw_j - yaw_i (rad), wrapped
-		T dscale = T(1);            // scale delta, interpreted as s_j / s_i
+		T dscale = T(1);            // scale delta, interpreted as s_j / s_i [m/px]
 
 		// info for EN position residual (meters)
 		Mat2 info_pos = Mat2::Identity();
@@ -176,7 +184,7 @@ public:
 		return e;
 	}
 
-	Result solve(int max_iters = 100, T step_tol = T(1e-6), T lambda = T(1e-3))
+	Result solve(int max_iters = 1000, T step_tol = T(1e-6), T lambda = T(1e-3))
 	{
 		Result out;
 		const int N = node_count();
@@ -248,9 +256,12 @@ public:
 			}
 
 			// ---- Binary image edges ----
-			for(const auto& p_e : edges_)
+			for(const auto& edge : edges_)
 			{
-				const auto& e  = *p_e;
+				auto& e = *edge;
+				if(e.is_outlier) {
+					continue;
+				}
 				const auto& ni = *nodes_[e.i];
 				const auto& nj = *nodes_[e.j];
 
@@ -265,7 +276,9 @@ public:
 				wgs84_en_scale(lat_mid, alt_mid, kE, kN);
 
 				// Predicted EN delta from lat/lon
-				const Vec2 dp_EN(kE * (nj.lon - ni.lon), kN * (nj.lat - ni.lat));
+				const Vec2 dp_en(kE * (nj.lon - ni.lon), kN * (nj.lat - ni.lat));
+
+				e.dp_en = dp_en;	// save delta
 
 				// (1) Position residual: r = dp_EN - R(yaw_i)*(s_i*dpx)
 				{
@@ -279,7 +292,9 @@ public:
 					// delta in EN-meters
 					const Vec2 en_img(c * u[0] - s * u[1], s * u[0] + c * u[1]);
 
-					const Vec2 r = dp_EN - en_img;	// residual in EN-meters
+					const Vec2 r = dp_en - en_img;	// residual in EN-meters
+
+					e.err_en = r;	// save error
 
 					out.img_error += r.transpose() * (e.info_pos * r);
 
@@ -300,20 +315,23 @@ public:
 					// (because en_img = R*(s*dpx))
 					const Vec2 den_dls = en_img;
 
-					// align map Y to north
-					Ji(0, 2) += -den_dyaw[0];
-					Ji(1, 2) += -den_dyaw[1];
+					if(!e.is_loop) {
+						// align map Y to north
+						Ji(0, 2) += -den_dyaw[0];
+						Ji(1, 2) += -den_dyaw[1];
 
-					// compensate scale drift
-					Ji(0, 3) += -den_dls[0];
-					Ji(1, 3) += -den_dls[1];
-
+						// compensate scale drift
+						Ji(0, 3) += -den_dls[0];
+						Ji(1, 3) += -den_dls[1];
+					}
 					accumulate_binary_2d(add_block, add_g, bi, bj, Ji, Jj, r, e.info_pos);
 				}
 
 				// (2) Rotation residual (scalar): r = wrap_pi((yaw_j - yaw_i) - dyaw)
 				{
 					const T r = angle_wrap_pi((nj.yaw - ni.yaw) - e.dyaw);
+
+					e.err_yaw = r;		// save error
 
 					out.yaw_error += double(r * (double(e.info_yaw) * r));
 
@@ -346,6 +364,8 @@ public:
 				{
 					const T lds = std::log(std::max(e.dscale, T(1e-9)));
 					const T r = (nj.ls - ni.ls) - lds;
+
+					e.err_scl = r;		// save error
 
 					out.scl_error += r * double(e.info_scl * r);
 

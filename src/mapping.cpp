@@ -138,86 +138,6 @@ void Mapping::set_gps(std::shared_ptr<Node> node, std::shared_ptr<const GPS::Sta
 	const auto gps_info = Mat2d::Identity() / (gps_sigma * gps_sigma);
 
 	node->node->set_gps(lat, lon, alt, gps_info);
-
-	return;
-
-	// update graph
-	if(!graph.solve().converged) {
-		return;
-	}
-
-	// ------------ try to close loop
-	WGS84 wgs(lat, lon, alt);
-
-	// current pixel scale
-	const auto scale = std::exp(node->node->ls);	// [m/px]
-
-	// find best base
-	// as far back as possible, but also low GPS delta
-	double base_score = 0;
-	std::shared_ptr<Node> base;
-	for(const auto& n : nodes)
-	{
-		const auto& prev = n->node;
-		if(prev->gps_valid && n != node)
-		{
-			const auto dist = node->distance - n->distance;							// [px]
-			if(dist > node_delta * min_loop_factor)
-			{
-				const auto delta = wgs.get_en(prev->lat, prev->lon).norm() / scale;		// [px]
-				if(delta < max_loop_delta)
-				{
-					const auto score = dist / std::max(delta, 1.);
-					if(score > base_score) {
-						base = n;
-						base_score = score;
-//						std::cout << "Mapping: Search " << prev->k << ": score = " << score
-//								<< ", dist = " << dist << " px, delta = " << delta << " px" << std::endl;
-					}
-				}
-			}
-		}
-	}
-	if(!base) {
-		return;
-	}
-
-	// solve affine loop closure
-	const auto& prev = base->node;
-
-	const Vec2d init_delta =
-			get_rotation_matrix(prev->yaw).transpose()
-			* (wgs.get_en(prev->lat, prev->lon) / scale);		// [px]
-
-	const auto init_dyaw = angle_norm_pi(prev->yaw - node->node->yaw);		// [rad]
-	const auto init_dscale = std::exp(prev->ls) / scale;
-
-	auto A = Affine::Params(init_delta.x(), init_delta.y(), init_dyaw, init_dscale);
-
-	A = affine.exec(node->image, base->image, A);
-
-	merge.weight = 0.5;
-	merge.num_iter = 3;
-
-	const auto err = merge.exec(node->image, base->image, A);
-
-	if(err > max_loop_error) {
-		return;
-	}
-	std::cout << "Mapping: Loop " << node->node->k << " -> " << prev->k
-			<< ": delta = (" << init_delta.x() << ", " << init_delta.y()
-			<< ") / (" << A.translation().x() << ", " << A.translation().y() << ") px"
-			<< ", yaw = " << rad2deg(init_dyaw) << " / " << rad2deg(A.yaw()) << " deg"
-			<< ", scale = " << init_dscale << " / " << A.scale()
-			<< ", error = " << err << std::endl;
-
-	const auto info_pos = Mat2d::Identity() / pow(dxy_sigma, 2);
-	const auto info_yaw = 1 / pow(dyaw_sigma, 2);
-	const auto info_scl = 1 / pow(dscale_sigma, 2);
-
-	graph.add_edge(node->node->k, prev->k,
-			A.translation().cast<double>(), A.yaw(), A.scale(),
-			info_pos, info_yaw, info_scl);
 }
 
 void Mapping::on_gps(std::shared_ptr<MSP2Client::RawGPS> gps)
@@ -240,7 +160,7 @@ void Mapping::on_gps(std::shared_ptr<MSP2Client::RawGPS> gps)
 //	std::cout << "Mapping: waiting_gps = " << waiting_gps.size() << std::endl;
 }
 
-void Mapping::update(const int64_t ts, std::shared_ptr<GL_Tex2D> img, const Affine::Params& A)
+void Mapping::exec(const int64_t ts, std::shared_ptr<GL_Tex2D> img, const Affine::Params& A)
 {
 	if(!have_init) {
 		throw std::logic_error("not initialized");
@@ -315,30 +235,7 @@ void Mapping::update(const int64_t ts, std::shared_ptr<GL_Tex2D> img, const Affi
 	merge_count = 0;
 }
 
-void Mapping::render(std::shared_ptr<GL_Tex2D> img, const Affine::Params& A)
-{
-	if(!have_init) {
-		throw std::logic_error("not initialized");
-	}
-	const float w = img->width;
-	const float h = img->height;
-	const Vec2f c_img = Vec2f(w, h) / 2;
-	const Vec2f c_map = Vec2f(width, height) / 2;
-
-	std::vector<Vec2f> coords;
-	for(int i = 0; i < 4; ++i) {
-		const auto& uv = g_uv[i];
-		const Vec2f p = c_map + A.project(Vec2f(w * uv.x(), h * uv.y()) - c_img);
-		coords.push_back(p);
-	}
-//	render_image(buffer, img, coords);
-
-	if(tex_debug) {
-//		compress(fbo_debug, buffer);
-	}
-}
-
-void Mapping::render_image(
+void Mapping::render(
 		std::shared_ptr<Buffer> buf,
 		std::shared_ptr<GL_Tex2D> img,
 		const std::vector<Vec2f>& coords)
@@ -439,19 +336,18 @@ void Mapping::optimize(std::shared_ptr<Node> L, std::shared_ptr<Node> R, const b
 
 	const auto R_img = R->out ? R->out : R->image;
 
-	A = affine.exec(L->image, R_img, A);
-
 	if(do_merge) {
+		// no not optimize affine anymore
+		// we need to warp the remaining errors
+
 		merge.num_iter = 1;
 		merge.weight = R->weight() / (1 + R->weight());
 
 		const auto err = merge.exec(L->image, R_img, A);
 
 		std::cout << "Mapping: Merge " << ln->k << " -> " << rn->k
-				<< ": delta = (" << init_delta.x() << ", " << init_delta.y()
-				<< ") / (" << A.translation().x() << ", " << A.translation().y() << ") px"
-				<< ", yaw = " << rad2deg(init_dyaw) << " / " << rad2deg(A.yaw()) << " deg"
-				<< ", scale = " << init_dscale << " / " << A.scale()
+				<< ": delta = " << "(" << A.translation().x() << ", " << A.translation().y() << ") px"
+				<< ", yaw = " << rad2deg(A.yaw()) << " deg" << ", scale = " << A.scale()
 				<< "), error = " << err << (err < max_merge_error ? " (OK)" : "") << std::endl;
 
 		if(err < max_merge_error) {
@@ -462,26 +358,37 @@ void Mapping::optimize(std::shared_ptr<Node> L, std::shared_ptr<Node> R, const b
 			R->merged.insert(ln->k);
 		}
 	} else {
+		// optimize affine to close loops
+		A = affine.exec(L->image, R_img, A);
+
 		merge.num_iter = 1;
 		merge.weight = 0.5;
 
+		// merge only for error gating
 		const auto err = merge.exec(L->image, R_img, A);
+
+		const bool pass = err < max_loop_error;
 
 		std::cout << "Mapping: Loop " << ln->k << " -> " << rn->k
 			<< ": delta = (" << init_delta.x() << ", " << init_delta.y()
 			<< ") / (" << A.translation().x() << ", " << A.translation().y() << ") px"
 			<< ", yaw = " << rad2deg(init_dyaw) << " / " << rad2deg(A.yaw()) << " deg"
 			<< ", scale = " << init_dscale << " / " << A.scale()
-			<< ", error = " << err << (err < max_loop_error ? " (OK)" : "") << std::endl;
+			<< ", error = " << err << (pass ? " (PASS)" : "") << std::endl;
 
-		if(err < max_loop_error) {
-			const auto info_pos = Mat2d::Identity() / pow(dxy_sigma, 2);
-			const auto info_yaw = 1 / pow(dyaw_sigma, 2);
-			const auto info_scl = 1 / pow(dscale_sigma, 2);
+		if(pass) {
+			// scale sigma relative to loop gap
+			const auto std_factor = A.translation().norm() / node_delta;
 
-			graph.add_edge(ln->k, rn->k,
+			const auto info_pos = Mat2d::Identity() / pow(dxy_sigma * std_factor, 2);
+			const auto info_yaw = 1 / pow(dyaw_sigma * std_factor, 2);
+			const auto info_scl = 1 / pow(dscale_sigma * std_factor, 2);
+
+			auto e = graph.add_edge(
+					ln->k, rn->k,
 					A.translation().cast<double>(), A.yaw(), A.scale(),
 					info_pos, info_yaw, info_scl);
+			e->is_loop = true;
 		}
 	}
 }
@@ -493,7 +400,7 @@ std::shared_ptr<GL_Tex2D> Mapping::finalize(const int num_iter)
 	}
 	auto res = graph.solve();
 
-	std::cout << "Mapping: gps_error = " << res.gps_error << " m, img_error = " << res.img_error
+	std::cout << "Mapping: Odometry: gps_error = " << res.gps_error << " m, img_error = " << res.img_error
 			<< " m, yaw_error = " << rad2deg(res.yaw_error) << " deg, scl_error = " << res.scl_error << " m/px, iters = " << res.num_iters << std::endl;
 
 	// ------------  Close loops
@@ -519,7 +426,30 @@ std::shared_ptr<GL_Tex2D> Mapping::finalize(const int num_iter)
 		}
 		res = graph.solve();
 
-		std::cout << "Mapping: gps_error = " << res.gps_error << " m, img_error = " << res.img_error
+		std::cout << "Mapping: Closure: gps_error = " << res.gps_error << " m, img_error = " << res.img_error
+				<< " m, yaw_error = " << rad2deg(res.yaw_error) << " deg, scl_error = " << res.scl_error << " m/px, iters = " << res.num_iters << std::endl;
+
+		// remove outliers
+		double avg_pos_err = 0;
+		for(const auto& edge : graph.edges()) {
+			avg_pos_err += edge->err_en.norm();
+		}
+		const auto M = graph.edges().size();
+		avg_pos_err /= M;
+
+		int num_outlier = 0;
+		for(const auto& edge : graph.edges()) {
+			if(edge->err_en.norm() > avg_pos_err * outlier_theshold) {
+				edge->is_outlier = true;
+				num_outlier++;
+			}
+		}
+
+		std::cout << "Mapping: avg_pos_err = " << avg_pos_err << " m, num_outlier = " << num_outlier << " / " << M << std::endl;
+
+		res = graph.solve();
+
+		std::cout << "Mapping: Robust: gps_error = " << res.gps_error << " m, img_error = " << res.img_error
 				<< " m, yaw_error = " << rad2deg(res.yaw_error) << " deg, scl_error = " << res.scl_error << " m/px, iters = " << res.num_iters << std::endl;
 	}
 
@@ -615,7 +545,7 @@ std::shared_ptr<GL_Tex2D> Mapping::finalize(const int num_iter)
 			const Vec2f p = pose.apply(q) - origin;
 			coords.push_back(p / map_scale);
 		}
-		render_image(buf, node->out ? node->out : node->image, coords);
+		render(buf, node->out ? node->out : node->image, coords);
 	}
 
 //	auto out = std::make_shared<GL_Tex2D>(

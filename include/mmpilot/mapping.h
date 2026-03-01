@@ -32,8 +32,8 @@ public:
 	float node_delta = 20;				// min edge length [px]
 
 	double max_loop_delta = 500;		// maximum initial image shift [px]
-	double min_loop_factor = 10;		// relative to node_delta
 	double max_loop_error = 10;			// average square pixel error
+	double outlier_theshold = 2;		// multiples of average
 
 	double max_merge_delta = 500;		// [px]
 	double max_merge_error = 10;		// average square pixel error
@@ -87,16 +87,14 @@ public:
 
 	void init(int width, int height, GLenum format);
 
-	void update(const int64_t ts, std::shared_ptr<GL_Tex2D> img, const Affine::Params& A);
-
-	void render(std::shared_ptr<GL_Tex2D> img, const Affine::Params& A);
+	void exec(const int64_t ts, std::shared_ptr<GL_Tex2D> img, const Affine::Params& A);
 
 	void on_gps(std::shared_ptr<MSP2Client::RawGPS> gps);
 
 	std::shared_ptr<GL_Tex2D> finalize(const int num_iter);
 
 private:
-	void render_image(
+	void render(
 			std::shared_ptr<Buffer> buf,
 			std::shared_ptr<GL_Tex2D> img,
 			const std::vector<Vec2f>& coords);

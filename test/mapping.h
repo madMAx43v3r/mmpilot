@@ -34,11 +34,11 @@ protected:
 
 		std::cout << "affine: R_norm = " << A.R_norm << ", overlap = " << A.overlap << std::endl;
 
-		mapping.update(ts, source, A);
+		mapping.exec(ts, source, A);
 
 		rebase();
 
-		const bool done = mapping.nodes.size() >= 30;
+		const bool done = mapping.nodes.size() >= 100;
 
 		const auto map = mapping.finalize(done ? 1 : 0);
 
