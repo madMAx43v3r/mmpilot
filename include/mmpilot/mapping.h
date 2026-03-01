@@ -29,19 +29,19 @@ public:
 	using WGS84 = mmpilot::WGS84<double>;
 	using PoseGraph = PoseGraphGeoImg<double>;
 
-	float node_delta = 20;			// min edge length [px]
+	float node_delta = 20;				// min edge length [px]
 
-	float max_loop_delta = 200;		// maximum initial image shift [px]
-	float min_loop_factor = 10;		// relative to node_delta
-	float max_loop_error = 3;		// average square pixel error
+	double max_loop_delta = 500;		// maximum initial image shift [px]
+	double min_loop_factor = 10;		// relative to node_delta
+	double max_loop_error = 10;			// average square pixel error
 
-	double max_merge_delta = 300;		// [px]
-	double max_merge_error = 5;			// average square pixel error
+	double max_merge_delta = 500;		// [px]
+	double max_merge_error = 10;		// average square pixel error
 
-	double gps_sigma = 3;			// GPS position [m]
-	double dxy_sigma = 0.2;			// image delta [m]
-	double dyaw_sigma = 0.002;		// image rotation [rad]
-	double dscale_sigma = 0.02;		// image scale [log(m/px)]
+	double gps_sigma = 3;				// GPS position [m]
+	double dxy_sigma = 0.2;				// image delta [m]
+	double dyaw_sigma = 0.002;			// image rotation [rad]
+	double dscale_sigma = 0.02;			// image scale [log(m/px)]
 
 	int64_t gps_delay = 50 * 1000;		// [us]
 
@@ -52,6 +52,7 @@ public:
 		double distance = 0;		// from start [px]
 		Transform2D delta;
 		std::set<int> merged;		// node indices
+		std::shared_ptr<GL_Tex2D> out;
 		std::shared_ptr<GL_Tex2D> image;
 		std::shared_ptr<PoseGraph::Node> node;
 
@@ -102,7 +103,7 @@ private:
 
 	void compress(GLuint fbo, std::shared_ptr<Buffer> buf);
 
-	void optimize(std::shared_ptr<Node> L, std::shared_ptr<Node> R);
+	void optimize(std::shared_ptr<Node> L, std::shared_ptr<Node> R, const bool do_merge);
 
 	void set_gps(std::shared_ptr<Node> node, std::shared_ptr<const GPS::State> gps);
 

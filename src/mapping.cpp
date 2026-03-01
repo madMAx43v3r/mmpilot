@@ -215,8 +215,6 @@ void Mapping::set_gps(std::shared_ptr<Node> node, std::shared_ptr<const GPS::Sta
 	const auto info_yaw = 1 / pow(dyaw_sigma, 2);
 	const auto info_scl = 1 / pow(dscale_sigma, 2);
 
-	const auto alpha = get_angle(delta.rot);
-
 	graph.add_edge(node->node->k, prev->k,
 			A.translation().cast<double>(), A.yaw(), A.scale(),
 			info_pos, info_yaw, info_scl);
@@ -345,6 +343,9 @@ void Mapping::render_image(
 		std::shared_ptr<GL_Tex2D> img,
 		const std::vector<Vec2f>& coords)
 {
+	if(!img) {
+		return;
+	}
 	if(coords.size() != 4) {
 		throw std::logic_error("render_image(): coords.size() != 4");
 	}
@@ -418,7 +419,7 @@ void Mapping::compress(GLuint fbo, std::shared_ptr<Buffer> buf)
 	GL_finish("Mapping::compress()");
 }
 
-void Mapping::optimize(std::shared_ptr<Node> L, std::shared_ptr<Node> R)
+void Mapping::optimize(std::shared_ptr<Node> L, std::shared_ptr<Node> R, const bool do_merge)
 {
 	const auto& ln = L->node;
 	const auto& rn = R->node;
@@ -431,35 +432,57 @@ void Mapping::optimize(std::shared_ptr<Node> L, std::shared_ptr<Node> R)
 			get_rotation_matrix(ln->yaw).transpose()
 			* (wgs.get_en(rn->lat, rn->lon) / lns);		// [px]
 
-	if(init_delta.norm() > max_merge_delta) {
-		return;
-	}
 	const auto init_dyaw = angle_norm_pi(rn->yaw - ln->yaw);		// [rad]
 	const auto init_dscale = std::exp(rn->ls) / lns;
 
 	auto A = Affine::Params(init_delta.x(), init_delta.y(), init_dyaw, init_dscale);
 
-	A = affine.exec(L->image, R->image, A);
+	const auto R_img = R->out ? R->out : R->image;
 
-	const auto w_sum = L->weight() + R->weight();
+	A = affine.exec(L->image, R_img, A);
 
-	merge.num_iter = 1;
-	merge.weight = R->weight() / w_sum;
+	if(do_merge) {
+		merge.num_iter = 1;
+		merge.weight = R->weight() / (1 + R->weight());
 
-	const auto err = merge.exec(L->image, R->image, A);
+		const auto err = merge.exec(L->image, R_img, A);
 
-	std::cout << "Mapping: Merge " << ln->k << " -> " << rn->k
+		std::cout << "Mapping: Merge " << ln->k << " -> " << rn->k
+				<< ": delta = (" << init_delta.x() << ", " << init_delta.y()
+				<< ") / (" << A.translation().x() << ", " << A.translation().y() << ") px"
+				<< ", yaw = " << rad2deg(init_dyaw) << " / " << rad2deg(A.yaw()) << " deg"
+				<< ", scale = " << init_dscale << " / " << A.scale()
+				<< "), error = " << err << (err < max_merge_error ? " (OK)" : "") << std::endl;
+
+		if(err < max_merge_error) {
+			if(!R->out) {
+				R->out = R->image->clone();
+			}
+			GL_blit(R->out, merge.out_warp[1]);
+			R->merged.insert(ln->k);
+		}
+	} else {
+		merge.num_iter = 1;
+		merge.weight = 0.5;
+
+		const auto err = merge.exec(L->image, R_img, A);
+
+		std::cout << "Mapping: Loop " << ln->k << " -> " << rn->k
 			<< ": delta = (" << init_delta.x() << ", " << init_delta.y()
 			<< ") / (" << A.translation().x() << ", " << A.translation().y() << ") px"
 			<< ", yaw = " << rad2deg(init_dyaw) << " / " << rad2deg(A.yaw()) << " deg"
 			<< ", scale = " << init_dscale << " / " << A.scale()
-			<< ", weight = (" << L->weight() << " -> " << R->weight()
-			<< "), error = " << err << (err < max_merge_error ? " (OK)" : "") << std::endl;
+			<< ", error = " << err << (err < max_loop_error ? " (OK)" : "") << std::endl;
 
-	if(err < max_merge_error) {
-		GL_blit(R->image, merge.out_warp[1]);
-		R->merged.insert(ln->k);
-		R->merged.insert(L->merged.begin(), L->merged.end());
+		if(err < max_loop_error) {
+			const auto info_pos = Mat2d::Identity() / pow(dxy_sigma, 2);
+			const auto info_yaw = 1 / pow(dyaw_sigma, 2);
+			const auto info_scl = 1 / pow(dscale_sigma, 2);
+
+			graph.add_edge(ln->k, rn->k,
+					A.translation().cast<double>(), A.yaw(), A.scale(),
+					info_pos, info_yaw, info_scl);
+		}
 	}
 }
 
@@ -468,13 +491,36 @@ std::shared_ptr<GL_Tex2D> Mapping::finalize(const int num_iter)
 	if(nodes.size() < 3) {
 		return nullptr;
 	}
-	const auto res = graph.solve();
+	auto res = graph.solve();
 
 	std::cout << "Mapping: gps_error = " << res.gps_error << " m, img_error = " << res.img_error
 			<< " m, yaw_error = " << rad2deg(res.yaw_error) << " deg, scl_error = " << res.scl_error << " m/px, iters = " << res.num_iters << std::endl;
 
-	if(!res.converged) {
-		return nullptr;
+	// ------------  Close loops
+	if(num_iter > 0) {
+		for(const auto& L : nodes) {
+			const auto& ln = L->node;
+			const auto lns = std::exp(ln->ls);		// [m/px]
+
+			WGS84 wgs(ln->lat, ln->lon, ln->gps_alt);
+
+			for(const auto& R : nodes) {
+				const auto& rn = R->node;
+				if(R->merged.count(ln->k)) {
+					continue;
+				}
+				const auto delta = wgs.get_en(rn->lat, rn->lon) / lns;		// [px]
+
+				if(delta.norm() < max_loop_delta && R != L)
+				{
+					optimize(L, R, false);
+				}
+			}
+		}
+		res = graph.solve();
+
+		std::cout << "Mapping: gps_error = " << res.gps_error << " m, img_error = " << res.img_error
+				<< " m, yaw_error = " << rad2deg(res.yaw_error) << " deg, scl_error = " << res.scl_error << " m/px, iters = " << res.num_iters << std::endl;
 	}
 
 	// ------------  Merge images
@@ -495,9 +541,17 @@ std::shared_ptr<GL_Tex2D> Mapping::finalize(const int num_iter)
 
 				if(delta.norm() < max_merge_delta && R != L)
 				{
-					optimize(L, R);
+					optimize(L, R, true);
 				}
 			}
+		}
+
+		// blit out -> image (feedback)
+		for(const auto& node : nodes) {
+			if(node->out) {
+				GL_blit(node->image, node->out);
+			}
+			node->merged.clear();
 		}
 	}
 
@@ -514,7 +568,7 @@ std::shared_ptr<GL_Tex2D> Mapping::finalize(const int num_iter)
 		if(node->gps_valid) {
 			alt0 = std::min(alt0, node->gps_alt);
 		}
-		std::cout << "Node[" << node->k << "] yaw = " << rad2deg(node->yaw) << " deg, scale = " << node->scale() << " m/px" << std::endl;
+		std::cout << "Mapping: Node[" << node->k << "] yaw = " << rad2deg(node->yaw) << " deg, scale = " << node->scale() << " m/px" << std::endl;
 	}
 	lat0 /= nodes.size();
 	lon0 /= nodes.size();
@@ -561,7 +615,7 @@ std::shared_ptr<GL_Tex2D> Mapping::finalize(const int num_iter)
 			const Vec2f p = pose.apply(q) - origin;
 			coords.push_back(p / map_scale);
 		}
-		render_image(buf, node->image, coords);
+		render_image(buf, node->out ? node->out : node->image, coords);
 	}
 
 //	auto out = std::make_shared<GL_Tex2D>(
