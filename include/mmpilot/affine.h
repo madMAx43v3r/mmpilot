@@ -22,7 +22,7 @@ public:
 	float damping = 1;				// H diag factor
 
 	int num_iters = 8;
-	int reduction_chunk = 32;
+	int reduction_chunk = 16;
 
 	bool debug = false;
 
