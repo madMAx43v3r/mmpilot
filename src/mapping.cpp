@@ -397,7 +397,7 @@ void Mapping::optimize(std::shared_ptr<Node> L, std::shared_ptr<Node> R, const b
 	}
 }
 
-std::shared_ptr<GL_Tex2D> Mapping::finalize(const int num_iter)
+std::shared_ptr<GL_Tex2D> Mapping::finalize(const int num_pass)
 {
 	if(nodes.size() < 3) {
 		return nullptr;
@@ -409,11 +409,14 @@ std::shared_ptr<GL_Tex2D> Mapping::finalize(const int num_iter)
 	std::cout << "Mapping: Odometry: gps_error = " << res.gps_error << " m, img_error = " << res.img_error
 			<< " m, yaw_error = " << rad2deg(res.yaw_error) << " deg, scl_error = " << res.scl_error << " m/px, iters = " << res.num_iters << std::endl;
 
-	// ------------  Close loops
-	if(num_iter > 0) {
-		// clear odometry edges first, since we will add them again now
+	for(int iter = 0; iter < num_pass; ++iter)
+	{
+		// clear old edges, since we will add them again now
 		graph.clear_edges();
 
+		std::cout << "--------------------- Pass " << (iter + 1) << " ---------------------" << std::endl;
+
+		// ------------  Close loops
 		for(const auto& L : nodes) {
 			const auto& ln = L->node;
 			const auto lns = std::exp(ln->ls);		// [m/px]
@@ -435,7 +438,7 @@ std::shared_ptr<GL_Tex2D> Mapping::finalize(const int num_iter)
 		std::cout << "Mapping: Closure: gps_error = " << res.gps_error << " m, img_error = " << res.img_error
 				<< " m, yaw_error = " << rad2deg(res.yaw_error) << " deg, scl_error = " << res.scl_error << " m/px, iters = " << res.num_iters << std::endl;
 
-		// remove outliers
+		// ------------ Remove outliers
 		const auto img_std = std::max(graph.get_img_std(), dxy_sigma);
 		const auto yaw_std = std::max(graph.get_yaw_std(), dyaw_sigma);
 		const auto scl_std = std::max(graph.get_scale_std(), dscale_sigma);
@@ -461,11 +464,8 @@ std::shared_ptr<GL_Tex2D> Mapping::finalize(const int num_iter)
 
 		std::cout << "Mapping: Robust: gps_error = " << res.gps_error << " m, img_error = " << res.img_error
 				<< " m, yaw_error = " << rad2deg(res.yaw_error) << " deg, scl_error = " << res.scl_error << " m/px, iters = " << res.num_iters << std::endl;
-	}
 
-	// ------------  Merge images
-	for(int iter = 0; iter < num_iter; ++iter)
-	{
+		// ------------  Merge images
 		for(const auto& L : nodes) {
 			const auto& ln = L->node;
 			const auto lns = std::exp(ln->ls);		// [m/px]
@@ -482,8 +482,6 @@ std::shared_ptr<GL_Tex2D> Mapping::finalize(const int num_iter)
 				}
 			}
 		}
-
-		// TODO: remove bad images
 
 		// blit out -> image (feedback)
 		for(const auto& node : nodes) {

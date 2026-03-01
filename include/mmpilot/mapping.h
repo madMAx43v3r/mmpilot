@@ -89,7 +89,7 @@ public:
 
 	void on_gps(std::shared_ptr<MSP2Client::RawGPS> gps);
 
-	std::shared_ptr<GL_Tex2D> finalize(const int num_iter);
+	std::shared_ptr<GL_Tex2D> finalize(const int num_pass);
 
 private:
 	void render(
