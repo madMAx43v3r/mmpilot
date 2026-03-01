@@ -33,7 +33,9 @@ public:
 
 	double max_loop_delta = 500;		// maximum initial image shift [px]
 	double max_loop_error = 10;			// average square pixel error
-	double outlier_theshold = 3;		// multiples of average
+	double max_loop_dyaw = 0.2;			// max yaw difference [rad]
+	double max_loop_dscale = 0.2;		// max log(scale) difference
+	double outlier_threshold = 1;		// multiples of average
 
 	double max_merge_delta = 500;		// [px]
 	double max_merge_error = 10;		// average square pixel error

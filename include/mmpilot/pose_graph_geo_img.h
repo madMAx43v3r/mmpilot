@@ -52,6 +52,8 @@ public:
 	struct Node {
 		int k = -1;			  // index
 
+		Vec2 err_en = Vec2::Zero();		// GPS error in EN [m]
+
 		// Optimized:
 		T lat = T(0);   // latitude [rad]
 		T lon = T(0);   // longitude [rad]
@@ -91,7 +93,6 @@ public:
 		int i = -1;
 		int j = -1;
 
-		bool is_loop = false;		// if edge is loop closure (disable north snap + scale drift)
 		bool is_outlier = false;
 
 		Vec2 dp_en = Vec2::Zero();		// delta in EN [m]
@@ -184,6 +185,58 @@ public:
 		return e;
 	}
 
+	T get_gps_std() const
+	{
+		int count = 0;
+		double sum = 0;
+		for(const auto& n : nodes()) {
+			if(n->gps_valid) {
+				sum += n->err_en.squaredNorm();
+				count++;
+			}
+		}
+		return std::sqrt(sum / count);
+	}
+
+	T get_img_std() const
+	{
+		int count = 0;
+		double sum = 0;
+		for(const auto& e : edges()) {
+			if(!e->is_outlier) {
+				sum += e->err_en.squaredNorm();
+				count++;
+			}
+		}
+		return std::sqrt(sum / count);
+	}
+
+	T get_yaw_std() const
+	{
+		int count = 0;
+		double sum = 0;
+		for(const auto& e : edges()) {
+			if(!e->is_outlier) {
+				sum += e->err_yaw * e->err_yaw;
+				count++;
+			}
+		}
+		return std::sqrt(sum / count);
+	}
+
+	T get_scale_std() const
+	{
+		int count = 0;
+		double sum = 0;
+		for(const auto& e : edges()) {
+			if(!e->is_outlier) {
+				sum += e->err_scl * e->err_scl;
+				count++;
+			}
+		}
+		return std::sqrt(sum / count);
+	}
+
 	Result solve(int max_iters = 1000, T step_tol = T(1e-6), T lambda = T(1e-3))
 	{
 		Result out;
@@ -232,7 +285,7 @@ public:
 			// ---- Unary absolute GPS priors ----
 			for(int k = 0; k < N; ++k)
 			{
-				const auto& n = *nodes_[k];
+				auto& n = *nodes_[k];
 				if(!n.gps_valid) {
 					continue;
 				}
@@ -246,6 +299,9 @@ public:
 						kE * (n.lon - n.gps_lon), // dE
 						kN * (n.lat - n.gps_lat)  // dN
 				);
+
+				n.err_en = r;	// save error
+
 				out.gps_error += double(r.transpose() * (n.gps_info * r));
 
 				Mat2D J = Mat2D::Zero();
@@ -315,15 +371,14 @@ public:
 					// (because en_img = R*(s*dpx))
 					const Vec2 den_dls = en_img;
 
-					if(!e.is_loop) {
-						// align map Y to north
-						Ji(0, 2) += -den_dyaw[0];
-						Ji(1, 2) += -den_dyaw[1];
+					// align map Y to north
+					Ji(0, 2) += -den_dyaw[0];
+					Ji(1, 2) += -den_dyaw[1];
 
-						// compensate scale drift
-						Ji(0, 3) += -den_dls[0];
-						Ji(1, 3) += -den_dls[1];
-					}
+					// compensate scale drift
+					Ji(0, 3) += -den_dls[0];
+					Ji(1, 3) += -den_dls[1];
+
 					accumulate_binary_2d(add_block, add_g, bi, bj, Ji, Jj, r, e.info_pos);
 				}
 
@@ -452,9 +507,12 @@ public:
 		return out;
 	}
 
-	void clear()
-	{
+	void clear() {
 		nodes_.clear();
+		edges_.clear();
+	}
+
+	void clear_edges() {
 		edges_.clear();
 	}
 

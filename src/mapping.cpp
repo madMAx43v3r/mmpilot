@@ -361,34 +361,38 @@ void Mapping::optimize(std::shared_ptr<Node> L, std::shared_ptr<Node> R, const b
 		// optimize affine to close loops
 		A = affine.exec(L->image, R_img, A);
 
-		merge.num_iter = 1;
-		merge.weight = 0.5;
+		if(A.scale() > 0 && init_dscale > 0
+			&& std::abs(angle_norm_pi(A.yaw() - init_dyaw)) < max_loop_dyaw
+			&& std::abs(std::log(A.scale()) - std::log(init_dscale)) < max_loop_dscale)
+		{
+			merge.num_iter = 1;
+			merge.weight = 0.5;
 
-		// merge only for error gating
-		const auto err = merge.exec(L->image, R_img, A);
+			// merge only for error gating
+			const auto err = merge.exec(L->image, R_img, A);
 
-		const bool pass = err < max_loop_error;
+			const bool pass = err < max_loop_error;
 
-		std::cout << "Mapping: Loop " << ln->k << " -> " << rn->k
-			<< ": delta = (" << init_delta.x() << ", " << init_delta.y()
-			<< ") / (" << A.translation().x() << ", " << A.translation().y() << ") px"
-			<< ", yaw = " << rad2deg(init_dyaw) << " / " << rad2deg(A.yaw()) << " deg"
-			<< ", scale = " << init_dscale << " / " << A.scale()
-			<< ", error = " << err << (pass ? " (PASS)" : "") << std::endl;
+			std::cout << "Mapping: Loop " << ln->k << " -> " << rn->k
+				<< ": delta = (" << init_delta.x() << ", " << init_delta.y()
+				<< ") / (" << A.translation().x() << ", " << A.translation().y() << ") px"
+				<< ", yaw = " << rad2deg(init_dyaw) << " / " << rad2deg(A.yaw()) << " deg"
+				<< ", scale = " << init_dscale << " / " << A.scale()
+				<< ", error = " << err << (pass ? " (PASS)" : "") << std::endl;
 
-		if(pass) {
-			// scale sigma relative to loop gap
-			const auto std_factor = A.translation().norm() / node_delta;
+			if(pass) {
+				// scale sigma relative to loop gap
+				const auto std_factor = A.translation().norm() / node_delta;
 
-			const auto info_pos = Mat2d::Identity() / pow(dxy_sigma * std_factor, 2);
-			const auto info_yaw = 1 / pow(dyaw_sigma * std_factor, 2);
-			const auto info_scl = 1 / pow(dscale_sigma * std_factor, 2);
+				const auto info_pos = Mat2d::Identity() / pow(dxy_sigma * std_factor, 2);
+				const auto info_yaw = 1 / pow(dyaw_sigma * std_factor, 2);
+				const auto info_scl = 1 / pow(dscale_sigma * std_factor, 2);
 
-			auto e = graph.add_edge(
-					ln->k, rn->k,
-					A.translation().cast<double>(), A.yaw(), A.scale(),
-					info_pos, info_yaw, info_scl);
-			e->is_loop = true;
+				graph.add_edge(
+						ln->k, rn->k,
+						A.translation().cast<double>(), A.yaw(), A.scale(),
+						info_pos, info_yaw, info_scl);
+			}
 		}
 	}
 }
@@ -407,6 +411,9 @@ std::shared_ptr<GL_Tex2D> Mapping::finalize(const int num_iter)
 
 	// ------------  Close loops
 	if(num_iter > 0) {
+		// clear odometry edges first, since we will add them again now
+		graph.clear_edges();
+
 		for(const auto& L : nodes) {
 			const auto& ln = L->node;
 			const auto lns = std::exp(ln->ls);		// [m/px]
@@ -429,34 +436,28 @@ std::shared_ptr<GL_Tex2D> Mapping::finalize(const int num_iter)
 				<< " m, yaw_error = " << rad2deg(res.yaw_error) << " deg, scl_error = " << res.scl_error << " m/px, iters = " << res.num_iters << std::endl;
 
 		// remove outliers
-		double avg_pos_err = 0;
-		double avg_yaw_err = 0;
-		double avg_scl_err = 0;
-		for(const auto& edge : graph.edges()) {
-			avg_pos_err += edge->err_en.norm();
-			avg_yaw_err += edge->err_yaw;
-			avg_scl_err += edge->err_scl;
-		}
-		const auto M = graph.edges().size();
-		avg_pos_err /= M;
-		avg_yaw_err /= M;
-		avg_scl_err /= M;
+		const auto img_std = std::max(graph.get_img_std(), dxy_sigma);
+		const auto yaw_std = std::max(graph.get_yaw_std(), dyaw_sigma);
+		const auto scl_std = std::max(graph.get_scale_std(), dscale_sigma);
 
 		int num_outlier = 0;
 		for(const auto& edge : graph.edges()) {
-			if(edge->err_en.norm() > avg_pos_err * outlier_theshold
-				|| edge->err_yaw > avg_yaw_err * outlier_theshold
-				|| edge->err_scl > avg_scl_err * outlier_theshold)
+			if(edge->err_en.norm() / img_std > outlier_threshold
+				|| std::abs(edge->err_yaw / yaw_std) > outlier_threshold
+				|| std::abs(edge->err_scl / scl_std) > outlier_threshold)
 			{
 				edge->is_outlier = true;
 				num_outlier++;
 			}
 		}
 
-		std::cout << "Mapping: Outlier: avg_pos_err = " << avg_pos_err << "m, avg_yaw_err = " << rad2deg(avg_yaw_err)
-				<< " deg, avg_scl_err = " << avg_scl_err << ", num_outlier = " << num_outlier << " / " << M << std::endl;
+		std::cout << "Mapping: Outlier: gps_std = " << graph.get_gps_std() << " m, img_std = " << img_std << " m, yaw_std = " << rad2deg(yaw_std)
+				<< " deg, scale_std = " << scl_std << ", num_outlier = " << num_outlier << " / " << graph.edges().size() << std::endl;
 
 		res = graph.solve();
+
+		std::cout << "Mapping: Robust: gps_std = " << graph.get_gps_std() << " m, img_std = " << graph.get_img_std() << " m, yaw_std = " << rad2deg(graph.get_yaw_std())
+				<< " deg, scale_std = " << graph.get_scale_std() << ", num_outlier = " << num_outlier << " / " << graph.edges().size() << std::endl;
 
 		std::cout << "Mapping: Robust: gps_error = " << res.gps_error << " m, img_error = " << res.img_error
 				<< " m, yaw_error = " << rad2deg(res.yaw_error) << " deg, scl_error = " << res.scl_error << " m/px, iters = " << res.num_iters << std::endl;
@@ -481,6 +482,8 @@ std::shared_ptr<GL_Tex2D> Mapping::finalize(const int num_iter)
 				}
 			}
 		}
+
+		// TODO: remove bad images
 
 		// blit out -> image (feedback)
 		for(const auto& node : nodes) {
