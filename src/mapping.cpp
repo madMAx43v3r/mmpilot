@@ -348,7 +348,7 @@ void Mapping::optimize(std::shared_ptr<Node> L, std::shared_ptr<Node> R, const b
 		std::cout << "Mapping: Merge " << ln->k << " -> " << rn->k
 				<< ": delta = " << "(" << A.translation().x() << ", " << A.translation().y() << ") px"
 				<< ", yaw = " << rad2deg(A.yaw()) << " deg" << ", scale = " << A.scale()
-				<< "), error = " << err << (err < max_merge_error ? " (OK)" : "") << std::endl;
+				<< ", error = " << err << (err < max_merge_error ? " (OK)" : "") << std::endl;
 
 		if(err < max_merge_error) {
 			if(!R->out) {
@@ -431,21 +431,31 @@ std::shared_ptr<GL_Tex2D> Mapping::finalize(const int num_iter)
 
 		// remove outliers
 		double avg_pos_err = 0;
+		double avg_yaw_err = 0;
+		double avg_scl_err = 0;
 		for(const auto& edge : graph.edges()) {
 			avg_pos_err += edge->err_en.norm();
+			avg_yaw_err += edge->err_yaw;
+			avg_scl_err += edge->err_scl;
 		}
 		const auto M = graph.edges().size();
 		avg_pos_err /= M;
+		avg_yaw_err /= M;
+		avg_scl_err /= M;
 
 		int num_outlier = 0;
 		for(const auto& edge : graph.edges()) {
-			if(edge->err_en.norm() > avg_pos_err * outlier_theshold) {
+			if(edge->err_en.norm() > avg_pos_err * outlier_theshold
+				|| edge->err_yaw > avg_yaw_err * outlier_theshold
+				|| edge->err_scl > avg_scl_err * outlier_theshold)
+			{
 				edge->is_outlier = true;
 				num_outlier++;
 			}
 		}
 
-		std::cout << "Mapping: avg_pos_err = " << avg_pos_err << " m, num_outlier = " << num_outlier << " / " << M << std::endl;
+		std::cout << "Mapping: Outlier: avg_pos_err = " << avg_pos_err << "m, avg_yaw_err = " << rad2deg(avg_yaw_err)
+				<< " deg, avg_scl_err = " << avg_scl_err << ", num_outlier = " << num_outlier << " / " << M << std::endl;
 
 		res = graph.solve();
 
