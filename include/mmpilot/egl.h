@@ -11,25 +11,26 @@
 #include <string>
 
 
-typedef void *EGLContext;
-typedef void *EGLDisplay;
-typedef void *EGLSurface;
+typedef void* EGLContext;
+typedef void* EGLDisplay;
+typedef void* EGLSurface;
 
 namespace mmpilot {
 
 struct EglCtx {
-	EGLContext ctx;
-	EGLDisplay display;
-	EGLSurface surface;
+	EGLContext ctx = nullptr;
+	EGLDisplay display = nullptr;
+	EGLSurface surface = nullptr;
 
 	EglCtx();
+
 	~EglCtx();
 
 	void terminate();
 };
 
 
-EglCtx EGL_create_context(int gles_major = 3);
+EglCtx EGL_create_context(const int gles_major = 3, EGLContext parent = nullptr);
 
 std::string EGL_error_name(int e);
 

@@ -48,7 +48,7 @@ public:
 				throw std::runtime_error("SmoothFilter: invalid format");
 		}
 
-		const auto vs = render::get_fullscreen_vertex_shader();
+		const auto vs = render::fullscreen_vertex_shader();
 		const auto fs = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/smooth/" + shader + ".glsl");
 		prog = GL_link_program(vs, fs);
 

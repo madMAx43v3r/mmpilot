@@ -63,7 +63,7 @@ static EGLDisplay EGL_get_display()
 	return eglGetDisplay(EGL_DEFAULT_DISPLAY);
 }
 
-EglCtx EGL_create_context(int gles_major)
+EglCtx EGL_create_context(const int gles_major, EGLContext parent)
 {
 	const auto display = EGL_get_display();
 	if(display == EGL_NO_DISPLAY) {
@@ -96,7 +96,7 @@ EglCtx EGL_create_context(int gles_major)
 	// Try to create ES 3.x context
 	std::vector<EGLint> ctx_attribs = {EGL_CONTEXT_CLIENT_VERSION, gles_major, EGL_NONE};
 
-	const auto context = eglCreateContext(display, config, EGL_NO_CONTEXT, ctx_attribs.data());
+	const auto context = eglCreateContext(display, config, parent, ctx_attribs.data());
 	if(context == EGL_NO_CONTEXT) {
 		EGL_check("eglCreateContext failed");
 	}

@@ -79,7 +79,6 @@ void Mapping::init(int width_, int height_, GLenum format)
 	merge.init(width, height, format);
 
 	affine.depth = 4;
-	affine.damping = 2;
 	affine.init(width, height);
 
 	tex_tmp = std::make_shared<GL_Tex2D>(
@@ -96,7 +95,7 @@ void Mapping::init(int width_, int height_, GLenum format)
 		prog_render = GL_link_program(vs, fs);
 	}
 	{
-		const auto vs = render::get_fullscreen_vertex_shader();
+		const auto vs = render::fullscreen_vertex_shader();
 		const auto fs = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/mapping/compress.glsl");
 		prog_compress = GL_link_program(vs, fs);
 	}

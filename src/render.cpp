@@ -12,8 +12,10 @@
 namespace mmpilot {
 namespace render {
 
-GLuint g_dummy_vao = 0;
-GLuint g_fullscreen_vertex_shader = 0;
+thread_local bool have_init = false;
+
+thread_local GLuint g_dummy_vao = 0;
+thread_local GLuint g_fullscreen_vertex_shader = 0;
 
 
 void fullscreen(GLuint fbo, int width, int height)
@@ -50,22 +52,30 @@ void clear(GLuint fbo, int width, int height, const std::array<float, 4>& color,
 	GL_finish("render::clear()");
 }
 
-GLuint get_fullscreen_vertex_shader() {
+GLuint fullscreen_vertex_shader() {
 	return g_fullscreen_vertex_shader;
 }
 
 void init()
 {
+	if(have_init) {
+		return;
+	}
 	glGenVertexArrays(1, &g_dummy_vao);
 
 	g_fullscreen_vertex_shader =
 			GL_compile_shader(GL_VERTEX_SHADER, "shader/vertex/fullscreen.glsl");
 
 	GL_check("render::init()");
+
+	have_init = true;
 }
 
 void cleanup()
 {
+	if(!have_init) {
+		return;
+	}
 	glDeleteShader(g_fullscreen_vertex_shader);
 
 	glDeleteVertexArrays(1, &g_dummy_vao);

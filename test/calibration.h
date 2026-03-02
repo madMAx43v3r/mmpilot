@@ -46,7 +46,7 @@ protected:
 		tex_jacobian[1] = std::make_shared<GL_Tex2D>(src_width, src_height, GL_RG32F, GL_RG, GL_FLOAT);
 		tex_gradient = std::make_shared<GL_Tex2D>(src_width, reduction_chunk, GL_RGBA32F, GL_RGBA, GL_FLOAT);
 
-		const auto vs = render::get_fullscreen_vertex_shader();
+		const auto vs = render::fullscreen_vertex_shader();
 		const auto fs_jacobian = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/rectify/jacobian.glsl");
 		const auto fs_gradient = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/rectify/gradient.glsl");
 		prog_jacobian = GL_link_program(vs, fs_jacobian);

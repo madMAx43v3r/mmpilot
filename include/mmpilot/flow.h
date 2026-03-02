@@ -47,7 +47,7 @@ public:
 
 		smooth.init(width, height, GL_RG16F, GL_RG, GL_HALF_FLOAT);
 
-		const auto vs = render::get_fullscreen_vertex_shader();
+		const auto vs = render::fullscreen_vertex_shader();
 		const auto fs = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/mapping/flow_mono.glsl");
 		const auto fs_debug = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/debug/flow_overlay.glsl");
 		prog = GL_link_program(vs, fs);

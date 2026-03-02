@@ -202,7 +202,7 @@ void Affine::init(int width_, int height_)
 	auto fs_gradient = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/affine/gradient.glsl");
 	auto fs_debug    = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/debug/residual_overlay.glsl");
 
-	const auto vs = render::get_fullscreen_vertex_shader();
+	const auto vs = render::fullscreen_vertex_shader();
 	prog_jacobian = GL_link_program(vs, fs_jacobian);
 	prog_gradient = GL_link_program(vs, fs_gradient);
 	prog_debug  = GL_link_program(vs, fs_debug);

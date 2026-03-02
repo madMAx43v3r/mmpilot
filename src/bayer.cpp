@@ -25,7 +25,7 @@ void DeBayer::init(int width_, int height_, std::string format_)
 		throw std::runtime_error("DeBayer: invalid format: " + format);
 	}
 
-	const auto vs = render::get_fullscreen_vertex_shader();
+	const auto vs = render::fullscreen_vertex_shader();
 	prog_luma = GL_link_program(vs, fs_luma);
 	prog_rgba = GL_link_program(vs, fs_rgba);
 

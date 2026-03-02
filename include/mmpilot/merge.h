@@ -75,7 +75,7 @@ public:
 		fbo_ref = GL_create_FBO(tex_ref);
 		fbo_error = GL_create_FBO(tex_error);
 
-		const auto vs = render::get_fullscreen_vertex_shader();
+		const auto vs = render::fullscreen_vertex_shader();
 		const auto fs_warp = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/mapping/flow_warp.glsl");
 		const auto fs_global_warp = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/mapping/global_warp.glsl");
 		const auto fs_blend = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/mapping/blend_mono.glsl");

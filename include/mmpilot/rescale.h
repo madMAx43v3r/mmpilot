@@ -32,7 +32,7 @@ public:
 		width = width_;
 		height = height_;
 
-		const auto vs = render::get_fullscreen_vertex_shader();
+		const auto vs = render::fullscreen_vertex_shader();
 		const auto fs = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/scale/rescale.glsl");
 		prog = GL_link_program(vs, fs);
 
