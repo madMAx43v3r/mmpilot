@@ -59,6 +59,10 @@ int main(int argc, char** argv)
 	{
 		std::lock_guard<std::mutex> lock(mutex);
 		write_sample(rec, "msp.raw_gps", gps);
+
+		std::cout << "gps: lat=" << gps.lat << ", lon=" << gps.lon
+					<< ", speed=" << gps.speed << ", heading=" << gps.course
+					<< ", alt=" << (gps.alt & 0xFF) << ", sats=" << int(gps.num_sats) << ", fix=" << int(gps.fix_type) << std::endl;
 	};
 
 	auto on_frame = [&](const std::string& topic, const CameraFrame& frame)
