@@ -135,7 +135,7 @@ void Mapping::set_gps(std::shared_ptr<Node> node, std::shared_ptr<const GPS::Sta
 	const auto lon = deg2rad(gps->lon);
 	const auto alt = gps_alt_override.value_or(gps->alt);
 
-	const auto gps_info = Mat2d::Identity() / (gps_sigma * gps_sigma);
+	const auto gps_info = Mat2d::Identity() / pow(gps_sigma, 2);
 
 	node->node->set_gps(lat, lon, alt, gps_info);
 }
@@ -176,7 +176,7 @@ void Mapping::exec(const int64_t ts, std::shared_ptr<GL_Tex2D> img, const Affine
 
 	if(merge_count) {
 		merge.num_iter = 3;
-		merge.weight = 1.f / (merge_count + 1);
+		merge.weight = 1 / float(merge_count + 1);
 
 		merge.exec(merge.out_blend, img, A);
 		merge_count++;
@@ -313,14 +313,14 @@ void Mapping::compress(GLuint fbo, std::shared_ptr<Buffer> buf)
 	glUseProgram(prog_compress);
 
 	GL_bind_tex(prog_compress, "uMap", buf->map->id, 0);
-	GL_bind_tex(prog_compress, "uWeight", buf->weight->id, 1);
+//	GL_bind_tex(prog_compress, "uWeight", buf->weight->id, 1);
 
 	render::fullscreen(fbo, buf->map->width, buf->map->height);
 
 	GL_finish("Mapping::compress()");
 }
 
-void Mapping::optimize(std::shared_ptr<Node> L, std::shared_ptr<Node> R, const bool do_merge)
+Affine::Params Mapping::get_affine(std::shared_ptr<Node> L, std::shared_ptr<Node> R)
 {
 	const auto& ln = L->node;
 	const auto& rn = R->node;
@@ -329,20 +329,27 @@ void Mapping::optimize(std::shared_ptr<Node> L, std::shared_ptr<Node> R, const b
 
 	const auto lns = std::exp(ln->ls);		// left scale [m/px]
 
-	const Vec2d init_delta =
+	const Vec2d delta =
 			get_rotation_matrix(ln->yaw).transpose()
 			* (wgs.get_en(rn->lat, rn->lon) / lns);		// [px]
 
-	const auto init_dyaw = angle_norm_pi(rn->yaw - ln->yaw);		// [rad]
-	const auto init_dscale = std::exp(rn->ls) / lns;
+	const auto dyaw = angle_norm_pi(rn->yaw - ln->yaw);		// [rad]
+	const auto dscale = std::exp(rn->ls) / lns;
 
-	auto A = Affine::Params(init_delta.x(), init_delta.y(), init_dyaw, init_dscale);
+	return Affine::Params(delta.x(), delta.y(), dyaw, dscale);
+}
+
+void Mapping::optimize(std::shared_ptr<Node> L, std::shared_ptr<Node> R, const bool do_merge)
+{
+	const auto& ln = L->node;
+	const auto& rn = R->node;
 
 	const auto R_img = R->out ? R->out : R->image;
 
 	if(do_merge) {
 		// no not optimize affine anymore
 		// we need to warp the remaining errors
+		const auto A = get_affine(L, R);
 
 		merge.num_iter = 1;
 		merge.weight = R->weight / float(1 + R->weight);
@@ -362,18 +369,20 @@ void Mapping::optimize(std::shared_ptr<Node> L, std::shared_ptr<Node> R, const b
 			R->weight += 1;
 		}
 	} else {
-		// optimize affine to close loops
-		A = affine.exec(L->image, R_img, A);
+		const auto A0 = get_affine(L, R);
 
-		if(A.converged && A.scale() > 0 && init_dscale > 0
-			&& std::abs(angle_norm_pi(A.yaw() - init_dyaw)) < max_loop_dyaw
-			&& std::abs(std::log(A.scale()) - std::log(init_dscale)) < max_loop_dscale)
+		// optimize affine to close loops
+		const auto A = affine.exec(L->image, R_img, A0);
+
+		if(A.converged && A.scale() > 0 && A0.scale() > 0
+			&& std::abs(angle_norm_pi(A.yaw() - A0.yaw())) < max_loop_dyaw
+			&& std::abs(std::log(A.scale()) - std::log(A0.scale())) < max_loop_dscale)
 		{
 			std::cout << "Mapping: Loop " << ln->k << " -> " << rn->k
-				<< ": delta = (" << init_delta.x() << ", " << init_delta.y()
+				<< ": delta = (" << A0.translation().x() << ", " << A0.translation().y()
 				<< ") / (" << A.translation().x() << ", " << A.translation().y() << ") px"
-				<< ", yaw = " << rad2deg(init_dyaw) << " / " << rad2deg(A.yaw()) << " deg"
-				<< ", scale = " << init_dscale << " / " << A.scale()
+				<< ", yaw = " << rad2deg(A0.yaw()) << " / " << rad2deg(A.yaw()) << " deg"
+				<< ", scale = " << A0.scale() << " / " << A.scale()
 				<< ", error = " << A.R_norm << std::endl;
 
 			// scale sigma relative to loop gap

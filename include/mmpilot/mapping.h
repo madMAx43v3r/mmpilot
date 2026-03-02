@@ -105,6 +105,8 @@ private:
 
 	void set_gps(std::shared_ptr<Node> node, std::shared_ptr<const GPS::State> gps);
 
+	static Affine::Params get_affine(std::shared_ptr<Node> L, std::shared_ptr<Node> R);
+
 private:
 	int width = 0;
 	int height = 0;
