@@ -19,10 +19,12 @@ namespace mmpilot {
 
 class Affine {
 public:
-	float damping = 1;				// H diag factor
-
 	int num_iters = 8;
 	int reduction_chunk = 16;
+
+	float damping_xy = 1e-5;
+	float damping_yaw = 1e-2;
+	float damping_scale = 1e-2;
 
 	bool debug = false;
 

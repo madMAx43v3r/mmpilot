@@ -28,7 +28,9 @@ class MultiAffine {
 public:
 	int depth = 4;
 
-	float damping = 1;
+	float damping_xy = 1e-5;
+	float damping_yaw = 1e-2;
+	float damping_scale = 1e-2;
 
 	bool debug = false;
 
@@ -110,7 +112,9 @@ public:
 		{
 			auto lvl = std::make_shared<Level>();
 			lvl->debug = debug;
-			lvl->solver.damping = damping;
+			lvl->solver.damping_xy = damping_xy;
+			lvl->solver.damping_yaw = damping_yaw;
+			lvl->solver.damping_scale = damping_scale;
 			lvl->solver.num_iters = num_iters[std::min(size_t(i), num_iters.size() - 1)];
 			lvl->init(i, w, h);
 			stage.push_back(lvl);

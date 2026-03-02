@@ -133,7 +133,10 @@ Affine::Params Affine::exec(
 //		std::cout << "H = " << hessian.transpose() << std::endl;
 
 		// Apply damping
-		hessian *= damping;
+		hessian[0] += damping_xy * num_pixel;
+		hessian[1] += damping_xy * num_pixel;
+		hessian[2] += damping_yaw * num_pixel;
+		hessian[3] += damping_scale * num_pixel;
 
 		Vec4 delta = Vec4::Zero();
 		for(int i = 0; i < 4; ++i) {
