@@ -74,6 +74,10 @@ public:
 		{
 			if(prev) {
 				A = copy(prev->A).scale(2);
+				// cancel if previous level didn't converge
+				if(!A.converged) {
+					return;
+				}
 			} else {
 				std::cout << "init_p: " << to_string(A) << std::endl;
 			}
@@ -85,6 +89,11 @@ public:
 			gradient.exec(ref, false);
 
 			A = solver.exec(gradient.out, img, A);
+
+			if(prev) {
+				// we only care about top level
+				A.converged = true;
+			}
 		}
 	};
 

@@ -26,6 +26,11 @@ public:
 	float damping_yaw = 1e-2;
 	float damping_scale = 1e-2;
 
+	// convergence triggers
+	float threshold_xy = 0.2;
+	float threshold_yaw = 0.005;
+	float threshold_scale = 0.005;
+
 	bool debug = false;
 
 	std::shared_ptr<GL_Tex2D> tex_debug;				// (RGBA)
@@ -41,6 +46,7 @@ public:
 		float R_norm = 0;		// normalized (factor 1000)
 		float overlap = 0;		// (0 to 1)
 		Mat2f H_xy = Mat2f::Identity();
+		bool converged = false;
 
 		Params() {
 			p(0) = p(1) = p(2) = 0;

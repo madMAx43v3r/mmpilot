@@ -157,14 +157,19 @@ Affine::Params Affine::exec(
 		// Update params
 		const auto step_norm = delta.norm();
 
-//		std::cout << "iter " << iter << ": delta = " << delta.transpose() << std::endl;
-
 		if(!std::isfinite(step_norm)) {
 			break;
 		}
 		for(int i = 0; i < 4; ++i) {
 			params[i] += delta[i];
 		}
+		params.converged =
+				   std::abs(delta[0]) < threshold_xy
+				&& std::abs(delta[1]) < threshold_xy
+				&& std::abs(delta[2]) < threshold_yaw
+				&& std::abs(delta[3]) < threshold_scale;
+
+//		std::cout << "iter " << iter << ": delta = " << delta.transpose() << (params.converged ? " (OK)" : "") << std::endl;
 	}
 
 //	std::cout << "Affine: R_norm = " << params.R_norm << ", overlap = " << params.overlap

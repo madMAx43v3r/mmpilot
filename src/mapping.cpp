@@ -360,38 +360,28 @@ void Mapping::optimize(std::shared_ptr<Node> L, std::shared_ptr<Node> R, const b
 		// optimize affine to close loops
 		A = affine.exec(L->image, R_img, A);
 
-		if(A.scale() > 0 && init_dscale > 0
+		if(A.converged && A.scale() > 0 && init_dscale > 0
 			&& std::abs(angle_norm_pi(A.yaw() - init_dyaw)) < max_loop_dyaw
 			&& std::abs(std::log(A.scale()) - std::log(init_dscale)) < max_loop_dscale)
 		{
-			merge.num_iter = 1;
-			merge.weight = 0.5;
-
-			// merge only for error gating
-			const auto err = merge.exec(L->image, R_img, A);
-
-			const bool pass = err < max_loop_error;
-
 			std::cout << "Mapping: Loop " << ln->k << " -> " << rn->k
 				<< ": delta = (" << init_delta.x() << ", " << init_delta.y()
 				<< ") / (" << A.translation().x() << ", " << A.translation().y() << ") px"
 				<< ", yaw = " << rad2deg(init_dyaw) << " / " << rad2deg(A.yaw()) << " deg"
 				<< ", scale = " << init_dscale << " / " << A.scale()
-				<< ", error = " << err << (pass ? " (PASS)" : "") << std::endl;
+				<< ", error = " << A.R_norm << std::endl;
 
-			if(pass) {
-				// scale sigma relative to loop gap
-				const auto std_factor = A.translation().norm() / node_delta;
+			// scale sigma relative to loop gap
+			const auto std_factor = A.translation().norm() / node_delta;
 
-				const auto info_pos = Mat2d::Identity() / pow(dxy_sigma * std_factor, 2);
-				const auto info_yaw = 1 / pow(dyaw_sigma * std_factor, 2);
-				const auto info_scl = 1 / pow(dscale_sigma * std_factor, 2);
+			const auto info_pos = Mat2d::Identity() / pow(dxy_sigma * std_factor, 2);
+			const auto info_yaw = 1 / pow(dyaw_sigma * std_factor, 2);
+			const auto info_scl = 1 / pow(dscale_sigma * std_factor, 2);
 
-				graph.add_edge(
-						ln->k, rn->k,
-						A.translation().cast<double>(), A.yaw(), A.scale(),
-						info_pos, info_yaw, info_scl);
-			}
+			graph.add_edge(
+					ln->k, rn->k,
+					A.translation().cast<double>(), A.yaw(), A.scale(),
+					info_pos, info_yaw, info_scl);
 		}
 	}
 }
