@@ -302,7 +302,7 @@ public:
 
 				n.err_en = r;	// save error
 
-				out.gps_error += double(r.transpose() * (n.gps_info * r));
+				out.gps_error += r.transpose() * r;
 
 				Mat2D J = Mat2D::Zero();
 				J(0, 1) = kE; // d(dE)/d(lon)
@@ -352,7 +352,7 @@ public:
 
 					e.err_en = r;	// save error
 
-					out.img_error += r.transpose() * (e.info_pos * r);
+					out.img_error += r.transpose() * r;
 
 					Mat2D Ji = Mat2D::Zero();
 					Mat2D Jj = Mat2D::Zero();
@@ -388,7 +388,7 @@ public:
 
 					e.err_yaw = r;		// save error
 
-					out.yaw_error += double(r * (double(e.info_yaw) * r));
+					out.yaw_error += r * r;
 
 					VecD gi = VecD::Zero();
 					VecD gj = VecD::Zero();
@@ -422,7 +422,7 @@ public:
 
 					e.err_scl = r;		// save error
 
-					out.scl_error += r * double(e.info_scl * r);
+					out.scl_error += r * r;
 
 					VecD gi = VecD::Zero();
 					VecD gj = VecD::Zero();
