@@ -10,7 +10,7 @@
 #include <mmpilot/util.h>
 #include <mmpilot/beta_msp.h>
 
-#include "../pipeline.h"
+#include "../pipeline2.h"
 
 #include <string>
 #include <memory>

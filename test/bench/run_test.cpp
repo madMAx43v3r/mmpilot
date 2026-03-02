@@ -9,7 +9,7 @@
 #include <mmpilot/image.h>
 #include <mmpilot/util.h>
 
-#include "../pipeline.h"
+#include "../pipeline2.h"
 
 #include <string>
 #include <memory>
