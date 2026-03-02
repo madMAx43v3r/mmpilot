@@ -167,6 +167,8 @@ public:
 		GL_bind_tex(prog_blend, "uSrc0", in_ref, 0);
 		GL_bind_tex(prog_blend, "uSrc1", in_img, 1);
 
+		GL_uniform_1f(prog_blend, "uWeight", weight);
+
 		render::fullscreen(fbo_out, width, height);
 
 		glUseProgram(prog_error);

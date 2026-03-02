@@ -50,7 +50,7 @@ public:
 
 	struct Node {
 		int64_t ts = 0;			// [us]
-		float weight = 1;
+		int weight = 1;
 		double distance = 0;		// from start [px]
 		Transform2D delta;
 		std::shared_ptr<GL_Tex2D> out;
@@ -63,6 +63,9 @@ public:
 	struct Buffer {
 		std::shared_ptr<GL_Tex2D> map;
 		std::shared_ptr<GL_Tex2D> weight;
+
+		float min_scale = 0;		// [px/m]
+		float max_scale = 0;		// [px/m]
 
 		GLuint fbo = 0;
 		GLuint rbo = 0;
@@ -92,8 +95,8 @@ public:
 
 private:
 	void render(
+			std::shared_ptr<Node> node,
 			std::shared_ptr<Buffer> buf,
-			std::shared_ptr<GL_Tex2D> img,
 			const std::vector<Vec2f>& coords);
 
 	void compress(GLuint fbo, std::shared_ptr<Buffer> buf);

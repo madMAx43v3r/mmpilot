@@ -9,6 +9,7 @@
 #include <mmpilot/render.h>
 
 #include <limits>
+#include <algorithm>
 
 
 namespace mmpilot {
@@ -235,18 +236,21 @@ void Mapping::exec(const int64_t ts, std::shared_ptr<GL_Tex2D> img, const Affine
 }
 
 void Mapping::render(
+		std::shared_ptr<Node> node,
 		std::shared_ptr<Buffer> buf,
-		std::shared_ptr<GL_Tex2D> img,
 		const std::vector<Vec2f>& coords)
 {
-	if(!img) {
+	if(!node || !buf) {
 		return;
 	}
 	if(coords.size() != 4) {
 		throw std::logic_error("render_image(): coords.size() != 4");
 	}
+	const auto& img = node->image;
+
 	const int width = buf->map->width;
 	const int height = buf->map->height;
+	const auto scale = 1 / node->node->scale();
 
 	float xmin = std::numeric_limits<float>::max();
 	float ymin = std::numeric_limits<float>::max();
@@ -279,6 +283,7 @@ void Mapping::render(
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
+	GL_uniform_1f(prog_render, "uWeight", scale / buf->max_scale);
 	GL_uniform_2f(prog_render, "uMapSize", width, height);
 
 	glBindFramebuffer(GL_FRAMEBUFFER, buf->fbo);
@@ -340,7 +345,7 @@ void Mapping::optimize(std::shared_ptr<Node> L, std::shared_ptr<Node> R, const b
 		// we need to warp the remaining errors
 
 		merge.num_iter = 1;
-		merge.weight = R->weight / (1 + R->weight);
+		merge.weight = R->weight / float(1 + R->weight);
 
 		const auto err = merge.exec(L->image, R_img, A);
 
@@ -455,6 +460,9 @@ std::shared_ptr<GL_Tex2D> Mapping::finalize(const int num_pass)
 				<< " m, yaw_error = " << rad2deg(res.yaw_error) << " deg, scl_error = " << res.scl_error << " m/px, iters = " << res.num_iters << std::endl;
 
 		// ------------  Merge images
+		for(const auto& node : nodes) {
+			node->weight = 1;	// reset weights
+		}
 		for(const auto& L : nodes) {
 			const auto& ln = L->node;
 			const auto lns = std::exp(ln->ls);		// [m/px]
@@ -477,7 +485,6 @@ std::shared_ptr<GL_Tex2D> Mapping::finalize(const int num_pass)
 			if(node->out) {
 				GL_blit(node->image, node->out);
 			}
-			node->weight = 1;
 		}
 	}
 
@@ -510,6 +517,8 @@ std::shared_ptr<GL_Tex2D> Mapping::finalize(const int num_pass)
 	float ymin = std::numeric_limits<float>::max();
 	float xmax = std::numeric_limits<float>::min();
 	float ymax = std::numeric_limits<float>::min();
+	float smin = std::numeric_limits<float>::max();
+	float smax = std::numeric_limits<float>::min();
 
 	for(const auto& node : nodes) {
 		const auto p = node->pose(wgs);
@@ -518,6 +527,8 @@ std::shared_ptr<GL_Tex2D> Mapping::finalize(const int num_pass)
 		ymin = std::min(ymin, p.pos.y() - w / 2);
 		xmax = std::max(xmax, p.pos.x() + w / 2);
 		ymax = std::max(ymax, p.pos.y() + w / 2);
+		smin = std::min(smin, 1 / p.scale);
+		smax = std::max(smax, 1 / p.scale);
 	}
 	const Vec2f origin = Vec2f(xmin, ymin);
 
@@ -527,14 +538,26 @@ std::shared_ptr<GL_Tex2D> Mapping::finalize(const int num_pass)
 	if(map_width <= 0 || map_height <= 0 || map_width > 32 * 1024 || map_height > 32 * 1024) {
 		return nullptr;
 	}
-	std::cout << "Mapping: map size = " << map_width << " x " << map_height << ", nodes = " << nodes.size() << std::endl;
+	std::cout << "Mapping: map size = " << map_width << " x " << map_height << ", nodes = " << nodes.size()
+			<< ", smin = " << smin << " px/m, smax = " << smax << " px/m" << std::endl;
+
+	// sort nodes by weight
+	auto snodes = nodes;
+	std::sort(snodes.begin(), snodes.end(), [](std::shared_ptr<Node> L, std::shared_ptr<Node> R) {
+		return L->weight == R->weight ? L->node->k < R->node->k : L->weight < R->weight;
+	});
 
 	// ------------ Render map
 	auto buf = std::make_shared<Buffer>(map_width, map_height, is_mono);
+	buf->min_scale = smin;
+	buf->max_scale = std::min(smax, 100.f);
 
-	for(const auto& node : nodes)
+	for(const auto& node : snodes)
 	{
 		const auto pose = node->pose(wgs);
+
+		std::cout << "Mapping: Render " << node->node->k << ": weight = " << node->weight
+				<< ", scale = " << 1 / node->node->scale() << " px/m" << std::endl;
 
 		std::vector<Vec2f> coords;
 		for(int i = 0; i < 4; ++i)
@@ -544,7 +567,7 @@ std::shared_ptr<GL_Tex2D> Mapping::finalize(const int num_pass)
 			const Vec2f p = pose.apply(q) - origin;
 			coords.push_back(p / map_scale);
 		}
-		render(buf, node->image, coords);
+		render(node, buf, coords);
 	}
 
 //	auto out = std::make_shared<GL_Tex2D>(
