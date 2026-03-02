@@ -5,24 +5,25 @@ layout(location = 0) out vec4 outImg;
 
 uniform sampler2D uSrc;
 
-uniform vec2 uCenter;
-uniform vec2 uInvSize;
+uniform vec2 uCenterIn;
+uniform vec2 uCenterOut;
+uniform vec2 uInvSizeIn;
 
 uniform float uParams[4];      // affine
 
 void main()
 {
-    vec2 p = gl_FragCoord.xy - uCenter;
+    vec2 p = gl_FragCoord.xy - uCenterOut;
 
     float ca = cos(uParams[2]);
     float sa = sin(uParams[2]);
 
-    vec2 q = uCenter + vec2(
+    vec2 q = uCenterIn + vec2(
         (ca * p.x - sa * p.y) * uParams[3] + uParams[0],
         (sa * p.x + ca * p.y) * uParams[3] + uParams[1]
     );
 
-    vec2 uv = q * uInvSize;
+    vec2 uv = q * uInvSizeIn;
 
     if(uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) {
         outImg = vec4(0);

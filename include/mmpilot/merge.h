@@ -24,6 +24,7 @@ namespace mmpilot {
 
 class MergeFilter {
 public:
+	int depth = 4;
 	int num_iter = 3;
 	int reduction_chunk = 16;
 
@@ -57,6 +58,7 @@ public:
 				throw std::logic_error("invalid format");
 		}
 
+		flow.depth = depth;
 		flow.debug = debug;
 		flow.init(width, height);
 
@@ -111,8 +113,9 @@ public:
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-		GL_uniform_2f(prog_render, "uCenter", width / 2., height / 2.);
-		GL_uniform_2f(prog_render, "uInvSize", 1. / width, 1. / height);
+		GL_uniform_2f(prog_render, "uCenterIn",  ref->width / 2., ref->height / 2.);
+		GL_uniform_2f(prog_render, "uCenterOut", img->width / 2., img->height / 2.);
+		GL_uniform_2f(prog_render, "uInvSizeIn", 1. / ref->width, 1. / ref->height);
 		GL_uniform_fv(prog_render, "uParams", A);
 
 		render::fullscreen(fbo_ref, width, height);
