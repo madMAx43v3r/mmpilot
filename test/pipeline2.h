@@ -428,7 +428,7 @@ protected:
 		else if(auto gps = std::dynamic_pointer_cast<MSP2Client::RawGPS>(sample)) {
 			std::cout << "gps: lat=" << gps->lat << ", lon=" << gps->lon
 					<< ", speed=" << gps->speed << ", heading=" << gps->course
-					<< ", alt=" << (gps->alt & 0xFF) << ", sats=" << int(gps->num_sats) << ", fix=" << int(gps->fix_type) << std::endl;
+					<< ", alt=" << gps->alt << ", sats=" << int(gps->num_sats) << ", fix=" << int(gps->fix_type) << std::endl;
 		}
 	}
 

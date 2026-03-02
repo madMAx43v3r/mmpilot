@@ -493,9 +493,9 @@ private:
 	RawGPS parse_raw_gps(const Frame& f)
 	{
 		// Betaflight RAW_GPS layout:
-		// 1 + 1 + 4 + 4 + 4 + 2 + 2 = 18 bytes
+		// 1 + 1 + 4 + 4 + 2 + 2 + 2 = 16 bytes
 		const auto& p = f.payload;
-		if(p.size() < 18) {
+		if(p.size() < 16) {
 			throw std::runtime_error("MSP_RAW_GPS payload too short");
 		}
 		RawGPS gps;
