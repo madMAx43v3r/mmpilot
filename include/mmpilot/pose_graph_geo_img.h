@@ -237,7 +237,7 @@ public:
 		return std::sqrt(sum / count);
 	}
 
-	Result solve(int max_iters = 1000, T step_tol = T(1e-6), T lambda = T(1e-3))
+	Result solve(int max_iters = 1000, T step_tol = T(1e-6), T lambda = T(1e-2))
 	{
 		Result out;
 		const int N = node_count();

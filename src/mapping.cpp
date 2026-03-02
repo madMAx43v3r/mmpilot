@@ -399,7 +399,7 @@ void Mapping::optimize(std::shared_ptr<Node> L, std::shared_ptr<Node> R, const b
 
 std::shared_ptr<GL_Tex2D> Mapping::finalize(const int num_pass)
 {
-	if(nodes.size() < 3) {
+	if(nodes.size() < 5) {
 		return nullptr;
 	}
 	const auto begin = get_time_micros();
@@ -535,6 +535,9 @@ std::shared_ptr<GL_Tex2D> Mapping::finalize(const int num_pass)
 	const int map_width  = ((xmax - xmin) + 1) / map_scale;
 	const int map_height = ((ymax - ymin) + 1) / map_scale;
 
+	if(map_width <= 0 || map_height <= 0 || map_width > 32 * 1024 || map_height > 32 * 1024) {
+		return nullptr;
+	}
 	std::cout << "Mapping: map size = " << map_width << " x " << map_height << ", nodes = " << nodes.size() << std::endl;
 
 	// ------------ Render map

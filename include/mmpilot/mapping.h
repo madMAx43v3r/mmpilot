@@ -29,7 +29,7 @@ public:
 	using WGS84 = mmpilot::WGS84<double>;
 	using PoseGraph = PoseGraphGeoImg<double>;
 
-	float node_delta = 20;				// min edge length [px]
+	float node_delta = 50;				// min edge length [px]
 
 	double max_loop_delta = 500;		// maximum initial image shift [px]
 	double max_loop_error = 10;			// average square pixel error
