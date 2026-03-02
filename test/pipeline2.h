@@ -344,6 +344,7 @@ protected:
 //		show(display, merge.flow.stage[0]->flow[0].tex_debug);
 //		show(display, stage[0]->base_img);
 //		show(display, stage[0]->flow.tex_debug);
+//		show(display, stage[0]->solver.tex_debug);
 
 		rebase();
 	}

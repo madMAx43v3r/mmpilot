@@ -36,14 +36,14 @@ protected:
 
 		rebase();
 
-		const bool done = mapping.nodes.size() >= 100;
+		const bool done = mapping.nodes.size() >= 150;
 
-		const auto map = mapping.finalize(done ? 1 : 0);
+		mapping.finalize(done ? 2 : 0);
 
 //		show(display, stage[0]->solver.tex_debug);
 //		show(display, mapping.merge.tex_debug[0]);
 //		show(display, mapping.affine.stage[0]->solver.tex_debug);
-		show(display, map);
+		show(display, mapping.render_map());
 
 		if(done) {
 			bool dummy;

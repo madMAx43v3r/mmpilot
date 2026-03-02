@@ -13,6 +13,7 @@
 #include <mmpilot/multi_affine.h>
 #include <mmpilot/transform.h>
 #include <mmpilot/merge.h>
+#include <mmpilot/stitch.h>
 #include <mmpilot/gps.h>
 #include <mmpilot/pose_graph_geo_img.h>
 
@@ -37,7 +38,7 @@ public:
 	double outlier_threshold = 1;		// multiples of average
 
 	double max_merge_delta = 500;		// [px]
-	double max_merge_error = 20;		// average square pixel error
+	double max_merge_error = 10;		// average square pixel error
 
 	double gps_sigma = 3;				// GPS position [m]
 	double dxy_sigma = 0.2;				// image delta [m]
@@ -77,6 +78,7 @@ public:
 
 	MergeFilter merge;
 	MultiAffine affine;
+	StitchFilter stitch;
 
 	Transform2D delta;
 
@@ -91,7 +93,9 @@ public:
 
 	void on_gps(std::shared_ptr<MSP2Client::RawGPS> gps);
 
-	std::shared_ptr<GL_Tex2D> finalize(const int num_pass);
+	void finalize(const int num_pass);
+
+	std::shared_ptr<GL_Tex2D> render_map();
 
 private:
 	void render(

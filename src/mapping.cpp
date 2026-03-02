@@ -78,6 +78,7 @@ void Mapping::init(int width_, int height_, GLenum format)
 	}
 
 	merge.init(width, height, format);
+	stitch.init(width, height, format);
 
 	affine.depth = 4;
 	affine.init(width, height);
@@ -240,9 +241,6 @@ void Mapping::render(
 		std::shared_ptr<Buffer> buf,
 		const std::vector<Vec2f>& coords)
 {
-	if(!node || !buf) {
-		return;
-	}
 	if(coords.size() != 4) {
 		throw std::logic_error("render_image(): coords.size() != 4");
 	}
@@ -400,13 +398,14 @@ void Mapping::optimize(std::shared_ptr<Node> L, std::shared_ptr<Node> R, const b
 	}
 }
 
-std::shared_ptr<GL_Tex2D> Mapping::finalize(const int num_pass)
+void Mapping::finalize(const int num_pass)
 {
 	if(nodes.size() < 5) {
-		return nullptr;
+		return;
 	}
 	const auto begin = get_time_micros();
 
+	// solve odometry graph
 	auto res = graph.solve();
 
 	std::cout << "Mapping: Odometry: gps_error = " << res.gps_error << " m, img_error = " << res.img_error
@@ -497,6 +496,28 @@ std::shared_ptr<GL_Tex2D> Mapping::finalize(const int num_pass)
 		}
 	}
 
+	// ------------ Stitch images
+	if(num_pass) {
+		std::shared_ptr<Node> prev;
+		for(const auto& node : nodes) {
+			if(prev) {
+				const auto L_img = prev->out ? prev->out : prev->image;
+				const auto R_img = node->out ? node->out : node->image;
+
+				stitch.exec(L_img, R_img, get_affine(prev, node), false);
+
+				GL_blit(node->out, stitch.out[1]);
+			}
+			prev = node;
+		}
+	}
+
+	std::cout << "Mapping[" << width << "x" << height << "]: took "
+			<< (get_time_micros() - begin) / 1e6f << " sec" << std::endl;
+}
+
+std::shared_ptr<GL_Tex2D> Mapping::render_map()
+{
 	// ------------ Compute map origin + scale
 	double lat0 = 0;
 	double lon0 = 0;
@@ -544,29 +565,22 @@ std::shared_ptr<GL_Tex2D> Mapping::finalize(const int num_pass)
 	const int map_width  = ((xmax - xmin) + 1) / map_scale;
 	const int map_height = ((ymax - ymin) + 1) / map_scale;
 
+	// TODO: limit size to 32k
+
 	if(map_width <= 0 || map_height <= 0 || map_width > 32 * 1024 || map_height > 32 * 1024) {
 		return nullptr;
 	}
 	std::cout << "Mapping: map size = " << map_width << " x " << map_height << ", nodes = " << nodes.size()
 			<< ", smin = " << smin << " px/m, smax = " << smax << " px/m" << std::endl;
 
-	// sort nodes by weight
-	auto snodes = nodes;
-	std::sort(snodes.begin(), snodes.end(), [](std::shared_ptr<Node> L, std::shared_ptr<Node> R) {
-		return L->weight == R->weight ? L->node->k < R->node->k : L->weight < R->weight;
-	});
-
 	// ------------ Render map
 	auto buf = std::make_shared<Buffer>(map_width, map_height, is_mono);
 	buf->min_scale = smin;
 	buf->max_scale = std::min(smax, 100.f);
 
-	for(const auto& node : snodes)
+	for(const auto& node : nodes)
 	{
 		const auto pose = node->pose(wgs);
-
-		std::cout << "Mapping: Render " << node->node->k << ": weight = " << node->weight
-				<< ", scale = " << 1 / node->node->scale() << " px/m" << std::endl;
 
 		std::vector<Vec2f> coords;
 		for(int i = 0; i < 4; ++i)
@@ -578,17 +592,6 @@ std::shared_ptr<GL_Tex2D> Mapping::finalize(const int num_pass)
 		}
 		render(node, buf, coords);
 	}
-
-//	auto out = std::make_shared<GL_Tex2D>(
-//			map_width, map_height, is_mono ? GL_R8 : GL_RGB8, is_mono ? GL_RED : GL_RGB, GL_UNSIGNED_BYTE);
-//	const auto fbo = GL_create_FBO(out->id);
-//
-//	compress(fbo, buf);
-//
-//	glDeleteFramebuffers(1, &fbo);
-
-	std::cout << "Mapping[" << width << "x" << height << "]: took "
-					<< (get_time_micros() - begin) / 1e6f << " sec" << std::endl;
 
 	return buf->map;
 }
