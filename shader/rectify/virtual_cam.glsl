@@ -14,6 +14,7 @@ uniform vec2  uInvF;            // inverse focal length (1/pix)
 uniform mat3  uRot;             // camera rotation
 
 // Fisheye intrinsics
+uniform int   uModel;           // (pinhole, equi-distant, equi-solid, stereo-graphic)
 uniform float uF;               // fisheye scale in px
 uniform float uK2;              // r^2 coeff on angle-radius
 uniform float uK4;              // r^4 coeff on angle-radius
@@ -36,7 +37,14 @@ void main()
     vec2 v = dirF.xy / max(xy, 1e-8);
 
     // Distort in "angle radius" space: r (radians)
-    float r  = theta;           // equidistant
+    float r = 0.0;
+    switch(uModel) {
+        case 0: r = tan(theta); break;              // pinhole
+        case 1: r  = theta; break;                  // equi-distant
+        case 2: r = 2.0 * sin(theta / 2.0); break;  // equi-solid
+        case 3: r = 2.0 * tan(theta / 2.0); break;  // stereo-graphic
+    }
+    // float r  = theta;           // equidistant
     // float r = 2.0 * sin(theta / 2.0);   // equisolid
     // float r = 2.0 * tan(theta / 2.0);   // stereographic
     float r2 = r * r;

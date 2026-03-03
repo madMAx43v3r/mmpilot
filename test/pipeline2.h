@@ -47,6 +47,7 @@ public:
 	float FOV_cam = 120;			// virtual deg (diagonal)
 	float FOV_circle = 1;			// for FOV_in
 
+	int cam_model = 3;				// (pinhole, equi-distant, equi-solid, stereo-graphic)
 	Vec2f K_param = {0, 0};			// K2, K4
 
 	Vec3f RPY_cam = Vec3f::Zero();	// relative to frame [deg]
@@ -232,6 +233,7 @@ protected:
 			virtual_cam.FOV_circle = FOV_circle;
 			virtual_cam.K2 = K_param.x();
 			virtual_cam.K4 = K_param.y();
+			virtual_cam.model = cam_model;
 			virtual_cam.init(GL_RG16F, GL_RG, GL_HALF_FLOAT);
 
 			width = virtual_cam.width;

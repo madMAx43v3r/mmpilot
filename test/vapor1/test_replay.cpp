@@ -32,7 +32,9 @@ int main(int argc, char** argv)
 	pipe_0.FOV_in = 190;
 	pipe_0.FOV_cam = 120;
 	pipe_0.RPY_cam = Vec3f(0, 0, -30 -90);
-	pipe_0.K_param  = Vec2f(0.10, 0.03);
+	pipe_0.cam_model = 3;
+	pipe_0.K_param  = Vec2f(-0.01, -0.01);		// stereo
+//	pipe_0.K_param  = Vec2f(0.15, 0.01);	// equidistant
 
 	const auto on_frame = [&](std::shared_ptr<Image> frame) {
 		std::cout << "[" << frame->topic << "] ts = " << frame->timestamp

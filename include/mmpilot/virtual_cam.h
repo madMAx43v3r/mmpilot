@@ -26,6 +26,8 @@ public:
 	int width = 1024;		// output size
 	int height = 1024;		// output size
 
+	int model = 0;			// (pinhole, equi-distant, equi-solid, stereo-graphic)
+
 	float FOV_in = 180;		// fisheye FOV in degrees (diagonal)
 	float FOV_cam = 120;	// pinhole FOV in degrees (diagonal)
 
@@ -77,7 +79,13 @@ public:
 
 		// fisheye baseline (equidistant)
 		const auto diag = FOV_circle * Vec2f(in->width, in->height).norm() / 2;
-		f_in = diag / (deg2rad(FOV_in) / 2);
+		const auto theta = deg2rad(FOV_in) / 2;
+		switch(model) {
+			case 0: f_in = diag / std::tan(theta); break;			// pinhole
+			case 1: f_in = diag / theta; break;						// equi-distant
+			case 2: f_in = diag / (2 * std::sin(theta / 2)); break;	// equi-solid
+			case 3: f_in = diag / (2 * std::tan(theta / 2)); break;	// stereo-graphic
+		}
 		{
 			const auto r = deg2rad(FOV_in) / 2;
 			const auto r2 = r * r;
@@ -99,6 +107,7 @@ public:
 		GL_uniform_2f(prog, "uInvF", 1 / f_cam, 1 / f_cam);
 		GL_uniform_mat3(prog, "uRot", R_mat.data());
 
+		GL_uniform_1i(prog, "uModel", model);
 		GL_uniform_1f(prog, "uF", f_in);
 		GL_uniform_1f(prog, "uK2", K2);
 		GL_uniform_1f(prog, "uK4", K4);
