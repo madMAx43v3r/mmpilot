@@ -28,6 +28,8 @@ public:
 
 	bool real_time = true;
 
+	double speed = 1;
+
 	// [topic, callback]
 	std::map<std::string, std::function<std::shared_ptr<Sample>(Player&)>> decode;
 
@@ -135,7 +137,7 @@ public:
 				if(auto sample = read_sample()) {
 					const auto now_us = get_time_micros();
 					if(have_init) {
-						const int64_t delay_us = (sample->ts + ts_delta) - now_us;
+						const int64_t delay_us = (sample->ts + ts_delta) / speed - now_us;
 						if(real_time && delay_us > 0) {
 							sleep_us(delay_us);		// sleep to match real time
 						}

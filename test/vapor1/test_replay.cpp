@@ -79,6 +79,9 @@ int main(int argc, char** argv)
 		player.seek(offset_sec * 1000);
 	}
 
+	player.speed = 10;
+//	player.real_time = false;
+
 	player.play();
 
 	return 0;
