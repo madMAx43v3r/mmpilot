@@ -54,7 +54,7 @@ public:
 
 		s.lat = gps.lat * 1e-7;
 		s.lon = gps.lon * 1e-7;
-		s.alt = gps.alt * 0.01;
+		s.alt = gps.alt;
 
 		s.speed = gps.speed * 0.01;
 		s.heading = gps.course * 0.1;
