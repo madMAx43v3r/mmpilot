@@ -32,6 +32,8 @@ public:
 
 	float node_delta = 50;				// min edge length [px]
 
+	double max_map_scale = 10;			// [px/m]
+
 	double max_loop_delta = 500;		// maximum initial image shift [px]
 	double max_loop_dyaw = 0.2;			// max yaw difference [rad]
 	double max_loop_dscale = 0.2;		// max log(scale) difference

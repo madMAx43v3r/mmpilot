@@ -527,7 +527,7 @@ std::shared_ptr<GL_Tex2D> Mapping::render_map()
 		const auto& node = n->node;
 		lat0 += node->lat;
 		lon0 += node->lon;
-		map_scale += node->ls;
+		map_scale += node->scale();
 		if(node->gps_valid) {
 			alt0 = std::min(alt0, node->gps_alt);
 		}
@@ -535,7 +535,9 @@ std::shared_ptr<GL_Tex2D> Mapping::render_map()
 	}
 	lat0 /= nodes.size();
 	lon0 /= nodes.size();
-	map_scale = std::exp(map_scale / nodes.size());
+	map_scale = map_scale / nodes.size();
+
+	map_scale = std::max(map_scale, 1 / max_map_scale);
 
 	std::cout << "Mapping: lat0 = " << rad2deg(lat0) << " deg, lon0 = " << rad2deg(lon0)
 			<< " deg, alt0 = " << alt0 << " m, map_scale = " << map_scale << " m/px" << std::endl;
@@ -576,7 +578,7 @@ std::shared_ptr<GL_Tex2D> Mapping::render_map()
 	// ------------ Render map
 	auto buf = std::make_shared<Buffer>(map_width, map_height, is_mono);
 	buf->min_scale = smin;
-	buf->max_scale = std::min(smax, 100.f);
+	buf->max_scale = smax;
 
 	for(const auto& node : nodes)
 	{
