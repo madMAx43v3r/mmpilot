@@ -57,7 +57,7 @@ static void assemble_equations(
 }
 
 Affine::Params Affine::exec(
-		std::shared_ptr<GL_Tex2D> ref, std::shared_ptr<GL_Tex2D> img, const Params& init_p)
+		std::shared_ptr<GL_Tex2D> ref, std::shared_ptr<GL_Tex2D> img, const Params& init_p, const bool sync)
 {
 	if(!have_init) {
 		init(img->width, img->height);
@@ -187,11 +187,12 @@ Affine::Params Affine::exec(
 		render::fullscreen(fbo_debug, width, height);
 	}
 
-	GL_finish("Affine::solve()");
+	if(sync) {
+		GL_finish("Affine::solve()");
 
-	std::cout << "Affine[" << width << "x" << height << "]: took "
-				<< (get_time_micros() - begin) / 1000.f << " ms" << std::endl;
-
+		std::cout << "Affine[" << width << "x" << height << "]: took "
+					<< (get_time_micros() - begin) / 1000.f << " ms" << std::endl;
+	}
 	return params;
 }
 

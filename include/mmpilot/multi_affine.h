@@ -70,7 +70,17 @@ public:
 			gradient.init(width, height);
 		}
 
-		void exec(std::shared_ptr<GL_Tex2D> ref_, std::shared_ptr<GL_Tex2D> img)
+		void exec_ref(std::shared_ptr<GL_Tex2D> ref_)
+		{
+			auto ref = ref_;
+			for(int i = 0; i < num_smooth; ++i) {
+				smooth[i].exec(ref, false);
+				ref = smooth[i].out;
+			}
+			gradient.exec(ref, false);
+		}
+
+		void exec_img(std::shared_ptr<GL_Tex2D> img, const bool sync)
 		{
 			if(prev) {
 				A = copy(prev->A).scale(2);
@@ -81,19 +91,18 @@ public:
 			} else {
 				std::cout << "init_p: " << to_string(A) << std::endl;
 			}
-			auto ref = ref_;
-			for(int i = 0; i < num_smooth; ++i) {
-				smooth[i].exec(ref, false);
-				ref = smooth[i].out;
-			}
-			gradient.exec(ref, false);
-
-			A = solver.exec(gradient.out, img, A);
+			A = solver.exec(gradient.out, img, A, sync);
 
 			if(prev) {
 				// we only care about top level
 				A.converged = true;
 			}
+		}
+
+		void exec(std::shared_ptr<GL_Tex2D> ref, std::shared_ptr<GL_Tex2D> img, const bool sync)
+		{
+			exec_ref(ref);
+			exec_img(img, sync);
 		}
 	};
 
@@ -139,14 +148,27 @@ public:
 		have_init = true;
 	}
 
-	Affine::Params exec(std::shared_ptr<GL_Tex2D> ref, std::shared_ptr<GL_Tex2D> img, const Affine::Params& A = {}, const bool sync = true)
+	void exec_ref(std::shared_ptr<GL_Tex2D> ref)
+	{
+		if(!have_init) {
+			throw std::logic_error("not initialized");
+		}
+		pyramid[0].exec(ref, false);
+
+		for(int i = 0; i < depth; ++i) {
+			stage[i]->exec_ref(pyramid[0].out[i]);
+		}
+	}
+
+	Affine::Params exec_img(
+			std::shared_ptr<GL_Tex2D> img,
+			const Affine::Params& A = {}, const int level = 0, const bool sync = true)
 	{
 		if(!have_init) {
 			throw std::logic_error("not initialized");
 		}
 		const auto begin = get_time_micros();
 
-		pyramid[0].exec(ref, false);
 		pyramid[1].exec(img, false);
 
 		// initial guess
@@ -158,9 +180,15 @@ public:
 		}
 
 		// top down processing
-		for(int i = depth - 1; i >= 0; --i)
+		for(int i = depth - 1; i >= level; --i)
 		{
-			stage[i]->exec(pyramid[0].out[i], pyramid[1].out[i]);
+			stage[i]->exec_img(pyramid[1].out[i], sync);
+		}
+
+		// extrapolate to top level
+		for(int i = std::min(level - 1, depth - 2); i >= 0; --i)
+		{
+			stage[i]->A = copy(stage[i+1]->A).scale(2);
 		}
 
 		if(sync) {
@@ -170,6 +198,14 @@ public:
 					<< (get_time_micros() - begin) / 1000.f << " ms" << std::endl;
 		}
 		return stage[0]->A;
+	}
+
+	Affine::Params exec(
+			std::shared_ptr<GL_Tex2D> ref, std::shared_ptr<GL_Tex2D> img,
+			const Affine::Params& A = {}, const int level = 0, const bool sync = true)
+	{
+		exec_ref(ref);
+		return exec_img(img, A, level, sync);
 	}
 
 private:

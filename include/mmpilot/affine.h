@@ -130,7 +130,7 @@ public:
 
 	~Affine();
 
-	Params exec(std::shared_ptr<GL_Tex2D> ref, std::shared_ptr<GL_Tex2D> img, const Params& init_p);
+	Params exec(std::shared_ptr<GL_Tex2D> ref, std::shared_ptr<GL_Tex2D> img, const Params& init_p, const bool sync = true);
 
 	void init(int width, int height);
 
