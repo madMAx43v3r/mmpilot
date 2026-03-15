@@ -21,22 +21,13 @@
 
 namespace mmpilot {
 
-class Player {
+class Reader {
 public:
-	size_t max_string_len = 1u << 24;
-	size_t max_binary_len = 1u << 28;
+	size_t max_string_len = size_t(1) << 30;
+	size_t max_binary_len = size_t(1) << 31;
 
-	bool real_time = true;
 
-	double speed = 1;
-
-	// [topic, callback]
-	std::map<std::string, std::function<std::shared_ptr<Sample>(Player&)>> decode;
-
-	// [topic, callback]
-	std::map<std::string, std::function<void(std::shared_ptr<Sample>)>> handle;
-
-	Player(const std::string& file_name)
+	Reader(const std::string& file_name)
 		:	stream(file_name, std::ios::binary | std::ios::in)
 	{
 		if(!stream.is_open()) {
@@ -45,10 +36,10 @@ public:
 		stream.exceptions(std::ios::badbit); // throw on hard I/O errors
 	}
 
-	Player(const Player&) = delete;
-	Player& operator=(const Player&) = delete;
+	Reader(const Reader&) = delete;
+	Reader& operator=(const Reader&) = delete;
 
-	~Player() {
+	~Reader() {
 		stream.close();
 	}
 
@@ -97,6 +88,43 @@ public:
 		if(!stream) {
 			throw std::runtime_error("read failed or EOF reached");
 		}
+	}
+
+private:
+	std::ifstream stream;
+
+	template<class T>
+	T read_pod()
+	{
+		static_assert(std::is_integral<T>::value, "integral types only");
+		T out = 0;
+		read(&out, sizeof(T));
+		return out;
+	}
+
+};
+
+
+class Player : public Reader {
+public:
+	bool real_time = true;
+
+	double speed = 1;
+
+	// [topic, callback]
+	std::map<std::string, std::function<std::shared_ptr<Sample>(Player&)>> decode;
+
+	// [topic, callback]
+	std::map<std::string, std::function<void(std::shared_ptr<Sample>)>> handle;
+
+
+	Player(const std::string& file_name)
+		:	Reader(file_name)
+	{
+	}
+
+	~Player() {
+		stream.close();
 	}
 
 	std::shared_ptr<Sample> read_sample()
@@ -177,17 +205,6 @@ public:
 	}
 
 private:
-	std::ifstream stream;
-
-	template<class T>
-	T read_pod()
-	{
-		static_assert(std::is_integral<T>::value, "integral types only");
-		T out = 0;
-		read(&out, sizeof(T));
-		return out;
-	}
-
 	void dispatch(std::shared_ptr<Sample> sample)
 	{
 		const auto f_handle = handle[sample->topic];
