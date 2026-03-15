@@ -108,7 +108,7 @@ public:
 
 	std::vector<std::shared_ptr<Level>> stage;
 
-	void init(int width_, int height_, int width_ref = width_, int height_ref = height_)
+	void init(int width_, int height_, int width_ref = 0, int height_ref = 0)
 	{
 		if(have_init) {
 			throw std::logic_error("already initialized");
@@ -118,6 +118,13 @@ public:
 		}
 		width = width_;
 		height = height_;
+
+		if(width_ref <= 0) {
+			width_ref = width;
+		}
+		if(height_ref <= 0) {
+			height_ref = height;
+		}
 
 		pyramid[0].depth = depth;
 		pyramid[1].depth = depth;

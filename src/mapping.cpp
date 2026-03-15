@@ -83,14 +83,6 @@ void Mapping::init(int width_, int height_, GLenum format)
 	affine.depth = 4;
 	affine.init(width, height);
 
-	tex_tmp = std::make_shared<GL_Tex2D>(
-			width, height, is_mono ? GL_RG8 : GL_RGBA8, is_mono ? GL_RG : GL_RGBA, GL_UNSIGNED_BYTE);
-
-	tex_debug = std::make_shared<GL_Tex2D>(
-			width, height, is_mono ? GL_R8 : GL_RGB8, is_mono ? GL_RED : GL_RGB, GL_UNSIGNED_BYTE);
-
-	fbo_debug = GL_create_FBO(tex_debug->id);
-
 	{
 		const auto vs = GL_compile_shader(GL_VERTEX_SHADER,   "shader/mapping/vertex.glsl");
 		const auto fs = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/mapping/" + s_render);
@@ -300,10 +292,10 @@ void Mapping::render(
 	glBindVertexArray(vao);
 	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
 
-	GL_finish("Mapping::render_image()");
-
 	glDisable(GL_DEPTH_TEST);
 	glDisable(GL_SCISSOR_TEST);
+
+	GL_check("Mapping::render()");
 }
 
 void Mapping::compress(GLuint fbo, std::shared_ptr<Buffer> buf)
@@ -504,7 +496,7 @@ void Mapping::finalize(const int num_pass)
 				const auto L_img = prev->out ? prev->out : prev->image;
 				const auto R_img = node->out ? node->out : node->image;
 
-				stitch.exec(L_img, R_img, get_affine(prev, node), false);
+				stitch.exec(L_img, R_img, get_affine(prev, node));
 
 				GL_blit(node->out, stitch.out[1]);
 			}
@@ -535,7 +527,7 @@ std::shared_ptr<GL_Tex2D> Mapping::render_map()
 	}
 	lat0 /= nodes.size();
 	lon0 /= nodes.size();
-	map_scale = map_scale / nodes.size();
+	map_scale /= nodes.size();
 
 	map_scale = std::max(map_scale, 1 / max_map_scale);
 
@@ -562,20 +554,28 @@ std::shared_ptr<GL_Tex2D> Mapping::render_map()
 		smin = std::min(smin, 1 / p.scale);
 		smax = std::max(smax, 1 / p.scale);
 	}
-	const Vec2f origin = Vec2f(xmin, ymin);
+	int map_width  = 1 + (xmax - xmin) / map_scale;
+	int map_height = 1 + (ymax - ymin) / map_scale;
 
-	const int map_width  = ((xmax - xmin) + 1) / map_scale;
-	const int map_height = ((ymax - ymin) + 1) / map_scale;
+	const int max_size = 32 * 1024;
+	if(map_width > max_size) {
+		map_height = (double(map_height) * max_size) / map_width;
+		map_width  = max_size;
+	}
+	if(map_height > max_size) {
+		map_width  = (double(map_width) * max_size) / map_height;
+		map_height = max_size;
+	}
 
-	// TODO: limit size to 32k
-
-	if(map_width <= 0 || map_height <= 0 || map_width > 32 * 1024 || map_height > 32 * 1024) {
+	if(map_width <= 0 || map_height <= 0 || map_width > max_size || map_height > max_size) {
 		return nullptr;
 	}
+	const Vec2f offset = Vec2f(xmin, ymin);
+
 	std::cout << "Mapping: map size = " << map_width << " x " << map_height << ", nodes = " << nodes.size()
 			<< ", smin = " << smin << " px/m, smax = " << smax << " px/m" << std::endl;
 
-	// ------------ Render map
+	// ------------ Render Map
 	auto buf = std::make_shared<Buffer>(map_width, map_height, is_mono);
 	buf->min_scale = smin;
 	buf->max_scale = smax;
@@ -589,12 +589,28 @@ std::shared_ptr<GL_Tex2D> Mapping::render_map()
 		{
 			const auto& uv = g_uv[i];
 			const Vec2f q = Vec2f(width * uv.x(), height * uv.y()) - Vec2f(width, height) / 2;
-			const Vec2f p = pose.apply(q) - origin;
+			const Vec2f p = pose.apply(q) - offset;
 			coords.push_back(p / map_scale);
 		}
 		render(node, buf, coords);
 	}
+	GL_finish("Mapping::render_map()");
 
+	// ------------ Download Map
+	map = std::make_shared<Map>();
+	map->lat0 = lat0;
+	map->lon0 = lon0;
+	map->alt0 = alt0;
+	map->scale = map_scale;
+	map->format = is_mono ? 1 : 3;
+	map->width = map_width;
+	map->height = map_height;
+
+	if(is_mono) {
+		GL_read_FBO_R(buf->fbo, 0, map_width, map_height, map->data);
+	} else {
+		GL_read_FBO_RGB(buf->fbo, 0, map_width, map_height, map->data);
+	}
 	return buf->map;
 }
 

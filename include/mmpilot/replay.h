@@ -123,10 +123,6 @@ public:
 	{
 	}
 
-	~Player() {
-		stream.close();
-	}
-
 	std::shared_ptr<Sample> read_sample()
 	{
 		const auto magic = read_u32();

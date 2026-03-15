@@ -42,10 +42,15 @@ protected:
 
 //		show(display, stage[0]->solver.tex_debug);
 //		show(display, mapping.merge.tex_debug[0]);
+//		show(display, mapping.merge.flow.stage[0]->flow[1].tex_debug);
 //		show(display, mapping.affine.stage[0]->solver.tex_debug);
 		show(display, mapping.render_map());
 
 		if(done) {
+			{
+				Recorder rec("map.dat");
+				mapping.map->write(rec);
+			}
 			bool dummy;
 			std::cin >> dummy;
 			::exit(0);

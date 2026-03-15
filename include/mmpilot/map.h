@@ -19,7 +19,7 @@
 
 namespace mmpilot {
 
-class Map : public Sample {
+class Map {
 public:
 	size_t width = 0;
 	size_t height = 0;
@@ -91,7 +91,7 @@ public:
 		out.write(data.data(), data.size());
 	}
 
-	static std::shared_ptr<Sample> read(Reader& in)
+	static std::shared_ptr<Map> read(Reader& in)
 	{
 		const auto magic = in.read_u32();
 		if(magic != MAGIC) {
@@ -110,11 +110,11 @@ public:
 		out->alt0 = in.read_u64() / 1e3;
 		out->scale = in.read_u64() / 1e6;
 		const auto size = in.read_binary_size();
-		if(size != uint64_t(width) * height * format) {
+		if(size != uint64_t(out->width) * out->height * out->format) {
 			throw std::logic_error("Map: invalid size");
 		}
 		out->data.resize(size);
-		in.read(data.data(), size);
+		in.read(out->data.data(), size);
 		return out;
 	}
 

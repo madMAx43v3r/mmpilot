@@ -15,6 +15,8 @@
 
 namespace mmpilot {
 
+using Vec2i = Eigen::Matrix<int, 2, 1>;
+
 using Vec2f = Eigen::Matrix<float, 2, 1>;
 using Vec2d = Eigen::Matrix<double, 2, 1>;
 

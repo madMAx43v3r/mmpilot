@@ -15,6 +15,7 @@
 #include <mmpilot/merge.h>
 #include <mmpilot/stitch.h>
 #include <mmpilot/gps.h>
+#include <mmpilot/map.h>
 #include <mmpilot/pose_graph_geo_img.h>
 
 #include <set>
@@ -32,7 +33,7 @@ public:
 
 	float node_delta = 50;				// min edge length [px]
 
-	double max_map_scale = 10;			// [px/m]
+	double max_map_scale = 50;			// [px/m]
 
 	double max_loop_delta = 500;		// maximum initial image shift [px]
 	double max_loop_dyaw = 0.2;			// max yaw difference [rad]
@@ -86,8 +87,7 @@ public:
 
 	std::vector<std::shared_ptr<Node>> nodes;
 
-	std::shared_ptr<GL_Tex2D> tex_tmp;		// TODO: needed?
-	std::shared_ptr<GL_Tex2D> tex_debug;
+	std::shared_ptr<Map> map;				// output
 
 	void init(int width, int height, GLenum format);
 
@@ -132,8 +132,6 @@ private:
 	GLuint vao = 0;
 	GLuint vbo = 0;
 	GLuint ebo = 0;
-
-	GLuint fbo_debug = 0;
 
 };
 
