@@ -209,13 +209,13 @@ public:
 
 		if(valid && A_0) {
 			const float dpos = (A.translation() - A_0->translation()).norm();
-			const float dyaw = std::abs(angle_norm_pi(A.yaw() - A_0->yaw()));
-			const float dscale = std::abs(std::log(A.scale()) - std::log(A_0->scale()));
+			const float dyaw = angle_norm_pi(A.yaw() - A_0->yaw());
+			const float dscale = std::log(A.scale()) - std::log(A_0->scale());
 
 			const float gain = 0.1;
-			sigma_xy = sigma_xy * (1 - gain) + dpos * gain;
-			sigma_yaw = sigma_yaw * (1 - gain) + dyaw * gain;
-			sigma_scale = sigma_scale * (1 - gain) + dscale * gain;
+			sigma_xy = std::sqrt(std::pow(sigma_xy, 2.f) * (1 - gain) + std::pow(dpos, 2.f) * gain);
+			sigma_yaw = std::sqrt(std::pow(sigma_yaw, 2.f) * (1 - gain) + std::pow(dyaw, 2.f) * gain);
+			sigma_scale = std::sqrt(std::pow(sigma_scale, 2.f) * (1 - gain) + std::pow(dscale, 2.f) * gain);
 
 			if(state == 1) {
 				const auto sigma_pos = sigma_xy / get_pose().alt;
@@ -223,7 +223,8 @@ public:
 					lock_count++;
 				}
 			}
-			std::cout << "Localization: Health: sigma_xy = " << sigma_xy << " m, sigma_yaw = " << rad2deg(sigma_yaw) << " deg, simga_scale = " << sigma_scale << std::endl;
+			std::cout << "Localization: Health: sigma_xy = " << sigma_xy
+					<< " m, sigma_yaw = " << rad2deg(sigma_yaw) << " deg, sigma_scale = " << sigma_scale << std::endl;
 		} else {
 			lock_count = 0;
 		}
