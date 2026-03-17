@@ -52,7 +52,7 @@ public:
 
 		std::shared_ptr<Level> prev;	// lower scale
 
-		void init(int level, int width, int height)
+		void init(int level, int width, int height, int width_ref, int height_ref)
 		{
 			if(num_smooth < 0) {
 				switch(level) {
@@ -65,9 +65,9 @@ public:
 			solver.init(width, height);
 
 			for(int i = 0; i < num_smooth; ++i) {
-				smooth[i].init(width, height, GL_RG16F, GL_RG, GL_HALF_FLOAT);
+				smooth[i].init(width_ref, height_ref, GL_RG16F, GL_RG, GL_HALF_FLOAT);
 			}
-			gradient.init(width, height);
+			gradient.init(width_ref, height_ref);
 		}
 
 		void exec_ref(std::shared_ptr<GL_Tex2D> ref_)
@@ -128,11 +128,13 @@ public:
 
 		pyramid[0].depth = depth;
 		pyramid[1].depth = depth;
-		pyramid[0].init(width, height, GL_RG16F, GL_RG, GL_HALF_FLOAT);
-		pyramid[1].init(width_ref, height_ref, GL_RG16F, GL_RG, GL_HALF_FLOAT);
+		pyramid[0].init(width_ref, height_ref, GL_RG16F, GL_RG, GL_HALF_FLOAT);
+		pyramid[1].init(width, height, GL_RG16F, GL_RG, GL_HALF_FLOAT);
 
 		int w = width;
 		int h = height;
+		int w_ref = width_ref;
+		int h_ref = height_ref;
 		for(int i = 0; i < depth; ++i)
 		{
 			auto lvl = std::make_shared<Level>();
@@ -141,11 +143,13 @@ public:
 			lvl->solver.damping_yaw = damping_yaw;
 			lvl->solver.damping_scale = damping_scale;
 			lvl->solver.num_iters = num_iters[std::min(size_t(i), num_iters.size() - 1)];
-			lvl->init(i, w, h);
+			lvl->init(i, w, h, w_ref, h_ref);
 			stage.push_back(lvl);
 
 			w /= 2;
 			h /= 2;
+			w_ref /= 2;
+			h_ref /= 2;
 		}
 
 		for(int i = 1; i < depth; ++i) {

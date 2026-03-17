@@ -8,7 +8,8 @@ uniform sampler2D uRef;         // RGBA16F, (Y, Ix, Iy, w)
 uniform sampler2D uImg;         // RG16F, (Y, w)
 
 uniform vec2 uCenter;           // uImg (pixels)
-uniform vec2 uInvSize;          // uImg (1/pixels)
+uniform vec2 uCenterRef;        // uRef (pixels)
+uniform vec2 uInvSizeRef;       // uRef (1/pixels)
 
 uniform float uParams[4];      // (x, y, alpha, scale)
 
@@ -19,11 +20,13 @@ void main()
     float ca = cos(uParams[2]);
     float sa = sin(uParams[2]);
 
-    vec2 q = uCenter + vec2(
-        (ca * p.x - sa * p.y) * uParams[3] + uParams[0],
-        (sa * p.x + ca * p.y) * uParams[3] + uParams[1]
-    );
-    vec2 uv = q * uInvSize;
+    vec2 q = uCenterRef + vec2(
+            ca * p.x - sa * p.y,
+            sa * p.x + ca * p.y
+        ) * uParams[3]
+        + vec2(uParams[0], uParams[1]);
+
+    vec2 uv = q * uInvSizeRef;
 
     outJ = vec4(0);
     outR  = vec2(0);

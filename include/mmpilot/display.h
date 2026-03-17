@@ -11,6 +11,7 @@
 #include <mmpilot/texture.h>
 #include <mmpilot/util.h>
 
+#include <map>
 #include <array>
 #include <thread>
 #include <atomic>
@@ -25,6 +26,14 @@ namespace mmpilot {
 
 class TexDisplay {
 public:
+	struct Marker {
+		int type = 0;			// 0 = point
+		float x = 0;
+		float y = 0;
+		float size = 1;
+		std::array<float, 4> color = {};		// RGBA
+	};
+
 	TexDisplay(int width, int height)
 		:	thread(std::bind(&TexDisplay::main, this, width, height))
 	{
@@ -121,6 +130,18 @@ public:
 		}
 	}
 
+	void set_marker(const std::string& name, const Marker& data)
+	{
+		std::lock_guard<std::mutex> lock(mutex);
+		marker[name] = data;
+	}
+
+	void clear_marker(const std::string& name)
+	{
+		std::lock_guard<std::mutex> lock(mutex);
+		marker.erase(name);
+	}
+
 	void close()
 	{
 		do_run = false;
@@ -136,6 +157,7 @@ private:
 	int buf_width = 0;
 	int buf_height = 0;
 	std::vector<uint8_t> buffer;
+	std::map<std::string, Marker> marker;
 
 	std::atomic_bool do_run {true};
 	std::atomic_bool do_update {false};

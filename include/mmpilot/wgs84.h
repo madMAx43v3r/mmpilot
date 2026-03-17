@@ -71,6 +71,60 @@ Vec3<T> ecef_to_enu_delta(const Vec3<T>& d, const T lat0, const T lon0)
 	return enu;
 }
 
+template<typename T>
+Vec3<T> enu_to_ecef_delta(const Vec3<T>& enu, const T lat0, const T lon0)
+{
+	const T sphi = std::sin(lat0);
+	const T cphi = std::cos(lat0);
+	const T sl   = std::sin(lon0);
+	const T cl   = std::cos(lon0);
+
+	Vec3<T> d;
+	d.x() = (-sl) * enu.x() + (-sphi * cl) * enu.y() + (cphi * cl) * enu.z();
+	d.y() = ( cl) * enu.x() + (-sphi * sl) * enu.y() + (cphi * sl) * enu.z();
+	d.z() = T(0) * enu.x() + ( cphi)      * enu.y() + (sphi)      * enu.z();
+	return d;
+}
+
+// Returns {lat, lon, alt}
+template<typename T>
+Vec3<T> ecef_to_wgs84(const Vec3<T>& ecef)
+{
+	const T a  = T(6378137.0);
+	const T f  = T(1.0 / 298.257223563);
+	const T e2 = f * (T(2) - f);
+	const T b  = a * (T(1) - f);
+	const T ep2 = (a * a - b * b) / (b * b);
+
+	const T x = ecef.x();
+	const T y = ecef.y();
+	const T z = ecef.z();
+
+	const T p = std::sqrt(x * x + y * y);
+	const T lon = std::atan2(y, x);
+
+	// Handle pole case explicitly
+	if(p < T(1e-12)) {
+		const T lat = (z >= T(0)) ? T(M_PI_2) : T(-M_PI_2);
+		const T alt = std::abs(z) - b;
+		return Vec3<T>(lat, lon, alt);
+	}
+
+	// Bowring-style closed form
+	const T theta = std::atan2(z * a, p * b);
+	const T st = std::sin(theta);
+	const T ct = std::cos(theta);
+
+	const T lat = std::atan2(z + ep2 * b * st * st * st,
+							 p - e2  * a * ct * ct * ct);
+
+	const T s = std::sin(lat);
+	const T N = a / std::sqrt(T(1) - e2 * s * s);
+	const T alt = p / std::cos(lat) - N;
+
+	return Vec3<T>(lat, lon, alt);
+}
+
 
 template<typename T>
 class WGS84 {
@@ -92,6 +146,16 @@ public:
 		const Vec3<T> p = wgs84_to_ecef<T>(lat_rad, lon_rad, alt0);
 		const Vec3<T> d = ecef_to_enu_delta<T>(p - ecef0, lat0, lon0);
 		return Vec2<T>(d.x(), d.y());
+	}
+
+	// Returns lat + lon for given EN offset in meters
+	Vec2<T> get_ll(T E_m, T N_m) const
+	{
+		const Vec3<T> enu(E_m, N_m, 0);
+		const Vec3<T> d_ecef = enu_to_ecef_delta<T>(enu, lat0, lon0);
+		const Vec3<T> p_ecef = ecef0 + d_ecef;
+		const Vec3<T> ll = ecef_to_wgs84<T>(p_ecef);
+		return Vec2<T>(ll.x(), ll.y());
 	}
 };
 

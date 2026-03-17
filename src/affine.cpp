@@ -63,7 +63,7 @@ Affine::Params Affine::exec(
 		init(img->width, img->height);
 	}
 	if(img->width != width || img->height != height) {
-		throw std::runtime_error("Affine::solve(): dimension mismatch");
+		throw std::runtime_error("Affine::exec(): dimension mismatch");
 	}
 	const auto begin = get_time_micros();
 
@@ -82,7 +82,8 @@ Affine::Params Affine::exec(
 		GL_bind_tex(prog_jacobian, "uImg", img->id, 1);
 
 		GL_uniform_2f(prog_jacobian, "uCenter", width / 2.f, height / 2.f);
-		GL_uniform_2f(prog_jacobian, "uInvSize", 1.f / width, 1.f / height);
+		GL_uniform_2f(prog_jacobian, "uCenterRef", ref->width / 2.f, ref->height / 2.f);
+		GL_uniform_2f(prog_jacobian, "uInvSizeRef", 1.f / ref->width, 1.f / ref->height);
 		GL_uniform_fv(prog_jacobian, "uParams", params);
 
 		render::fullscreen(fbo_jacobian, width, height);
@@ -138,6 +139,10 @@ Affine::Params Affine::exec(
 		hessian[2] += damping_yaw * num_pixel;
 		hessian[3] += damping_scale * num_pixel;
 
+		A_xy(0, 0) += damping_xy * num_pixel;
+		A_xy(1, 1) += damping_xy * num_pixel;
+
+		// Solve
 		Vec4 delta = Vec4::Zero();
 		for(int i = 0; i < 4; ++i) {
 			if(hessian[i] > 0) {

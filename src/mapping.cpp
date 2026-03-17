@@ -510,29 +510,55 @@ void Mapping::finalize(const int num_pass)
 
 std::shared_ptr<GL_Tex2D> Mapping::render_map()
 {
+	int num_gps = 0;
+	for(const auto& n : nodes) {
+		if(n->node->gps_valid) {
+			num_gps++;
+		}
+	}
+	if(num_gps < 3) {
+		return nullptr;
+	}
+
 	// ------------ Compute map origin + scale
 	double lat0 = 0;
 	double lon0 = 0;
 	double alt0 = 1e6;
 	double map_scale = 0;
-	for(const auto& n : nodes) {
-		const auto& node = n->node;
-		lat0 += node->lat;
-		lon0 += node->lon;
-		map_scale += node->scale();
-		if(node->gps_valid) {
-			alt0 = std::min(alt0, node->gps_alt);
+	{
+		const auto lat_ref = nodes[0]->node->lat;
+		const auto lon_ref = nodes[0]->node->lon;
+
+		double lat_min = 0;
+		double lat_max = 0;
+		double lon_min = 0;
+		double lon_max = 0;
+
+		for(const auto& n : nodes) {
+			const auto& node = n->node;
+			const auto dlat = angle_norm_pi(node->lat - lat_ref);
+			lat_min = std::min(lat_min, dlat);
+			lat_max = std::max(lat_max, dlat);
+
+			const auto dlon = angle_norm_pi(node->lon - lon_ref);
+			lon_min = std::min(lon_min, dlon);
+			lon_max = std::max(lon_max, dlon);
+
+			if(node->gps_valid) {
+				alt0 = std::min(alt0, node->gps_alt);
+			}
+			map_scale += node->scale();
+
+			std::cout << "Mapping: Node[" << node->k << "] yaw = " << rad2deg(node->yaw) << " deg, scale = " << node->scale() << " m/px" << std::endl;
 		}
-		std::cout << "Mapping: Node[" << node->k << "] yaw = " << rad2deg(node->yaw) << " deg, scale = " << node->scale() << " m/px" << std::endl;
+		lat0 = lat_ref + (lat_max + lat_min) / 2;
+		lon0 = lon_ref + (lon_max + lon_min) / 2;
+
+		map_scale = std::max(map_scale / nodes.size(), 1 / max_map_scale);
+
+		std::cout << "Mapping: lat0 = " << rad2deg(lat0) << " deg, lon0 = " << rad2deg(lon0)
+				<< " deg, alt0 = " << alt0 << " m, map_scale = " << map_scale << " m/px" << std::endl;
 	}
-	lat0 /= nodes.size();
-	lon0 /= nodes.size();
-	map_scale /= nodes.size();
-
-	map_scale = std::max(map_scale, 1 / max_map_scale);
-
-	std::cout << "Mapping: lat0 = " << rad2deg(lat0) << " deg, lon0 = " << rad2deg(lon0)
-			<< " deg, alt0 = " << alt0 << " m, map_scale = " << map_scale << " m/px" << std::endl;
 
 	// ------------ Compute map size
 	WGS84 wgs(lat0, lon0, alt0);
@@ -554,31 +580,20 @@ std::shared_ptr<GL_Tex2D> Mapping::render_map()
 		smin = std::min(smin, 1 / p.scale);
 		smax = std::max(smax, 1 / p.scale);
 	}
-	int map_width  = 1 + (xmax - xmin) / map_scale;
-	int map_height = 1 + (ymax - ymin) / map_scale;
+	const int map_width  = 1 + 2 * std::max(xmax, -xmin) / map_scale;
+	const int map_height = 1 + 2 * std::max(ymax, -ymin) / map_scale;
 
-	const int max_size = 32 * 1024;
-	if(map_width > max_size) {
-		map_height = (double(map_height) * max_size) / map_width;
-		map_width  = max_size;
-	}
-	if(map_height > max_size) {
-		map_width  = (double(map_width) * max_size) / map_height;
-		map_height = max_size;
-	}
+	const int map_size = std::min(std::max(map_width, map_height), 32 * 1024);
 
-	if(map_width <= 0 || map_height <= 0 || map_width > max_size || map_height > max_size) {
-		return nullptr;
-	}
-	const Vec2f offset = Vec2f(xmin, ymin);
-
-	std::cout << "Mapping: map size = " << map_width << " x " << map_height << ", nodes = " << nodes.size()
+	std::cout << "Mapping: map size = " << map_size << " x " << map_size << ", nodes = " << nodes.size()
 			<< ", smin = " << smin << " px/m, smax = " << smax << " px/m" << std::endl;
 
 	// ------------ Render Map
-	auto buf = std::make_shared<Buffer>(map_width, map_height, is_mono);
+	auto buf = std::make_shared<Buffer>(map_size, map_size, is_mono);
 	buf->min_scale = smin;
 	buf->max_scale = smax;
+
+	const Vec2f center = Vec2f(map_size / 2.f, map_size / 2.f);
 
 	for(const auto& node : nodes)
 	{
@@ -589,8 +604,8 @@ std::shared_ptr<GL_Tex2D> Mapping::render_map()
 		{
 			const auto& uv = g_uv[i];
 			const Vec2f q = Vec2f(width * uv.x(), height * uv.y()) - Vec2f(width, height) / 2;
-			const Vec2f p = pose.apply(q) - offset;
-			coords.push_back(p / map_scale);
+			const Vec2f p = pose.apply(q) / map_scale + center;
+			coords.push_back(p);
 		}
 		render(node, buf, coords);
 	}
@@ -603,13 +618,12 @@ std::shared_ptr<GL_Tex2D> Mapping::render_map()
 	map->alt0 = alt0;
 	map->scale = map_scale;
 	map->format = is_mono ? 1 : 3;
-	map->width = map_width;
-	map->height = map_height;
+	map->size = map_size;
 
 	if(is_mono) {
-		GL_read_FBO_R(buf->fbo, 0, map_width, map_height, map->data);
+		GL_read_FBO_R(buf->fbo, 0, map_size, map_size, map->data);
 	} else {
-		GL_read_FBO_RGB(buf->fbo, 0, map_width, map_height, map->data);
+		GL_read_FBO_RGB(buf->fbo, 0, map_size, map_size, map->data);
 	}
 	return buf->map;
 }

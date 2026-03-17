@@ -227,6 +227,14 @@ void GL_uniform_2f(GLuint prog, const char* name, float x, float y)
 	}
 }
 
+void GL_uniform_4f(GLuint prog, const char* name, float x, float y, float z, float w)
+{
+	auto loc = glGetUniformLocation(prog, name);
+	if(loc >= 0) {
+		glUniform4f(loc, x, y, z, w);
+	}
+}
+
 void GL_uniform_1i(GLuint prog, const char* name, int v)
 {
 	auto loc = glGetUniformLocation(prog, name);

@@ -29,6 +29,9 @@ public:
 	GL_Tex2D(GLsizei w, GLsizei h, GLenum internal_fmt, GLenum fmt, GLenum type, const void* data = nullptr)
 		:	width(w), height(h), internal_fmt(internal_fmt), format(fmt), type(type)
 	{
+		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+		glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+
 		id = GL_create_tex(w, h, internal_fmt, fmt, type, data);
 	}
 

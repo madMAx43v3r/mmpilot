@@ -62,6 +62,10 @@ public:
 
 		Params(const Params&) = default;
 
+		bool valid() const {
+			return converged && overlap > 0 && scale() > 0;
+		}
+
 		float& p(size_t i) {
 			return (*this)[i];
 		}
@@ -125,6 +129,15 @@ public:
 			const Vec2f p = v - center;
 			const Vec3f q = matrix() * Vec3f(p.x(), p.y(), 1);
 			return center + Vec2f(q.x(), q.y());
+		}
+
+		void add(const Params& delta)
+		{
+			const Vec2f dpos = scale() * (rotation() * delta.translation());
+			p(0) += dpos.x();
+			p(1) += dpos.y();
+			p(2) = angle_norm_pi(yaw() + delta.yaw());
+			p(3) = scale() * delta.scale();
 		}
 	};
 

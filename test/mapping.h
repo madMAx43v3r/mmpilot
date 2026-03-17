@@ -47,9 +47,9 @@ protected:
 		show(display, mapping.render_map());
 
 		if(done) {
-			{
+			if(auto map = mapping.map) {
 				Recorder rec("map.dat");
-				mapping.map->write(rec);
+				map->write(rec);
 			}
 			bool dummy;
 			std::cin >> dummy;

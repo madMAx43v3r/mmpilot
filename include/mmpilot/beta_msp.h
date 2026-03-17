@@ -146,6 +146,12 @@ public:
 		uint16_t speed = 0;		// cm/s
 		uint16_t course = 0;	// deg * 10
 
+		double get_lat() const { return lat * 1e-7; }		// deg
+		double get_lon() const { return lon * 1e-7; }		// deg
+		double get_alt() const { return alt; }				// m
+		double get_speed() const { return speed * 1e-2; }		// m/s
+		double get_heading() const { return course * 1e-1; }	// deg
+
 		void write(Recorder& out) const {
 			out.write_u32(MAGIC);
 			out.write_u16(0);

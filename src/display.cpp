@@ -98,20 +98,34 @@ void TexDisplay::main(int width, int height)
 	GLuint vs = GL_compile_shader(GL_VERTEX_SHADER, "shader/vertex/display.glsl");
 	GLuint fs = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/color/display.glsl");
 	GLuint prog = GL_link_program(vs, fs);
-	glDeleteShader(vs);
-	glDeleteShader(fs);
 
-	GLint uTexLoc = glGetUniformLocation(prog, "uTex");
-	if(uTexLoc < 0)
-		die("uniform uTex not found");
+	GLuint vs_points = GL_compile_shader(GL_VERTEX_SHADER, "shader/vertex/points.glsl");
+	GLuint fs_points = GL_compile_shader(GL_FRAGMENT_SHADER, "shader/color/points.glsl");
+	GLuint prog_points = GL_link_program(vs_points, fs_points);
 
 	// VAO is required in ES3 core when drawing (even without attributes)
 	GLuint vao = 0;
 	glGenVertexArrays(1, &vao);
 	glBindVertexArray(vao);
 
-	glUseProgram(prog);
-	glUniform1i(uTexLoc, 0);
+	// GL_POINTS
+	GLuint vao_point = 0;
+	GLuint vbo_point = 0;
+	{
+		glGenVertexArrays(1, &vao_point);
+		glBindVertexArray(vao_point);
+
+		float point_xy[2] = {};
+
+		glGenBuffers(1, &vbo_point);
+		glBindBuffer(GL_ARRAY_BUFFER, vbo_point);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(point_xy), point_xy, GL_DYNAMIC_DRAW);
+
+		// layout(location=0) in vec2 inPos;
+		glEnableVertexAttribArray(0);
+		glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * 4, 0);
+	}
+
 	GL_check("Display: setup");
 
 	std::shared_ptr<GL_Tex2D> tex;
@@ -147,8 +161,7 @@ void TexDisplay::main(int width, int height)
 
 		if(do_update) {
 			std::lock_guard<std::mutex> lock(mutex);
-			tex = std::make_shared<GL_Tex2D>(buf_width, buf_height, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE);
-			tex->upload(buffer.data());
+			tex = std::make_shared<GL_Tex2D>(buf_width, buf_height, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE, buffer.data());
 			do_update = false;
 		}
 
@@ -156,6 +169,7 @@ void TexDisplay::main(int width, int height)
 			glViewport(0, 0, win_w, win_h);
 			resized = false;
 		}
+		glUseProgram(prog);
 
 		glClearColor(0.8, 0.4, 0.8, 1);
 		glClear(GL_COLOR_BUFFER_BIT);
@@ -164,14 +178,42 @@ void TexDisplay::main(int width, int height)
 		glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA,
 							GL_ONE,       GL_ONE_MINUS_SRC_ALPHA);
 
-		glActiveTexture(GL_TEXTURE0);
 		if(tex) {
-			tex->bind();
+			GL_bind_tex(prog, "uTex", tex, 0);
 		}
-
-		glUseProgram(prog);
 		glBindVertexArray(vao);
 		glDrawArrays(GL_TRIANGLES, 0, 3);
+
+		// markers
+		{
+			std::lock_guard<std::mutex> lock(mutex);
+			if(marker.size())
+			{
+				for(const auto& entry : marker)
+				{
+					const auto& marker = entry.second;
+					switch(marker.type) {
+						case 0:
+							float point_xy[2] = {
+									2 * marker.x / tex->width,
+									2 * marker.y / tex->height
+							};
+
+							glBindVertexArray(vao_point);
+							glBindBuffer(GL_ARRAY_BUFFER, vbo_point);
+							glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(point_xy), point_xy);
+
+							glUseProgram(prog_points);
+							GL_uniform_1f(prog_points, "uPointSize", marker.size);
+							GL_uniform_4f(prog_points, "uColor", marker.color[0], marker.color[1], marker.color[2], marker.color[3]);
+							glDrawArrays(GL_POINTS, 0, 1);
+
+							GL_check("Display: render point");
+							break;
+					}
+				}
+			}
+		}
 
 		GL_check("Display: render");
 
@@ -182,7 +224,12 @@ void TexDisplay::main(int width, int height)
 
 	// ---------------- Cleanup ----------------
 	glDeleteProgram(prog);
+	glDeleteProgram(prog_points);
+
 	glDeleteVertexArrays(1, &vao);
+
+	glDeleteBuffers(1, &vbo_point);
+	glDeleteVertexArrays(1, &vao_point);
 
 	eglMakeCurrent(edpy, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 	eglDestroyContext(edpy, ctx);

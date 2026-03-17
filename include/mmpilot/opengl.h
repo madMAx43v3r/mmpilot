@@ -46,6 +46,7 @@ void GL_bind_tex(GLuint prog, const char* name, GLuint tex, GLint unit);
 
 void GL_uniform_1f(GLuint prog, const char* name, float x);
 void GL_uniform_2f(GLuint prog, const char* name, float x, float y);
+void GL_uniform_4f(GLuint prog, const char* name, float x, float y, float z, float w);
 void GL_uniform_1i(GLuint prog, const char* name, int v);
 void GL_uniform_2i(GLuint prog, const char* name, int x, int y);
 

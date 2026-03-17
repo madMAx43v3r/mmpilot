@@ -52,13 +52,12 @@ public:
 		s.fix_type = gps.fix_type;
 		s.num_sats = gps.num_sats;
 
-		s.lat = gps.lat * 1e-7;
-		s.lon = gps.lon * 1e-7;
-		s.alt = gps.alt;
+		s.lat = gps.get_lat();
+		s.lon = gps.get_lon();
+		s.alt = gps.get_alt();
 
-		s.speed = gps.speed * 0.01;
-		s.heading = gps.course * 0.1;
-		s.heading = angle_norm_360(s.heading);
+		s.speed = gps.get_speed();
+		s.heading = angle_norm_360(gps.get_heading());
 
 		history.push_back(s);
 
