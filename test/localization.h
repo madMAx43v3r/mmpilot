@@ -43,8 +43,10 @@ protected:
 
 	void update() override
 	{
-		loc.advance(get_params());
-
+		const auto delta = get_params();
+		if(delta.valid()) {
+			loc.advance(delta);
+		}
 		loc.exec(source);
 
 		const auto pose = loc.get_pose();
@@ -54,28 +56,30 @@ protected:
 
 		rebase();
 
-//		show(display, source);
-//		show(display, loc.affine.stage[0]->solver.tex_debug);
-
-		show(display, tex_map);
-
-		if(loc.valid) {
-			TexDisplay::Marker mark;
-			mark.x = loc.A.p(0);
-			mark.y = loc.A.p(1);
-			mark.size = 10;
-			mark.color = std::array<float, 4>{1, 0, 0, 0.5};
-			display->set_marker("loc", mark);
+		if(true) {
+//			show(display, source);
+			show(display, loc.affine.stage[0]->solver.tex_debug);
 		} else {
-			display->clear_marker("loc");
-		}
-		{
-			TexDisplay::Marker mark;
-			mark.x = gps_pos.x();
-			mark.y = gps_pos.y();
-			mark.size = 10;
-			mark.color = std::array<float, 4>{0, 0, 1, 0.5};
-			display->set_marker("gps", mark);
+			show(display, tex_map);
+
+			if(loc.valid) {
+				TexDisplay::Marker mark;
+				mark.x = loc.A.p(0);
+				mark.y = loc.A.p(1);
+				mark.size = 10;
+				mark.color = std::array<float, 4>{1, 0, 0, 0.5};
+				display->set_marker("loc", mark);
+			} else {
+				display->clear_marker("loc");
+			}
+			{
+				TexDisplay::Marker mark;
+				mark.x = gps_pos.x();
+				mark.y = gps_pos.y();
+				mark.size = 10;
+				mark.color = std::array<float, 4>{0, 0, 1, 0.5};
+				display->set_marker("gps", mark);
+			}
 		}
 	}
 
