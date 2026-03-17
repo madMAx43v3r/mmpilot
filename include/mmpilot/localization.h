@@ -26,7 +26,8 @@ public:
 	int lock_delay = 20;				// number of frames
 
 	float init_sigma_xy = 10;			// [m]
-	float init_sigma_scale = 0.1;		// log(scale)
+	float init_sigma_yaw = 5;			// [deg]
+	float init_sigma_scale = 0.25;		// log(scale)
 
 	float lock_sigma_pos = 0.02;		// sigma_xy / AGL
 	float lock_sigma_yaw = 1;			// [deg]
@@ -155,6 +156,9 @@ public:
 			const auto A_new = affine.exec_img(img, A);
 			if(A_new.valid()) {
 				A = A_new;
+				A_init.p(2) = A_new.p(2);	// save yaw
+				A_init.p(3) = A_new.p(3);	// save scale
+				have_yaw = true;
 				valid = true;
 				std::cout << "Localization: R = " << A.R_norm << ", overlap = " << A.overlap << std::endl;
 			} else {
@@ -171,7 +175,11 @@ public:
 				auto A_i = A_init;
 				A_i.p(0) += rand_gaussian<double>(0, init_sigma_xy) / map->scale;
 				A_i.p(1) += rand_gaussian<double>(0, init_sigma_xy) / map->scale;
-				A_i.p(2)  = rand_range<double>(0, 2 * M_PI);
+				if(have_yaw) {
+					A_i.p(2) += rand_gaussian<double>(0, deg2rad(init_sigma_yaw));
+				} else {
+					A_i.p(2)  = rand_range<double>(0, 2 * M_PI);
+				}
 				A_i.p(3)  = std::exp(rand_gaussian<double>(std::log(A_i.scale()), init_sigma_scale));
 				A_try.push_back(A_i);
 			}
@@ -238,6 +246,7 @@ public:
 
 private:
 	bool have_init = false;
+	bool have_yaw = false;
 
 };
 

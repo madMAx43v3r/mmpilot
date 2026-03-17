@@ -27,7 +27,7 @@ public:
 	float damping_scale = 1e-2;
 
 	// convergence triggers
-	float threshold_xy = 0.2;
+	float threshold_xy = 0.25;
 	float threshold_yaw = 0.005;
 	float threshold_scale = 0.005;
 

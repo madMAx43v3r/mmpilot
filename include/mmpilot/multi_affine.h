@@ -93,8 +93,8 @@ public:
 			}
 			A = solver.exec(gradient.out, img, A, sync);
 
-			if(prev) {
-				// we only care about top level
+			if(solver.num_iters < 5) {
+				// need to assume convergence
 				A.converged = true;
 			}
 		}
