@@ -26,7 +26,7 @@ public:
 	int lock_delay = 20;				// number of frames
 
 	float init_sigma_xy = 10;			// [m]
-	float init_sigma_yaw = 5;			// [deg]
+	float init_sigma_yaw = 10;			// [deg]
 	float init_sigma_scale = 0.25;		// log(scale)
 
 	float lock_sigma_pos = 0.02;		// sigma_xy / AGL

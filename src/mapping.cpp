@@ -137,7 +137,7 @@ void Mapping::on_gps(std::shared_ptr<MSP2Client::RawGPS> gps)
 {
 	if(gps) {
 		auto gps_ = *gps;
-		gps_.ts -= gps_delay;
+		gps_.ts -= gps_delay * 1e3;
 		gps_api.on_gps(gps_);
 	}
 	auto it = waiting_gps.begin();

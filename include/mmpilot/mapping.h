@@ -48,7 +48,7 @@ public:
 	double dyaw_sigma = 0.002;			// image rotation [rad]
 	double dscale_sigma = 0.02;			// image scale [log(m/px)]
 
-	int64_t gps_delay = 50 * 1000;		// [us]
+	int64_t gps_delay = 500;			// [ms]
 
 	std::optional<double> gps_alt_override;
 
