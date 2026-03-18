@@ -47,6 +47,16 @@ int main(int argc, char** argv)
 	{
 		std::lock_guard<std::mutex> lock(mutex);
 		write_sample(rec, "msp.attitude", att);
+
+		std::cout << "ATT: ts = " << att.ts << ", roll = " << att.roll << ", pitch = " << att.pitch << ", yaw = " << att.yaw << std::endl;
+	};
+
+	msp.on_altitude = [&](const MSP2Client::Altitude& alt)
+	{
+		std::lock_guard<std::mutex> lock(mutex);
+		write_sample(rec, "msp.altitude", alt);
+
+		std::cout << "ALT: ts = " << alt.ts << ", alt_cm = " << alt.alt_cm << ", vario_cms = " << alt.vario_cms << std::endl;
 	};
 
 	msp.on_rc = [&](const MSP2Client::RcPacket& rc)

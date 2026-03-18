@@ -37,6 +37,7 @@ public:
 	};
 
 	static constexpr uint16_t MSP_ATTITUDE = 108;
+	static constexpr uint16_t MSP_ALTITUDE = 109;
 	static constexpr uint16_t MSP_RAW_IMU  = 102;
 	static constexpr uint16_t MSP_RC = 105;
 	static constexpr uint16_t MSP_RAW_GPS = 106;
@@ -187,12 +188,38 @@ public:
 		static constexpr uint32_t MAGIC = 0x5c2332bd;
 	};
 
+	class Altitude : public Sample {
+	public:
+		int32_t alt_cm;					// [cm]
+		int16_t vario_cms;				// [cm/s]
+
+		void write(Recorder& out) const {
+			out.write_u32(MAGIC);
+			out.write_i32(alt_cm);
+			out.write_i16(vario_cms);
+		}
+
+		static std::shared_ptr<Sample> read(Player& in) {
+			const auto magic = in.read_u32();
+			if(magic != MAGIC) {
+				throw std::runtime_error("Altitude: invalid magic");
+			}
+			auto out = std::make_shared<Altitude>();
+			out->alt_cm = in.read_i32();
+			out->vario_cms = in.read_i16();
+			return out;
+		}
+	private:
+		static constexpr uint32_t MAGIC = 0x1a4fdac1;
+	};
+
 
 	std::chrono::milliseconds timeout = std::chrono::milliseconds(500);
 	std::chrono::milliseconds interval = std::chrono::milliseconds(20);		// update rate for run()
 
 	std::function<void(const RawImu&)> on_raw_imu;
 	std::function<void(const Attitude&)> on_attitude;
+	std::function<void(const Altitude&)> on_altitude;
 	std::function<void(const RcPacket&)> on_rc;
 	std::function<void(const RawGPS&)> on_gps;
 
@@ -380,7 +407,7 @@ public:
 			};
 
 			if(on_raw_imu) {
-				check_send(MSP_RAW_IMU, 4);
+				check_send(MSP_RAW_IMU, 3);
 			}
 			if(on_rc) {
 				check_send(MSP_RC, 1, std::chrono::milliseconds(100));
@@ -388,8 +415,11 @@ public:
 			if(on_gps) {
 				check_send(MSP_RAW_GPS, 1, std::chrono::milliseconds(200));
 			}
+			if(on_altitude) {
+				check_send(MSP_ALTITUDE, 1, std::chrono::milliseconds(500));
+			}
 			if(on_attitude) {
-				check_send(MSP_ATTITUDE, 1, std::chrono::milliseconds(200));
+				check_send(MSP_ATTITUDE, 1, std::chrono::milliseconds(500));
 			}
 
 			for(auto& f : poll()) {
@@ -398,6 +428,7 @@ public:
 					switch(f.func) {
 						case MSP_RAW_IMU: 	if(on_raw_imu) on_raw_imu(parse_raw_imu(f)); break;
 						case MSP_ATTITUDE: 	if(on_attitude) on_attitude(parse_attitude(f)); break;
+						case MSP_ALTITUDE: 	if(on_altitude) on_altitude(parse_altitude(f)); break;
 						case MSP_RC: 		if(on_rc) on_rc(parse_rc(f)); break;
 						case MSP_RAW_GPS: 	if(on_gps) on_gps(parse_raw_gps(f)); break;
 					}
@@ -514,6 +545,18 @@ private:
 		gps.speed    = read_u16_le(p, 12);
 		gps.course   = read_u16_le(p, 14);
 		return gps;
+	}
+
+	Altitude parse_altitude(const Frame& f)
+	{
+		const auto& p = f.payload;
+		if(p.size() < 6) {
+			throw std::runtime_error("MSP_ALTITUDE too short");
+		}
+		Altitude out;
+		out.alt_cm = read_i32_le(p, 0);
+		out.vario_cms = read_i16_le(p, 4);
+		return out;
 	}
 
 	static int16_t read_i16_le(const std::vector<uint8_t>& p, size_t off)
