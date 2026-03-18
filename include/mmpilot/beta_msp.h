@@ -416,7 +416,7 @@ public:
 				check_send(MSP_RAW_GPS, 1, std::chrono::milliseconds(200));
 			}
 			if(on_altitude) {
-				check_send(MSP_ALTITUDE, 1, std::chrono::milliseconds(500));
+				check_send(MSP_ALTITUDE, 1, std::chrono::milliseconds(200));
 			}
 			if(on_attitude) {
 				check_send(MSP_ATTITUDE, 1, std::chrono::milliseconds(500));
