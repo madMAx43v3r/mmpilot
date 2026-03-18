@@ -554,6 +554,7 @@ private:
 			throw std::runtime_error("MSP_ALTITUDE too short");
 		}
 		Altitude out;
+		out.ts = get_time_micros();
 		out.alt_cm = read_i32_le(p, 0);
 		out.vario_cms = read_i16_le(p, 4);
 		return out;
