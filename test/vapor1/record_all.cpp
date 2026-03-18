@@ -101,7 +101,7 @@ int main(int argc, char** argv)
 		std::cout << "Frame " << frame.sequence << ": ts = " << frame.timestamp
 				<< ", width = " << frame.width << ", height = " << frame.height
 				<< ", stride = " << frame.stride << ", format = " << frame.pixel_format
-				<< ", N(data) = " << out.data.size() << std::endl;
+				<< ", N(data) = " << frame.data.size() << std::endl;
 
 		write_sample(rec, topic, out);
 	};
