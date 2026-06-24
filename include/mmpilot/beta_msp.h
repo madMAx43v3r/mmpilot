@@ -463,7 +463,7 @@ public:
 
 	bool is_shutdown() {
 		std::lock_guard<std::mutex> lock(mutex);
-		return do_run;
+		return !do_run;
 	}
 
 private:
