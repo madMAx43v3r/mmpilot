@@ -41,6 +41,7 @@ public:
 	static constexpr uint16_t MSP_RAW_IMU  = 102;
 	static constexpr uint16_t MSP_RC = 105;
 	static constexpr uint16_t MSP_RAW_GPS = 106;
+	static constexpr uint16_t MSP_SET_RAW_RC = 200;
 
 	// MSP_ATTITUDE (108 / 0x006C): "2 angles 1 heading"
 	// Payload is typically 3x int16: roll, pitch, yaw/heading in decidegrees (0.1°) in MW/BF lineage.
@@ -111,7 +112,7 @@ public:
 		uint16_t yaw() const      { return ch.size() > 2 ? ch[2] : 0; }
 		uint16_t throttle() const { return ch.size() > 3 ? ch[3] : 0; }
 		uint16_t aux(size_t i) const { return ch.size() > 4 + i ? ch[4 + i] : 0; }
-		size_t num_aux() const    { return ch.size() - 4; }
+		size_t num_aux() const    	 { return ch.size() > 4 ? ch.size() - 4 : 0; }
 
 		void write(Recorder& out) const {
 			out.write_u32(MAGIC);
@@ -231,6 +232,20 @@ public:
 
 	MSP2Client(const MSP2Client&) = delete;
 	MSP2Client& operator=(const MSP2Client&) = delete;
+
+	void send_raw_rc(const std::array<uint16_t, 8>& ch)
+	{
+		std::vector<uint8_t> payload;
+		payload.reserve(16);
+
+		for(uint16_t v : ch) {
+			// clamp to normal RC range
+			v = std::min(std::max(int(v), 1000), 2000);
+			payload.push_back(v & 0xFF);
+			payload.push_back(v >> 8);
+		}
+		send_request(MSP_SET_RAW_RC, payload);
+	}
 
 	// Send an MSPv2 request (type '<'), flags usually 0. :contentReference[oaicite:5]{index=5}
 	void send_request(const uint16_t func, const std::vector<uint8_t>& payload = {}, uint8_t flags = 0)
