@@ -18,8 +18,8 @@ int main()
 	std::array<uint16_t, 8> rc = {
 		1500, // roll
 		1500, // pitch
-		1500, // yaw
 		1337, // throttle
+		1500, // yaw
 	};
 
 	while(true) {
