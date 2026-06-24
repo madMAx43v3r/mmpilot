@@ -63,6 +63,8 @@ int main(int argc, char** argv)
 	{
 		std::lock_guard<std::mutex> lock(mutex);
 		write_sample(rec, "msp.rc", rc);
+
+		std::cout << "RC: ts = " << rc.ts << ", roll = " << rc.ch[0] << ", pitch = " << rc.ch[1] << ", throttle = " << rc.ch[2] << ", yaw = " << rc.ch[3] << std::endl;
 	};
 
 	msp.on_gps = [&](const MSP2Client::RawGPS& gps)
