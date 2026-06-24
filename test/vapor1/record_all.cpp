@@ -119,7 +119,13 @@ int main(int argc, char** argv)
 	cam_0->start();
 
 	std::thread msp_thread([&]() {
-		msp.run();
+		while(!msp.is_shutdown()) {
+			try {
+				msp.run();
+			} catch(std::exception& ex) {
+				std::cout << "[MSP] " << ex.what() << std::endl;
+			}
+		}
 	});
 
 	wait_for_exit();

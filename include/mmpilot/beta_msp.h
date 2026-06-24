@@ -461,6 +461,11 @@ public:
 		do_run = false;
 	}
 
+	bool is_shutdown() {
+		std::lock_guard<std::mutex> lock(mutex);
+		return do_run;
+	}
+
 private:
 	std::mutex mutex;
 	std::mutex send_mutex;
