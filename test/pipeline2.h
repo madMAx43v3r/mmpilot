@@ -182,7 +182,7 @@ protected:
 
 	Gyro::State gyro;
 
-	int64_t ts = 0;
+	int64_t ts = 0;		// usec
 
 	Mat3f R_BC;			// camera to body
 	Mat3f R_WB;			// body to world

@@ -11,6 +11,7 @@
 #include "../pipeline2.h"
 #include "../mapping.h"
 #include "../localization.h"
+#include "../test_control.h"
 
 #include <iostream>
 
@@ -25,7 +26,8 @@ int main(int argc, char** argv)
 
 //	Pipeline pipe_0;
 //	MappingPipe pipe_0;
-	LocalizationPipe pipe_0("map.dat");
+	TestControl pipe_0(nullptr);
+//	LocalizationPipe pipe_0("map.dat");
 //	pipe_0.mapping.gps_alt_override = 150;
 //	CalibrationPipe pipe_0;
 	pipe_0.is_debug = true;
