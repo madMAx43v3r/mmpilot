@@ -129,7 +129,7 @@ protected:
 			msp->send_raw_rc(rc);
 		}
 
-		if(delta.overlap < 0.25 || delta.translation().norm() > 50)
+		if(delta.overlap < 0.2)
 		{
 			std::cout << "INFO: rebase with overlap " << delta.overlap << std::endl;
 			rebase();
