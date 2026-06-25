@@ -107,7 +107,7 @@ protected:
 
 			out_throttle  = std::min(std::max(out_throttle, 0.f), 1.f);
 
-			out_yawrate = (target_yaw - yaw_deg) * yaw_param.x() + rad2deg(yaw_rate) * yaw_param.y();
+			out_yawrate = angle_norm_180(target_yaw - yaw_deg) * yaw_param.x() + rad2deg(yaw_rate) * yaw_param.y();
 
 			std::cout << "Control: roll = " << out_angle.x() << ", pitch = " << out_angle.y() << ", yaw = " << out_yawrate << " deg/s, throttle = " << out_throttle << std::endl;
 		}
