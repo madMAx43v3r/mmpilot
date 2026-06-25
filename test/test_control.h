@@ -19,7 +19,7 @@ public:
 	int max_angle = 200;		// RC offset
 	int max_throttle = 600;		// RC offset
 
-	int override_channel = 5 - 1;		// AUX
+	int override_channel = 4 + 5 - 1;		// AUX
 
 	float yaw_gain = 10;				// deg / sec to RC range
 	float angle_gain = 5;				// pix to RC range
