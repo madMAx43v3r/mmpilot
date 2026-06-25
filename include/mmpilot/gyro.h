@@ -27,6 +27,8 @@ public:
 
 		Mat3f rot = Mat3f::Identity();
 
+		Vec3f omega = Vec3f::Zero();		// (roll, pitch, yaw) [rad/s]
+
 		Mat3f matrix() const {
 			return rot;
 		}
@@ -65,6 +67,7 @@ public:
 		out.ts = imu.ts;
 		out.rot = prev.rot * so3_exp<float>(omega * dt);
 		out.rot = orthonormalize(out.rot);
+		out.omega = omega;
 		history.push_back(out);
 
 		const auto RPY = out.get_rpy();
@@ -154,6 +157,7 @@ public:
 		State out;
 		out.ts = ts;
 		out.rot = slerp_R(a.rot, b.rot, t);
+		out.omega = a.omega * (1 - t) + b.omega * t;
 		return out;
 	}
 
