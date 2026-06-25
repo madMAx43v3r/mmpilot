@@ -24,7 +24,7 @@ public:
 	float yaw_gain = 10;				// deg / sec to RC range
 	float angle_gain = 5;				// pix to RC range
 	float throttle_gain = 0.1;
-	float base_throttle = 0.5;			// 0 to 1
+	float base_throttle_gain = 0.1;
 
 	Vec2f yaw_param = Vec2f(1, -0.5);				// 1 / sec
 	Vec2f angle_param = Vec2f(1, -0.5);				// 1 / pix
@@ -37,6 +37,8 @@ public:
 	float out_yawrate = 0;				// deg / sec
 	float out_throttle = 0;				// 0 to 1
 	Vec2f out_angle = Vec2f(0, 0);		// pix
+
+	float base_throttle = 0.5;			// 0 to 1
 
 	TestControl(MSP2Client* msp_)
 		:	msp(msp_)
@@ -104,10 +106,10 @@ protected:
 
 			out_angle = get_rotation_matrix(deg2rad(RPY.z())) * out_angle;
 
-			out_throttle = base_throttle + (1 - delta.scale()) * throttle_param.x() + (z_speed - 1) * throttle_param.y();
+			out_throttle = base_throttle + ((1 - delta.scale()) * throttle_param.x() + (z_speed - 1) * throttle_param.y()) * throttle_gain;
 
 			{
-				const float gain = throttle_gain * dt;
+				const float gain = base_throttle_gain * dt;
 				base_throttle = base_throttle * (1 - gain) + out_throttle * gain;
 			}
 
