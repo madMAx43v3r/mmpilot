@@ -23,8 +23,8 @@ public:
 
 	float yaw_gain = 10;				// deg / sec to RC range
 	float angle_gain = 5;				// pix to RC range
-	float throttle_gain = 0.1;
-	float start_throttle = 0.5;			// 0 to 1
+	float throttle_gain = 0.5;
+	float base_throttle = 0.5;			// 0 to 1
 
 	Vec2f yaw_param = Vec2f(1, -0.5);				// 1 / sec
 	Vec2f angle_param = Vec2f(1, -0.5);				// 1 / pix
@@ -104,7 +104,12 @@ protected:
 
 			out_angle = get_rotation_matrix(deg2rad(RPY.z())) * out_angle;
 
-			out_throttle += ((1 - delta.scale()) * throttle_param.x() + (z_speed - 1) * throttle_param.y()) * dt * throttle_gain;
+			out_throttle = base_throttle + ((1 - delta.scale()) * throttle_param.x() + (z_speed - 1) * throttle_param.y());
+
+			{
+				const float gain = throttle_gain * dt;
+				base_throttle = base_throttle * (1 - gain) + out_throttle * gain;
+			}
 
 			out_yawrate = angle_norm_180(target_yaw - yaw_deg) * yaw_param.x() + rad2deg(yaw_rate) * yaw_param.y();
 
@@ -112,7 +117,7 @@ protected:
 		}
 		else {
 			out_yawrate = 0;
-			out_throttle = start_throttle;
+			out_throttle = base_throttle;
 			out_angle = Vec2f(0, 0);
 		}
 
@@ -138,6 +143,10 @@ protected:
 
 //		show(display, source);
 //		show(display, stage[0]->solver.tex_debug);
+
+//		if(!active) {
+//			enable();
+//		}
 	}
 
 	void rebase() override
@@ -156,7 +165,7 @@ protected:
 		if(auto rc = std::dynamic_pointer_cast<MSP2Client::RcPacket>(sample))
 		{
 			if(!active) {
-				start_throttle = (float(rc->throttle()) - 1000) / 1000;
+				base_throttle = (float(rc->throttle()) - 1000) / 1000;
 			}
 			if(override_channel < rc->ch.size())
 			{
