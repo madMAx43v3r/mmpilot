@@ -103,7 +103,7 @@ protected:
 
 			out_angle = get_rotation_matrix(deg2rad(RPY.z())) * out_angle;
 
-			out_throttle += (1 - delta.scale()) * throttle_param.x() + z_speed * throttle_param.y();
+			out_throttle += (1 - delta.scale()) * throttle_param.x() + (z_speed - 1) * throttle_param.y();
 
 			out_throttle  = std::min(std::max(out_throttle, 0.f), 1.f);
 
