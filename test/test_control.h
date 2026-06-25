@@ -23,7 +23,7 @@ public:
 
 	float yaw_gain = 10;				// deg / sec to RC range
 	float angle_gain = 5;				// pix to RC range
-	float throttle_gain = 0.5;
+	float throttle_gain = 0.1;
 	float base_throttle = 0.5;			// 0 to 1
 
 	Vec2f yaw_param = Vec2f(1, -0.5);				// 1 / sec
@@ -104,7 +104,7 @@ protected:
 
 			out_angle = get_rotation_matrix(deg2rad(RPY.z())) * out_angle;
 
-			out_throttle = base_throttle + ((1 - delta.scale()) * throttle_param.x() + (z_speed - 1) * throttle_param.y());
+			out_throttle = base_throttle + (1 - delta.scale()) * throttle_param.x() + (z_speed - 1) * throttle_param.y();
 
 			{
 				const float gain = throttle_gain * dt;
@@ -113,7 +113,7 @@ protected:
 
 			out_yawrate = angle_norm_180(target_yaw - yaw_deg) * yaw_param.x() + rad2deg(yaw_rate) * yaw_param.y();
 
-			std::cout << "Control: roll = " << out_angle.x() << ", pitch = " << out_angle.y() << ", yaw = " << out_yawrate << " deg/s, throttle = " << out_throttle << std::endl;
+			std::cout << "Control: roll = " << out_angle.x() << ", pitch = " << out_angle.y() << ", yaw = " << out_yawrate << " deg/s, throttle = " << out_throttle << " (base " << base_throttle << ")" << std::endl;
 		}
 		else {
 			out_yawrate = 0;
