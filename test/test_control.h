@@ -123,7 +123,7 @@ protected:
 		rc[2] = 1000 + std::min(std::max(int(out_throttle * 1000), 0), max_throttle),				// throttle
 		rc[3] = 1500 + std::min(std::max(int(out_yawrate * yaw_gain), -max_yaw), max_yaw),			// yaw
 
-		std::cout << "RAW_RC: " << to_string(rc) << std::endl;
+		std::cout << "RC_OVERRIDE: " << to_string(rc) << std::endl;
 
 		if(msp) {
 			msp->send_raw_rc(rc);
