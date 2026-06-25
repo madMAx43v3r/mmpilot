@@ -342,7 +342,7 @@ protected:
 		merge_init = true;
 
 //		show(display, merge.out, {1, 1, 1, 1});
-		show(display, merge.tex_debug[0]);
+//		show(display, merge.tex_debug[0]);
 //		show(display, merge.flow.stage[0]->flow[0].tex_debug);
 //		show(display, stage[0]->base_img);
 //		show(display, stage[0]->flow.tex_debug);
