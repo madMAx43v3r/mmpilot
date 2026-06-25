@@ -273,6 +273,7 @@ void Camera::handle(Request* req)
 	}
 
 	CameraFrame out;
+	out.ts = get_time_micros();
 	out.width = width;
 	out.height = height;
 	out.stride = stride;

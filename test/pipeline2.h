@@ -398,7 +398,7 @@ protected:
 		}
 
 		{
-			const auto ts_off = img->ts - img->timestamp;
+			const int64_t ts_off = img->ts - img->timestamp;
 			if(time_init) {
 				// keep updating offset to converge
 				time_offset = (time_offset * 63 + ts_off) / 64;
