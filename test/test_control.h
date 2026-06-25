@@ -23,7 +23,8 @@ public:
 
 	float yaw_gain = 10;				// deg / sec to RC range
 	float angle_gain = 5;				// pix to RC range
-	float start_throttle = 0.3;			// 0 to 1
+	float throttle_gain = 0.1;
+	float start_throttle = 0.5;			// 0 to 1
 
 	Vec2f yaw_param = Vec2f(1, -0.5);				// 1 / sec
 	Vec2f angle_param = Vec2f(1, -0.5);				// 1 / pix
@@ -76,7 +77,7 @@ protected:
 			rebase();
 			return;
 		}
-		std::cout << "Delta: " << to_string(delta) << " (overlap = " << delta.overlap << ")" << std::endl;
+		std::cout << "Delta: " << to_string(delta) << " (overlap = " << delta.overlap << ", dt = " << dt << " sec)" << std::endl;
 
 		yaw_rate = gyro.omega.z();
 
@@ -103,9 +104,7 @@ protected:
 
 			out_angle = get_rotation_matrix(deg2rad(RPY.z())) * out_angle;
 
-			out_throttle += (1 - delta.scale()) * throttle_param.x() + (z_speed - 1) * throttle_param.y();
-
-			out_throttle  = std::min(std::max(out_throttle, 0.f), 1.f);
+			out_throttle += ((1 - delta.scale()) * throttle_param.x() + (z_speed - 1) * throttle_param.y()) * dt * throttle_gain;
 
 			out_yawrate = angle_norm_180(target_yaw - yaw_deg) * yaw_param.x() + rad2deg(yaw_rate) * yaw_param.y();
 
@@ -116,6 +115,8 @@ protected:
 			out_throttle = start_throttle;
 			out_angle = Vec2f(0, 0);
 		}
+
+		out_throttle = std::min(std::max(out_throttle, 0.f), 1.f);
 
 		std::array<uint16_t, 8> rc = {};
 		rc[0] = 1500 + std::min(std::max(int(out_angle.x() * angle_gain), -max_angle), max_angle),	// roll
@@ -154,6 +155,9 @@ protected:
 
 		if(auto rc = std::dynamic_pointer_cast<MSP2Client::RcPacket>(sample))
 		{
+			if(!active) {
+				start_throttle = (float(rc->throttle()) - 1000) / 1000;
+			}
 			if(override_channel < rc->ch.size())
 			{
 				if(rc->ch.at(override_channel) > 1500) {
@@ -166,7 +170,7 @@ protected:
 					}
 				}
 			}
-			std::cout << "RC: ts = " << rc->ts << ", roll = " << rc->ch[0] << ", pitch = " << rc->ch[1] << ", yaw = " << rc->ch[2] << ", throttle = " << rc->ch[3] << std::endl;
+			std::cout << "RC: ts = " << rc->ts << ", roll = " << rc->roll() << ", pitch = " << rc->pitch() << ", yaw = " << rc->yaw() << ", throttle = " << rc->throttle() << std::endl;
 		}
 	}
 
