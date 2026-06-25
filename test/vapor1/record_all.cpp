@@ -87,6 +87,7 @@ int main(int argc, char** argv)
 		const auto* V = frame.data[2].first;
 
 		Image out;
+		out.ts = frame.ts;
 		out.width = frame.width;
 		out.height = frame.height;
 		out.stride = frame.width;

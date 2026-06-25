@@ -26,6 +26,7 @@ std::shared_ptr<Image> convert(const CameraFrame& frame)
 	const auto& V = frame.data[2];
 
 	auto out = std::make_shared<Image>();
+	out->ts = frame.ts;
 	out->width = frame.width;
 	out->height = frame.height;
 	out->stride = frame.stride;
