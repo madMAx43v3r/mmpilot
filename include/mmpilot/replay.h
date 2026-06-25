@@ -156,16 +156,18 @@ public:
 	{
 		bool have_init = false;
 		int64_t ts_delta = 0;
+		int64_t ts_start = 0;
 		while(true) {
 			try {
 				if(auto sample = read_sample()) {
 					const auto now_us = get_time_micros();
 					if(have_init) {
-						const int64_t delay_us = (sample->ts + ts_delta) / speed - now_us;
+						const int64_t delay_us = ((sample->ts - ts_start) / speed + ts_start + ts_delta) - now_us;
 						if(real_time && delay_us > 0) {
 							sleep_us(delay_us);		// sleep to match real time
 						}
 					} else {
+						ts_start = sample->ts;
 						ts_delta = now_us - sample->ts;		// initialize time delta
 						have_init = true;
 					}
