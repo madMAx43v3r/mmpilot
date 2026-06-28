@@ -10,7 +10,7 @@ uniform float uFactor;          // 0..1
 
 void main()
 {
-    ivec2 p  = ivec2(gl_FragCoord.xy);
+    ivec2 p = ivec2(gl_FragCoord.xy);
 
     vec4 L = texelFetch(uSrc0, p, 0);
     vec4 R = texelFetch(uSrc1, p, 0);
