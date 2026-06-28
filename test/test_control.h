@@ -68,6 +68,9 @@ protected:
 	void init(int width, int height) override
 	{
 		Pipeline::init(width, height);
+
+		merge.weight = 0.9;
+//		merge.debug = true;
 	}
 
 	void enable() {
@@ -164,14 +167,33 @@ protected:
 			msp->send_raw_rc(rc);
 		}
 
-		if(delta.overlap < 0.2 || delta.R_norm > 100)
+		if(delta.overlap < 0.25 || delta.R_norm > 30)
 		{
 			std::cout << "Control: rebase with overlap " << delta.overlap << ", R_norm = " << delta.R_norm << std::endl;
+
+			merge.exec(source, source, Affine::Params());
+			merge_init = true;
+
 			rebase();
+		}
+		else {
+			// TODO: slowly shift base to follow ego position
+
+			// update base image
+			if(merge_init) {
+				merge.exec(source, merge.out_blend, delta.inverse());
+			} else {
+				merge.exec(source, source, Affine::Params());
+				merge_init = true;
+			}
+			pyramid.exec(merge.out_blend);
+
+			Pipeline::rebase();
 		}
 
 //		show(display, source);
-//		show(display, stage[0]->solver.tex_debug);
+//		show(display, merge.tex_debug[1]);
+//		show(display, stage[2]->solver.tex_debug);
 
 //		if(!active) {
 //			enable();
