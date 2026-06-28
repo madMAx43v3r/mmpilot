@@ -115,10 +115,10 @@ protected:
 
 		odom.add(delta.transform());
 
-		const Vec3f RPY = gyro.get_rpy();
+		const Vec3f RPY_deg = gyro.get_rpy();
 
 		// get drift corrected yaw angle
-		const float yaw_deg = angle_norm_180(RPY.z() - get_angle_deg(odom.rot));	// TODO: sign correct?
+		const float yaw_deg = angle_norm_180(RPY_deg.z() - get_angle_deg(odom.rot));	// TODO: sign correct?
 
 		std::cout << "Odometry: pos = " << odom.pos.transpose() << ", yaw = " << yaw_deg << " deg, scale = " << odom.scale << std::endl;
 
@@ -129,7 +129,7 @@ protected:
 			);
 
 			// transform xy control to roll / pitch
-			out_angle = get_rotation_matrix(deg2rad(RPY.z() + 90)) * out_angle;
+			out_angle = get_rotation_matrix(deg2rad(RPY_deg.z() - RPY_cam.z())) * out_angle;		// TODO: test with non-zero yaw
 
 			out_throttle = base_throttle + throttle_control.update(
 					1 - odom.scale,
