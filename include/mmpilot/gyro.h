@@ -27,7 +27,7 @@ public:
 
 		Mat3f rot = Mat3f::Identity();
 
-		Vec3f omega = Vec3f::Zero();		// (roll, pitch, yaw) [rad/s]
+		Vec3f rates = Vec3f::Zero();		// (roll, pitch, yaw) [deg/s]
 
 		Mat3f matrix() const {
 			return rot;
@@ -57,17 +57,15 @@ public:
 		const auto prev = history.back();
 		const float dt = (imu.ts - prev.ts) * 1e-6f;		// [sec]
 
-		const Vec3f rates =
-				Vec3f(imu.gyro[0], imu.gyro[1], imu.gyro[2]) * gyro_scale
-				+ att_correction;	// [deg/s]
+		const Vec3f rates = Vec3f(imu.gyro[0], imu.gyro[1], imu.gyro[2]) * gyro_scale;	// [deg/s]
 
-		const Vec3f omega = rates * float(M_PI / 180);   	// [rad/s]
+		const Vec3f omega = deg2rad(Vec3f(rates + att_correction));   	// [rad/s]
 
 		State out;
 		out.ts = imu.ts;
 		out.rot = prev.rot * so3_exp<float>(omega * dt);
 		out.rot = orthonormalize(out.rot);
-		out.omega = omega;
+		out.rates = rates;
 		history.push_back(out);
 
 		const auto RPY = out.get_rpy();
@@ -157,7 +155,7 @@ public:
 		State out;
 		out.ts = ts;
 		out.rot = slerp_R(a.rot, b.rot, t);
-		out.omega = a.omega * (1 - t) + b.omega * t;
+		out.rates = a.rates * (1 - t) + b.rates * t;
 		return out;
 	}
 

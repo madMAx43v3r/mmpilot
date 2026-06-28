@@ -49,7 +49,7 @@ public:
 	PDControl<float> throttle_control = PDControl<float>(0.1);
 
 	float z_speed = 1;					// scale / sec
-	float yaw_rate = 0;					// rad / sec
+	float yaw_rate = 0;					// deg / sec
 	Vec2f xy_speed = Vec2f(0, 0);		// pix / sec
 
 	float out_yawrate = 0;				// deg / sec
@@ -100,7 +100,7 @@ protected:
 		}
 		std::cout << "Delta: " << to_string(delta) << " (overlap = " << delta.overlap << ", R = " << delta.R_norm << ", dt = " << dt << " sec)" << std::endl;
 
-		yaw_rate = gyro.omega.z();
+		yaw_rate = gyro.rates.z();
 
 		if(dt > 0) {
 			if(last_scale > 0) {
@@ -114,7 +114,7 @@ protected:
 		last_scale = delta.scale();
 		last_pos = delta.translation();
 
-		std::cout << "Speed: xy = " << xy_speed.transpose() << " pix/s, yaw = " << rad2deg(yaw_rate) << " deg/s, z = " << z_speed << std::endl;
+		std::cout << "Speed: xy = " << xy_speed.transpose() << " pix/s, yaw = " << yaw_rate << " deg/s, z = " << z_speed << std::endl;
 
 		if(active) {
 			const Vec3f RPY = gyro.get_rpy();
@@ -139,7 +139,7 @@ protected:
 
 			out_yawrate = yaw_control.update(
 					angle_norm_180(yaw_deg - target_yaw),
-					rad2deg(-yaw_rate)
+					-yaw_rate
 			);
 
 			std::cout << "Control: roll = " << out_angle.x() << ", pitch = " << out_angle.y() << ", yaw = " << out_yawrate << ", throttle = " << out_throttle << " (base " << base_throttle << ")" << std::endl;

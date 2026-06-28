@@ -43,6 +43,16 @@ T rad2deg(T r) {
 	return r * T(180 / M_PI);
 }
 
+template<typename T, int N, int M>
+Eigen::Matrix<T, N, M> deg2rad(const Eigen::Matrix<T, N, M>& d) {
+	return d * T(M_PI / 180);
+}
+
+template<typename T, int N, int M>
+Eigen::Matrix<T, N, M> rad2deg(const Eigen::Matrix<T, N, M>& r) {
+	return r * T(180 / M_PI);
+}
+
 // Wrap to [-pi, pi)
 template<typename T>
 T angle_norm_pi(T a) {
