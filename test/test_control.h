@@ -13,6 +13,29 @@
 #include "pipeline2.h"
 
 
+inline float exp_gain(const float state, const float value, const float gain)
+{
+	return state * (1 - gain) + value * gain;
+}
+
+
+template<typename T>
+class PDControl {
+public:
+	Vec2f PD = Vec2f(1, -0.5);		// (P, D)
+
+	float gain = 1;					// global scaling
+
+	PDControl() = default;
+	PDControl(float gain_) : gain(gain_) {}
+
+	T update(const T& error, const T& derivative)
+	{
+		return (error * PD.x() + derivative * PD.y()) * gain;
+	}
+};
+
+
 class TestControl : public Pipeline {
 public:
 	int max_yaw = 100;			// RC offset
@@ -21,14 +44,9 @@ public:
 
 	int override_channel = 4 + 5 - 1;		// AUX
 
-	float yaw_gain = 10;				// deg / sec to RC range
-	float angle_gain = 5;				// pix to RC range
-	float throttle_gain = 0.1;
-	float base_throttle_gain = 0.1;
-
-	Vec2f yaw_param = Vec2f(1, -0.5);				// 1 / sec
-	Vec2f angle_param = Vec2f(1, -0.5);				// 1 / pix
-	Vec2f throttle_param = Vec2f(1, -0.5);			// 1 / sec
+	PDControl<float> yaw_contol = PDControl<float>(10);
+	PDControl<Vec2f> angle_control = PDControl<Vec2f>(5);
+	PDControl<float> throttle_control = PDControl<float>(0.1);
 
 	float z_speed = 1;					// scale / sec
 	float yaw_rate = 0;					// rad / sec
@@ -39,6 +57,7 @@ public:
 	Vec2f out_angle = Vec2f(0, 0);		// pix
 
 	float base_throttle = 0.5;			// 0 to 1
+	float base_throttle_gain = 0.1;
 
 	TestControl(MSP2Client* msp_)
 		:	msp(msp_)
@@ -102,18 +121,28 @@ protected:
 
 			const float yaw_deg = RPY.z() - rad2deg(delta.yaw());	// TODO: sign correct?
 
-			out_angle = delta.translation() * angle_param.x() + xy_speed * angle_param.y();
+			out_angle = angle_control.update(
+					delta.translation(),
+					xy_speed
+			);
 
+			// transform xy control to roll / pitch
 			out_angle = get_rotation_matrix(deg2rad(RPY.z())) * out_angle;
 
-			out_throttle = base_throttle + ((1 - delta.scale()) * throttle_param.x() + (z_speed - 1) * throttle_param.y()) * throttle_gain;
+//			out_throttle = base_throttle + ((1 - delta.scale()) * throttle_param.x() + (z_speed - 1) * throttle_param.y()) * throttle_gain;
 
-			{
-				const float gain = base_throttle_gain * dt;
-				base_throttle = base_throttle * (1 - gain) + out_throttle * gain;
-			}
+			out_throttle = throttle_control.update(
+					1 - delta.scale(),
+					z_speed - 1
+			);
 
-			out_yawrate = angle_norm_180(target_yaw - yaw_deg) * yaw_param.x() + rad2deg(yaw_rate) * yaw_param.y();
+			// update base throttle
+			base_throttle = exp_gain(base_throttle, out_throttle, base_throttle_gain * dt);
+
+			out_yawrate = yaw_contol.update(
+					angle_norm_180(target_yaw - yaw_deg),
+					rad2deg(yaw_rate)
+			);
 
 			std::cout << "Control: roll = " << out_angle.x() << ", pitch = " << out_angle.y() << ", yaw = " << out_yawrate << " deg/s, throttle = " << out_throttle << " (base " << base_throttle << ")" << std::endl;
 		}
@@ -126,10 +155,10 @@ protected:
 		out_throttle = std::min(std::max(out_throttle, 0.f), 1.f);
 
 		std::array<uint16_t, 8> rc = {};
-		rc[0] = 1500 + std::min(std::max(int(out_angle.x() * angle_gain), -max_angle), max_angle),	// roll
-		rc[1] = 1500 + std::min(std::max(int(out_angle.y() * angle_gain), -max_angle), max_angle),	// pitch
+		rc[0] = 1500 + std::min(std::max(int(out_angle.x()), -max_angle), max_angle),	// roll
+		rc[1] = 1500 + std::min(std::max(int(out_angle.y()), -max_angle), max_angle),	// pitch
 		rc[2] = 1000 + std::min(std::max(int(out_throttle * 1000), 0), max_throttle),				// throttle
-		rc[3] = 1500 + std::min(std::max(int(out_yawrate * yaw_gain), -max_yaw), max_yaw),			// yaw
+		rc[3] = 1500 + std::min(std::max(int(out_yawrate), -max_yaw), max_yaw),			// yaw
 
 		std::cout << "RC_OVERRIDE: " << to_string(rc) << std::endl;
 
