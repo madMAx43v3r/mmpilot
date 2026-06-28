@@ -76,20 +76,20 @@ public:
 			smooth.clear();
 			out = smooth.out;
 		}
-		glUseProgram(prog);
-
-		GL_bind_tex(prog, "uRef", ref, 0);
-
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-		GL_bind_tex(prog, "uImg", img, 1);
-
-		GL_uniform_2f(prog, "uInvSize", 1. / width, 1. / height);
-		GL_uniform_1f(prog, "uDamping", damping);
-
 		for(int iter = 0; iter < num_iter; ++iter)
 		{
+			glUseProgram(prog);
+
+			GL_bind_tex(prog, "uRef", ref, 0);
+
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+			GL_bind_tex(prog, "uImg", img, 1);
+
+			GL_uniform_2f(prog, "uInvSize", 1. / width, 1. / height);
+			GL_uniform_1f(prog, "uDamping", damping);
+
 			GL_bind_tex(prog, "uFlow", out, 2);
 
 			render::fullscreen(fbo, width, height);
