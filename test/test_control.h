@@ -40,7 +40,7 @@ class TestControl : public Pipeline {
 public:
 	int max_yaw = 50;			// RC offset
 	int max_angle = 150;		// RC offset
-	int max_throttle = 600;		// RC offset
+	int max_throttle = 700;		// RC offset
 
 	int override_channel = 4 + 5 - 1;		// AUX
 
