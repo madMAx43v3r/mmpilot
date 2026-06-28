@@ -44,8 +44,8 @@ public:
 
 	int override_channel = 4 + 5 - 1;		// AUX
 
-	PDControl<float> yaw_contol = PDControl<float>(2);
-	PDControl<Vec2f> angle_control = PDControl<Vec2f>(1);	// TODO: typo
+	PDControl<float> yaw_control = PDControl<float>(2);
+	PDControl<Vec2f> angle_control = PDControl<Vec2f>(1);
 	PDControl<float> throttle_control = PDControl<float>(0.1);
 
 	float z_speed = 1;					// scale / sec
@@ -137,7 +137,7 @@ protected:
 			// update base throttle
 			base_throttle = exp_gain(base_throttle, out_throttle, base_throttle_gain * dt);
 
-			out_yawrate = yaw_contol.update(
+			out_yawrate = yaw_control.update(
 					angle_norm_180(yaw_deg - target_yaw),
 					rad2deg(-yaw_rate)
 			);
