@@ -22,7 +22,7 @@ inline float exp_gain(const float state, const float value, const float gain)
 template<typename T>
 class PDControl {
 public:
-	Vec2f PD = Vec2f(1, -0.5);		// (P, D)
+	Vec2f PD = Vec2f(1, -1);		// (P, D)
 
 	float gain = 1;					// global scaling
 
@@ -38,14 +38,14 @@ public:
 
 class TestControl : public Pipeline {
 public:
-	int max_yaw = 100;			// RC offset
-	int max_angle = 200;		// RC offset
+	int max_yaw = 50;			// RC offset
+	int max_angle = 150;		// RC offset
 	int max_throttle = 600;		// RC offset
 
 	int override_channel = 4 + 5 - 1;		// AUX
 
-	PDControl<float> yaw_contol = PDControl<float>(10);
-	PDControl<Vec2f> angle_control = PDControl<Vec2f>(5);
+	PDControl<float> yaw_contol = PDControl<float>(2);
+	PDControl<Vec2f> angle_control = PDControl<Vec2f>(1);
 	PDControl<float> throttle_control = PDControl<float>(0.1);
 
 	float z_speed = 1;					// scale / sec
@@ -78,13 +78,13 @@ protected:
 
 		rebase();
 
-		std::cout << "INFO: Enabled with yaw " << target_yaw << " deg" << std::endl;
+		std::cout << "Control: Enabled with yaw " << target_yaw << " deg" << std::endl;
 	}
 
 	void disable() {
 		active = false;
 
-		std::cout << "INFO: Disabled" << std::endl;
+		std::cout << "Control: Disabled" << std::endl;
 	}
 
 	void update() override
@@ -98,7 +98,7 @@ protected:
 			rebase();
 			return;
 		}
-		std::cout << "Delta: " << to_string(delta) << " (overlap = " << delta.overlap << ", dt = " << dt << " sec)" << std::endl;
+		std::cout << "Delta: " << to_string(delta) << " (overlap = " << delta.overlap << ", R = " << delta.R_norm << ", dt = " << dt << " sec)" << std::endl;
 
 		yaw_rate = gyro.omega.z();
 
@@ -123,13 +123,11 @@ protected:
 
 			out_angle = angle_control.update(
 					delta.translation(),
-					xy_speed
+					-xy_speed
 			);
 
 			// transform xy control to roll / pitch
-			out_angle = get_rotation_matrix(deg2rad(RPY.z())) * out_angle;
-
-//			out_throttle = base_throttle + ((1 - delta.scale()) * throttle_param.x() + (z_speed - 1) * throttle_param.y()) * throttle_gain;
+			out_angle = get_rotation_matrix(deg2rad(RPY.z() + 90)) * out_angle;
 
 			out_throttle = base_throttle + throttle_control.update(
 					1 - delta.scale(),
@@ -141,7 +139,7 @@ protected:
 
 			out_yawrate = yaw_contol.update(
 					angle_norm_180(yaw_deg - target_yaw),
-					rad2deg(yaw_rate)
+					rad2deg(-yaw_rate)
 			);
 
 			std::cout << "Control: roll = " << out_angle.x() << ", pitch = " << out_angle.y() << ", yaw = " << out_yawrate << " deg/s, throttle = " << out_throttle << " (base " << base_throttle << ")" << std::endl;
@@ -168,7 +166,7 @@ protected:
 
 		if(delta.overlap < 0.2)
 		{
-			std::cout << "INFO: rebase with overlap " << delta.overlap << std::endl;
+			std::cout << "Control: rebase with overlap " << delta.overlap << std::endl;
 			rebase();
 		}
 
