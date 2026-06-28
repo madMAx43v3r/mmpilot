@@ -336,11 +336,12 @@ protected:
 
 	virtual void update()
 	{
-		const auto base = merge_init ? merge.out_blend : source;
-
-		merge.exec(base, source, get_params());
-
-		merge_init = true;
+		if(merge_init) {
+			merge.exec(merge.out_blend, source, get_params());
+		} else {
+			merge.exec(source, source, Affine::Params());
+			merge_init = true;
+		}
 
 //		show(display, merge.out, {1, 1, 1, 1});
 //		show(display, merge.tex_debug[0]);
