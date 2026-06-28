@@ -57,7 +57,7 @@ public:
 	Vec2f out_angle = Vec2f(0, 0);		// pix
 
 	float base_throttle = 0.5;			// 0 to 1
-	float base_throttle_gain = 0.1;
+	float base_throttle_gain = 0.2;
 
 	TestControl(MSP2Client* msp_)
 		:	msp(msp_)
@@ -131,7 +131,7 @@ protected:
 
 //			out_throttle = base_throttle + ((1 - delta.scale()) * throttle_param.x() + (z_speed - 1) * throttle_param.y()) * throttle_gain;
 
-			out_throttle = throttle_control.update(
+			out_throttle = base_throttle + throttle_control.update(
 					1 - delta.scale(),
 					z_speed - 1
 			);
