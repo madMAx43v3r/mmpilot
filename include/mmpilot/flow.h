@@ -76,6 +76,7 @@ public:
 			smooth.clear();
 			out = smooth.out;
 		}
+
 		for(int iter = 0; iter < num_iter; ++iter)
 		{
 			glUseProgram(prog);
