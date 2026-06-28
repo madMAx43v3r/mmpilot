@@ -54,14 +54,14 @@ public:
 
 	int pyramid_depth = 4;
 
-	std::vector<int> num_iters = {1, 3, 7, 12};
+	std::vector<int> num_iters = {1, 2, 5, 25};
 
 	class Level {
 	public:
 		int level = 0;
 		int num_smooth = -1;
 
-		SmoothFilter smooth[3];
+		SmoothFilter smooth[4];
 		GradientFilter gradient;
 		Affine solver;
 
@@ -78,7 +78,8 @@ public:
 				switch(level) {
 					case 0:  num_smooth = 1; break;
 					case 1:  num_smooth = 2; break;
-					default: num_smooth = 3;
+					case 2:  num_smooth = 3; break;
+					default: num_smooth = 4;
 				}
 			}
 			for(int i = 0; i < num_smooth; ++i) {
