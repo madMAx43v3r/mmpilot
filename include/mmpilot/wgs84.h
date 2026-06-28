@@ -82,7 +82,7 @@ Vec3<T> enu_to_ecef_delta(const Vec3<T>& enu, const T lat0, const T lon0)
 	Vec3<T> d;
 	d.x() = (-sl) * enu.x() + (-sphi * cl) * enu.y() + (cphi * cl) * enu.z();
 	d.y() = ( cl) * enu.x() + (-sphi * sl) * enu.y() + (cphi * sl) * enu.z();
-	d.z() = T(0) * enu.x() + ( cphi)      * enu.y() + (sphi)      * enu.z();
+	d.z() =  T(0) * enu.x() + ( cphi)      * enu.y() + (sphi)      * enu.z();
 	return d;
 }
 
@@ -132,6 +132,7 @@ public:
 	const T lat0;			// [rad]
 	const T lon0;			// [rad]
 	const T alt0;			// [m]
+
 	const Vec3<T> ecef0;	// [m]
 
 	WGS84(T lat_rad, T lon_rad, T alt_m = 0)
