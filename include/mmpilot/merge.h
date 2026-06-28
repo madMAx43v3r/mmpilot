@@ -58,9 +58,11 @@ public:
 				throw std::logic_error("invalid format");
 		}
 
-		flow.depth = depth;
-		flow.debug = debug;
-		flow.init(width, height);
+		if(num_iter > 0) {
+			flow.depth = depth;
+			flow.debug = debug;
+			flow.init(width, height);
+		}
 
 		for(int i = 0; i < 2; ++i) {
 			for(int k = 0; k < 2; ++k) {
