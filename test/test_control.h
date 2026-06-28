@@ -139,12 +139,17 @@ protected:
 			// update base throttle
 			base_throttle = exp_gain(base_throttle, out_throttle, base_throttle_gain * dt);
 
+			// compensate for thrust vector loss
+			const auto extra_throttle = 1 / (cosf(deg2rad(RPY_deg.x())) * cosf(deg2rad(RPY_deg.y())));
+			out_throttle *= extra_throttle;
+
 			out_yawrate = yaw_control.update(
 					angle_norm_180(yaw_deg - target_yaw),
 					-yaw_rate
 			);
 
-			std::cout << "Control: roll = " << out_angle.x() << ", pitch = " << out_angle.y() << ", yaw = " << out_yawrate << ", throttle = " << out_throttle << " (base " << base_throttle << ")" << std::endl;
+			std::cout << "Control: roll = " << out_angle.x() << ", pitch = " << out_angle.y() << ", yaw = " << out_yawrate
+					<< ", throttle = " << out_throttle << " (base " << base_throttle << ", extra " << extra_throttle << ")" << std::endl;
 		}
 		else {
 			out_yawrate = 0;
