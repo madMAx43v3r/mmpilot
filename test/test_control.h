@@ -140,7 +140,7 @@ protected:
 			base_throttle = exp_gain(base_throttle, out_throttle, base_throttle_gain * dt);
 
 			out_yawrate = yaw_contol.update(
-					angle_norm_180(target_yaw - yaw_deg),
+					angle_norm_180(yaw_deg - target_yaw),
 					rad2deg(yaw_rate)
 			);
 
