@@ -68,9 +68,6 @@ protected:
 	void init(int width, int height) override
 	{
 		Pipeline::init(width, height);
-
-		merge.weight = 0.9;
-//		merge.debug = true;
 	}
 
 	void enable() {
@@ -177,23 +174,11 @@ protected:
 			rebase();
 		}
 		else {
-			// TODO: slowly shift base to follow ego position
-
-			// update base image
-			if(merge_init) {
-				merge.exec(source, merge.out_blend, delta.inverse());
-			} else {
-				merge.exec(source, source, Affine::Params());
-				merge_init = true;
-			}
-			pyramid.exec(merge.out_blend);
-
-			Pipeline::rebase();
+			// TODO: rebase to follow ego position
 		}
 
 //		show(display, source);
-//		show(display, merge.tex_debug[1]);
-//		show(display, stage[2]->solver.tex_debug);
+//		show(display, stage[0]->solver.tex_debug);
 
 //		if(!active) {
 //			enable();
