@@ -59,6 +59,8 @@ public:
 	float base_throttle = 0.5;			// 0 to 1
 	float base_throttle_gain = 0.2;
 
+	Transform2D odom;
+
 	TestControl(MSP2Client* msp_)
 		:	msp(msp_)
 	{
@@ -68,17 +70,16 @@ protected:
 	void init(int width, int height) override
 	{
 		Pipeline::init(width, height);
-
-		merge.weight = 0.9;
-		merge.num_iter = 0;
-//		merge.debug = true;
 	}
 
 	void enable() {
 		active = true;
 
+		// reset odometry
+		odom = Transform2D();
+
 		// keep current yaw
-		target_yaw = gyro.get_rpy().z();
+		target_yaw = angle_norm_180(gyro.get_rpy().z());
 
 		rebase();
 
@@ -98,35 +99,32 @@ protected:
 
 		const auto delta = get_params();
 		if(!delta.valid()) {
-			std::cout << "WARNING: delta not valid!" << std::endl;
+			std::cout << "WARNING: delta result not valid!" << std::endl;
 			rebase();
 			return;
 		}
 		std::cout << "Delta: " << to_string(delta) << " (overlap = " << delta.overlap << ", R = " << delta.R_norm << ", dt = " << dt << " sec)" << std::endl;
 
-		yaw_rate = gyro.rates.z();
-
 		if(dt > 0) {
-			if(last_scale > 0) {
-				z_speed = pow(delta.scale() / last_scale, 1 / dt);
-			} else {
-				z_speed = 1;
-			}
-			xy_speed = (delta.translation() - last_pos) / dt;
+			z_speed = pow(delta.scale(), 1 / dt);
+			xy_speed = delta.translation() / dt;
 		}
-		last_yaw = delta.yaw();
-		last_scale = delta.scale();
-		last_pos = delta.translation();
+		yaw_rate = gyro.rates.z();
 
 		std::cout << "Speed: xy = " << xy_speed.transpose() << " pix/s, yaw = " << yaw_rate << " deg/s, z = " << z_speed << std::endl;
 
+		odom.add(delta.transform());
+
+		const Vec3f RPY = gyro.get_rpy();
+
+		// get drift corrected yaw angle
+		const float yaw_deg = angle_norm_180(RPY.z() - get_angle_deg(odom.rot));	// TODO: sign correct?
+
+		std::cout << "Odometry: pos = " << odom.pos.transpose() << ", yaw = " << yaw_deg << " deg, scale = " << odom.scale << std::endl;
+
 		if(active) {
-			const Vec3f RPY = gyro.get_rpy();
-
-			const float yaw_deg = RPY.z() - rad2deg(delta.yaw());	// TODO: sign correct?
-
 			out_angle = angle_control.update(
-					delta.translation(),
+					odom.pos,
 					-xy_speed
 			);
 
@@ -134,7 +132,7 @@ protected:
 			out_angle = get_rotation_matrix(deg2rad(RPY.z() + 90)) * out_angle;
 
 			out_throttle = base_throttle + throttle_control.update(
-					1 - delta.scale(),
+					1 - odom.scale,
 					z_speed - 1
 			);
 
@@ -168,46 +166,14 @@ protected:
 			msp->send_raw_rc(rc);
 		}
 
-		if(delta.overlap < 0.25 || delta.R_norm > 30)
-		{
-			std::cout << "Control: rebase with overlap " << delta.overlap << ", R_norm = " << delta.R_norm << std::endl;
-
-			merge.exec(source, source, Affine::Params());
-			merge_init = true;
-
-			rebase();
-		}
-		else {
-			// TODO: rebase to follow ego position
-
-			// update base image
-			if(merge_init) {
-				merge.exec(source, merge.out_blend, delta.inverse());
-			} else {
-				merge.exec(source, source, Affine::Params());
-				merge_init = true;
-			}
-			pyramid.exec(merge.out_blend);
-
-			Pipeline::rebase();
-		}
+		rebase();
 
 //		show(display, source);
-//		show(display, merge.tex_debug[1]);
 //		show(display, stage[0]->solver.tex_debug);
 
 //		if(!active) {
 //			enable();
 //		}
-	}
-
-	void rebase() override
-	{
-		Pipeline::rebase();
-
-		last_yaw = 0;
-		last_scale = 1;
-		last_pos = Vec2f(0, 0);
 	}
 
 	void on_sample(std::shared_ptr<Sample> sample) override
@@ -240,10 +206,6 @@ private:
 	int64_t last_ts = 0;				// us
 
 	float target_yaw = 0;				// deg
-
-	float last_yaw = 0;					// rad
-	float last_scale = 1;
-	Vec2f last_pos = Vec2f(0, 0);		// pix
 
 	MSP2Client* msp = nullptr;
 
