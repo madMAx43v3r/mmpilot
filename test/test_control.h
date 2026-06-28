@@ -45,7 +45,7 @@ public:
 	int override_channel = 4 + 5 - 1;		// AUX
 
 	PDControl<float> yaw_contol = PDControl<float>(2);
-	PDControl<Vec2f> angle_control = PDControl<Vec2f>(1);
+	PDControl<Vec2f> angle_control = PDControl<Vec2f>(1);	// TODO: typo
 	PDControl<float> throttle_control = PDControl<float>(0.1);
 
 	float z_speed = 1;					// scale / sec
@@ -142,7 +142,7 @@ protected:
 					rad2deg(-yaw_rate)
 			);
 
-			std::cout << "Control: roll = " << out_angle.x() << ", pitch = " << out_angle.y() << ", yaw = " << out_yawrate << " deg/s, throttle = " << out_throttle << " (base " << base_throttle << ")" << std::endl;
+			std::cout << "Control: roll = " << out_angle.x() << ", pitch = " << out_angle.y() << ", yaw = " << out_yawrate << ", throttle = " << out_throttle << " (base " << base_throttle << ")" << std::endl;
 		}
 		else {
 			out_yawrate = 0;
@@ -164,9 +164,9 @@ protected:
 			msp->send_raw_rc(rc);
 		}
 
-		if(delta.overlap < 0.2)
+		if(delta.overlap < 0.2 || delta.R_norm > 100)
 		{
-			std::cout << "Control: rebase with overlap " << delta.overlap << std::endl;
+			std::cout << "Control: rebase with overlap " << delta.overlap << ", R_norm = " << delta.R_norm << std::endl;
 			rebase();
 		}
 
