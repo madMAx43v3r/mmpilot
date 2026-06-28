@@ -162,7 +162,7 @@ protected:
 		std::array<uint16_t, 8> rc = {};
 		rc[0] = 1500 + std::min(std::max(int(out_angle.x()), -max_angle), max_angle),	// roll
 		rc[1] = 1500 + std::min(std::max(int(out_angle.y()), -max_angle), max_angle),	// pitch
-		rc[2] = 1000 + std::min(std::max(int(out_throttle * 1000), 0), max_throttle),				// throttle
+		rc[2] = 1000 + std::min(std::max(int(out_throttle * 1000), 0), max_throttle),	// throttle
 		rc[3] = 1500 + std::min(std::max(int(out_yawrate), -max_yaw), max_yaw),			// yaw
 
 		std::cout << "RC_OVERRIDE: " << to_string(rc) << std::endl;
