@@ -11,6 +11,7 @@
 #include <mmpilot/record.h>
 #include <mmpilot/replay.h>
 #include <mmpilot/sample.h>
+#include <mmpilot/image.h>
 
 #include <vector>
 #include <string>
@@ -97,6 +98,32 @@ public:
 		out->is_owner = true;
 		return out;
 	}
+
+	std::shared_ptr<Image> convert()
+	{
+		if(pixel_format != "YUV420") {
+			throw std::logic_error("unsupported pixel format");
+		}
+		const auto& Y = data[0];
+		const auto& U = data[1];
+		const auto& V = data[2];
+
+		auto out = std::make_shared<Image>();
+		out->ts = ts;
+		out->width = width;
+		out->height = height;
+		out->stride = stride;
+		out->exposure = exposure;
+		out->analog_gain = analog_gain;
+		out->sequence = sequence;
+		out->timestamp = timestamp / 1000;
+		out->format = pixel_format;
+
+		out->data.emplace_back((const uint8_t*)Y.first, (const uint8_t*)Y.first + Y.second);
+		out->data.emplace_back((const uint8_t*)U.first, (const uint8_t*)U.first + U.second);
+		out->data.emplace_back((const uint8_t*)V.first, (const uint8_t*)V.first + V.second);
+		return out;
+	};
 
 private:
 	bool is_owner = false;

@@ -230,6 +230,14 @@ public:
 		_serial.open(path, baud);
 	}
 
+	~MSP2Client()
+	{
+		shutdown();
+		if(thread.joinable()) {
+			thread.join();
+		}
+	}
+
 	MSP2Client(const MSP2Client&) = delete;
 	MSP2Client& operator=(const MSP2Client&) = delete;
 
@@ -456,6 +464,20 @@ public:
 		}
 	}
 
+	void start() {
+		std::lock_guard<std::mutex> lock(mutex);
+
+		thread = std::thread([&]() {
+			while(!is_shutdown()) {
+				try {
+					run();
+				} catch(std::exception& ex) {
+					std::cout << "ERROR: MSP2: " << ex.what() << std::endl;
+				}
+			}
+		});
+	}
+
 	void shutdown() {
 		std::lock_guard<std::mutex> lock(mutex);
 		do_run = false;
@@ -469,6 +491,7 @@ public:
 private:
 	std::mutex mutex;
 	std::mutex send_mutex;
+	std::thread thread;
 	bool do_run = true;
 
 	SerialPort _serial;

@@ -10,7 +10,6 @@
 
 #include <mmpilot/render.h>
 #include <mmpilot/opengl.h>
-#include <mmpilot/display.h>
 #include <mmpilot/jpeg.h>
 #include <mmpilot/util.h>
 #include <mmpilot/image.h>
@@ -43,6 +42,7 @@ public:
 		:	Stage("root"),
 			gl_main(&Pipeline::gl_main_func)
 	{
+		// wait for opengl init
 		gl_main.post([]{});
 		sync();
 	}
@@ -64,7 +64,12 @@ public:
 		gl_main.sync();
 	}
 
-	void add_stage(std::shared_ptr<Stage> stage)
+	void init_sync(int width, int height) {
+		gl_main.post(std::bind(&Pipeline::init, this, width, height));
+		sync();
+	}
+
+	void add_stage(Stage* stage)
 	{
 		if(exec_chain.empty()) {
 			stage->prev_stage = this;
@@ -74,9 +79,28 @@ public:
 		exec_chain.push_back(stage);
 	}
 
+	void connect(MSP2Client& msp)
+	{
+		msp.on_raw_imu = [this](const MSP2Client::RawImu& imu) {
+			handle(std::make_shared<MSP2Client::RawImu>(imu));
+		};
+		msp.on_attitude = [this](const MSP2Client::Attitude& att) {
+			handle(std::make_shared<MSP2Client::Attitude>(att));
+		};
+		msp.on_altitude = [this](const MSP2Client::Altitude& alt) {
+			handle(std::make_shared<MSP2Client::Altitude>(alt));
+		};
+		msp.on_rc = [this](const MSP2Client::RcPacket& rc) {
+			handle(std::make_shared<MSP2Client::RcPacket>(rc));
+		};
+		msp.on_gps = [this](const MSP2Client::RawGPS& gps) {
+			handle(std::make_shared<MSP2Client::RawGPS>(gps));
+		};
+	}
+
 	// ---- Stage members ----
 
-	int64_t ts = 0;		// usec
+	int64_t ts = 0;			// usec
 
 	int width = 0;			// input to pipeline
 	int height = 0;			// input to pipeline
@@ -91,8 +115,6 @@ public:
 	ConstPointer gps;			// GPS::State
 	ConstPointer msp_rc;		// MSP2Client::RcPacket
 
-	std::unique_ptr<TexDisplay> display;
-
 private:
 	GPS gps_api;
 	Gyro gyro_api;
@@ -100,21 +122,20 @@ private:
 	FlipImage flip_image;
 	WeightRadius weight_radius;
 
-	std::vector<std::shared_ptr<Stage>> exec_chain;
+	std::vector<Stage*> exec_chain;
 
 	void init() override
 	{
 		flip_image.flip_x = src_flip_x;
 		flip_image.flip_y = src_flip_y;
 
-		if(radius_mask > 0) {
-			weight_radius.radius = (width / 2) * radius_mask;
-		}
-
 		input_luma = std::make_shared<GL_Tex2D>(width, height, GL_R8, GL_RED, GL_UNSIGNED_BYTE);
 
 		flip_image.init(width, height, GL_R8, GL_RED, GL_UNSIGNED_BYTE);
 
+		if(radius_mask > 0) {
+			weight_radius.radius = (width / 2) * radius_mask;
+		}
 		weight_radius.init(GL_RED, width, height);
 
 		add_output("image", &output);
@@ -126,7 +147,6 @@ private:
 		for(auto stage : exec_chain) {
 			stage->init();
 		}
-
 		have_init = true;
 	}
 
