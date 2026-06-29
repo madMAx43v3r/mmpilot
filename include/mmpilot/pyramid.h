@@ -24,7 +24,7 @@ class PyramidFilter {
 public:
 	int depth = 4;
 
-	std::vector<std::shared_ptr<GL_Tex2D>> out;
+	std::vector<std::shared_ptr<const GL_Tex2D>> out;
 
 	void init(int width_, int height_, GLenum int_format, GLenum format, GLenum type)
 	{
@@ -55,7 +55,7 @@ public:
 		have_init = true;
 	}
 
-	void exec(std::shared_ptr<GL_Tex2D> in, const bool sync = true)
+	void exec(std::shared_ptr<const GL_Tex2D> in, const bool sync = true)
 	{
 		if(!have_init) {
 			init(in->width, in->height, in->internal_fmt, in->format, in->type);

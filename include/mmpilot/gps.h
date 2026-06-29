@@ -10,6 +10,7 @@
 
 #include <mmpilot/beta_msp.h>
 #include <mmpilot/math.h>
+#include <mmpilot/value.h>
 
 #include <list>
 #include <memory>
@@ -22,7 +23,7 @@ namespace mmpilot {
 
 class GPS {
 public:
-	class State {
+	class State : public Value {
 	public:
 		int64_t ts = 0;			// [us]
 
@@ -35,6 +36,10 @@ public:
 
 		double speed = 0;		// [m/s]
 		double heading = 0;		// [deg]
+
+		std::string to_string() const override {
+			return mmpilot::to_string(std::array<double, 3>{lat, lon, alt});
+		}
 	};
 
 	size_t max_history = 1000;					// samples

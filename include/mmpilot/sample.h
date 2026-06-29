@@ -10,6 +10,7 @@
 
 #include <mmpilot/record.h>
 #include <mmpilot/thread.h>
+#include <mmpilot/value.h>
 #include <mmpilot/util.h>
 
 #include <string>
@@ -18,12 +19,16 @@
 
 namespace mmpilot {
 
-class Sample {
+class Sample : public Value {
 public:
 	int64_t ts;				// [us]
 	std::string topic;
 
 	virtual ~Sample() {}
+
+	std::string to_string() const override {
+		return "Sample(" + topic + ")";
+	}
 };
 
 

@@ -10,6 +10,8 @@
 
 #include <mmpilot/beta_msp.h>
 #include <mmpilot/math.h>
+#include <mmpilot/value.h>
+#include <mmpilot/util.h>
 
 #include <list>
 #include <cstdint>
@@ -21,7 +23,7 @@ namespace mmpilot {
 
 class Gyro {
 public:
-	class State {
+	class State : public Value {
 	public:
 		int64_t ts = 0;		// [us]
 
@@ -37,6 +39,11 @@ public:
 		Vec3f get_rpy() const {
 			const auto raw = rot_zyx_to_rpy_deg(rot);
 			return Vec3f(raw.x(), raw.y(), angle_norm_360(raw.z()));
+		}
+
+		std::string to_string() const override {
+			const auto RPY = get_rpy();
+			return mmpilot::to_string(std::array<float, 3>{RPY.x(), RPY.y(), RPY.y()});
 		}
 	};
 

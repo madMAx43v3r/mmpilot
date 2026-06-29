@@ -11,8 +11,8 @@
 #include <mmpilot/texture.h>
 #include <mmpilot/opengl.h>
 #include <mmpilot/transform.h>
-
-#include <array>
+#include <mmpilot/value.h>
+#include <mmpilot/util.h>
 
 
 namespace mmpilot {
@@ -41,7 +41,7 @@ public:
 	std::shared_ptr<GL_Tex2D> tex_jacobian;
 
 	// (x, y, alpha, scale)
-	class Params : public std::array<float, 4> {
+	class Params : public std::array<float, 4>, public Value {
 	public:
 		float R_norm = 0;		// normalized (factor 1000)
 		float overlap = 0;		// (0 to 1)
@@ -139,11 +139,15 @@ public:
 			p(2) = angle_norm_pi(yaw() + delta.yaw());
 			p(3) = scale() * delta.scale();
 		}
+
+		std::string to_string() const override {
+			return mmpilot::to_string(*this);
+		}
 	};
 
 	~Affine();
 
-	Params exec(std::shared_ptr<GL_Tex2D> ref, std::shared_ptr<GL_Tex2D> img, const Params& init_p, const bool sync = true);
+	Params exec(std::shared_ptr<const GL_Tex2D> ref, std::shared_ptr<const GL_Tex2D> img, const Params& init_p, const bool sync = true);
 
 	void init(int width, int height);
 

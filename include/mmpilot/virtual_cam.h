@@ -70,7 +70,7 @@ public:
 		have_init = true;
 	}
 
-	void exec(std::shared_ptr<GL_Tex2D> in)
+	void exec(std::shared_ptr<const GL_Tex2D> in)
 	{
 		if(!have_init) {
 			init(in->internal_fmt, in->format, in->type);

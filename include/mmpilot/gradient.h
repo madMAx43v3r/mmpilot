@@ -54,7 +54,7 @@ public:
 		have_init = true;
 	}
 
-	void exec(std::shared_ptr<GL_Tex2D> in, const bool sync = true)
+	void exec(std::shared_ptr<const GL_Tex2D> in, const bool sync = true)
 	{
 		if(!have_init) {
 			init(in->width, in->height);

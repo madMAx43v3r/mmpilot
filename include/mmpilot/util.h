@@ -13,6 +13,7 @@
 #include <thread>
 #include <iostream>
 #include <stdexcept>
+#include <array>
 
 
 namespace mmpilot {

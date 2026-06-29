@@ -9,6 +9,7 @@
 #define INCLUDE_MMPILOT_TEXTURE_H_
 
 #include <mmpilot/opengl.h>
+#include <mmpilot/value.h>
 
 #include <memory>
 #include <vector>
@@ -17,7 +18,7 @@
 
 namespace mmpilot {
 
-class GL_Tex2D {
+class GL_Tex2D : public Value {
 public:
 	GLuint id = 0;
 	GLsizei width = 0;
@@ -46,11 +47,11 @@ public:
 		return std::make_shared<GL_Tex2D>(width, height, internal_fmt, format, type);
 	}
 
-	void bind() {
+	void bind() const {
 		glBindTexture(GL_TEXTURE_2D, id);
 	}
 
-	void upload(const void* data, int stride = 0)
+	void upload(const void* data, int stride = 0) const
 	{
 		bind();
 		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
@@ -88,18 +89,22 @@ public:
 		return out;
 	}
 
+	std::string to_string() const override {
+		return std::string("GL_Tex2D<" + std::to_string(width) + "," + std::to_string(height) + ">");
+	}
+
 };
 
 
-inline void GL_bind_tex(GLuint prog, const char* name, std::shared_ptr<GL_Tex2D> tex, GLint unit) {
+inline void GL_bind_tex(GLuint prog, const char* name, std::shared_ptr<const GL_Tex2D> tex, GLint unit) {
 	GL_bind_tex(prog, name, tex->id, unit);
 }
 
-inline GLuint GL_create_FBO(std::shared_ptr<GL_Tex2D> tex) {
+inline GLuint GL_create_FBO(std::shared_ptr<const GL_Tex2D> tex) {
 	return GL_create_FBO(tex->id);
 }
 
-inline GLuint GL_create_FBO(const std::vector<std::shared_ptr<GL_Tex2D>>& tex) {
+inline GLuint GL_create_FBO(const std::vector<std::shared_ptr<const GL_Tex2D>>& tex) {
 	std::vector<GLuint> ids;
 	for(auto t : tex) {
 		ids.push_back(t->id);
@@ -108,7 +113,7 @@ inline GLuint GL_create_FBO(const std::vector<std::shared_ptr<GL_Tex2D>>& tex) {
 }
 
 inline void GL_blit(
-		std::shared_ptr<GL_Tex2D> dst, std::shared_ptr<GL_Tex2D> src)
+		std::shared_ptr<const GL_Tex2D> dst, std::shared_ptr<const GL_Tex2D> src)
 {
 	GLuint fbo[2] = {};
 	glGenFramebuffers(2, fbo);
