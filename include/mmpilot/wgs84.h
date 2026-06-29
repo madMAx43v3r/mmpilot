@@ -142,6 +142,13 @@ public:
 	}
 
 	// Returns East-North offset in meters
+	Vec2<T> get_en(const WGS84& p) const
+	{
+		const Vec3<T> d = ecef_to_enu_delta<T>(p.ecef0 - ecef0, lat0, lon0);
+		return Vec2<T>(d.x(), d.y());
+	}
+
+	// Returns East-North offset in meters
 	Vec2<T> get_en(T lat_rad, T lon_rad) const
 	{
 		const Vec3<T> p = wgs84_to_ecef<T>(lat_rad, lon_rad, alt0);
