@@ -120,7 +120,7 @@ public:
 		if(!map) {
 			throw std::logic_error("have no map");
 		}
-		if(!map->format == 1) {
+		if(map->format != 1) {
 			throw std::logic_error("invalid map format");
 		}
 		affine.debug = debug;
