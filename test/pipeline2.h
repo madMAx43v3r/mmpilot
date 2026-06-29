@@ -68,7 +68,7 @@ public:
 		Affine::Params A;
 
 		std::shared_ptr<Level> upper;			// lower scale (upper level)
-		std::shared_ptr<GL_Tex2D> base_img;
+		std::shared_ptr<const GL_Tex2D> base_img;
 
 		void init(int level, int width, int height)
 		{
@@ -95,7 +95,7 @@ public:
 			fbo_copy[1] = GL_create_FBO(gradient.out->id);
 		}
 
-		void exec(std::shared_ptr<GL_Tex2D> img)
+		void exec(std::shared_ptr<const GL_Tex2D> img)
 		{
 			if(have_base) {
 				if(upper) {
@@ -109,7 +109,7 @@ public:
 			}
 		}
 
-		void rebase(std::shared_ptr<GL_Tex2D> img)
+		void rebase(std::shared_ptr<const GL_Tex2D> img)
 		{
 			auto in = img;
 			for(int i = 0; i < num_smooth; ++i) {

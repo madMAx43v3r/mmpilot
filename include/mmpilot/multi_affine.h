@@ -70,7 +70,7 @@ public:
 			gradient.init(width_ref, height_ref);
 		}
 
-		void exec_ref(std::shared_ptr<GL_Tex2D> ref_)
+		void exec_ref(std::shared_ptr<const GL_Tex2D> ref_)
 		{
 			auto ref = ref_;
 			for(int i = 0; i < num_smooth; ++i) {
@@ -80,7 +80,7 @@ public:
 			gradient.exec(ref, false);
 		}
 
-		void exec_img(std::shared_ptr<GL_Tex2D> img, const bool sync)
+		void exec_img(std::shared_ptr<const GL_Tex2D> img, const bool sync)
 		{
 			if(prev) {
 				A = copy(prev->A).scale(2);
@@ -99,7 +99,7 @@ public:
 			}
 		}
 
-		void exec(std::shared_ptr<GL_Tex2D> ref, std::shared_ptr<GL_Tex2D> img, const bool sync)
+		void exec(std::shared_ptr<const GL_Tex2D> ref, std::shared_ptr<const GL_Tex2D> img, const bool sync)
 		{
 			exec_ref(ref);
 			exec_img(img, sync);
@@ -159,7 +159,7 @@ public:
 		have_init = true;
 	}
 
-	void exec_ref(std::shared_ptr<GL_Tex2D> ref)
+	void exec_ref(std::shared_ptr<const GL_Tex2D> ref)
 	{
 		if(!have_init) {
 			throw std::logic_error("not initialized");
@@ -172,7 +172,7 @@ public:
 	}
 
 	Affine::Params exec_img(
-			std::shared_ptr<GL_Tex2D> img,
+			std::shared_ptr<const GL_Tex2D> img,
 			const Affine::Params& A = {}, const int level = 0, const bool sync = true)
 	{
 		if(!have_init) {
@@ -212,7 +212,7 @@ public:
 	}
 
 	Affine::Params exec(
-			std::shared_ptr<GL_Tex2D> ref, std::shared_ptr<GL_Tex2D> img,
+			std::shared_ptr<const GL_Tex2D> ref, std::shared_ptr<const GL_Tex2D> img,
 			const Affine::Params& A = {}, const int level = 0, const bool sync = true)
 	{
 		exec_ref(ref);

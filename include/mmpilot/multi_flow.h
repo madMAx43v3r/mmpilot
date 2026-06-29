@@ -54,7 +54,7 @@ public:
 			}
 		}
 
-		void exec(std::shared_ptr<GL_Tex2D> ref, std::shared_ptr<GL_Tex2D> img)
+		void exec(std::shared_ptr<const GL_Tex2D> ref, std::shared_ptr<const GL_Tex2D> img)
 		{
 			if(prev) {
 				upscale[0].exec(prev->flow[0].out, false);
@@ -73,7 +73,7 @@ public:
 
 	std::vector<std::shared_ptr<Level>> stage;
 
-	std::shared_ptr<GL_Tex2D> out[2];		// (reverse, forward)
+	std::shared_ptr<const GL_Tex2D> out[2];		// (reverse, forward)
 
 	void init(int width_, int height_)
 	{
@@ -111,7 +111,7 @@ public:
 		have_init = true;
 	}
 
-	void exec(std::shared_ptr<GL_Tex2D> ref, std::shared_ptr<GL_Tex2D> img, const bool sync = true)
+	void exec(std::shared_ptr<const GL_Tex2D> ref, std::shared_ptr<const GL_Tex2D> img, const bool sync = true)
 	{
 		if(!have_init) {
 			throw std::logic_error("not initialized");
