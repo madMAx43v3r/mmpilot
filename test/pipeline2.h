@@ -424,13 +424,13 @@ protected:
 		if(auto img = std::dynamic_pointer_cast<Image>(sample)) {
 			on_image(img);
 		}
-		else if(auto imu = std::dynamic_pointer_cast<MSP2Client::RawImu>(sample)) {
+		else if(auto imu = std::dynamic_pointer_cast<MSP2::RawImu>(sample)) {
 			gyro_api.on_raw_imu(*imu);
 		}
-		else if(auto att = std::dynamic_pointer_cast<MSP2Client::Attitude>(sample)) {
+		else if(auto att = std::dynamic_pointer_cast<MSP2::Attitude>(sample)) {
 			gyro_api.on_attitude(*att);
 		}
-		else if(auto gps = std::dynamic_pointer_cast<MSP2Client::RawGPS>(sample)) {
+		else if(auto gps = std::dynamic_pointer_cast<MSP2::RawGPS>(sample)) {
 			std::cout << "gps: lat=" << gps->lat << ", lon=" << gps->lon
 					<< ", speed=" << gps->speed << ", heading=" << gps->course
 					<< ", alt=" << gps->alt << ", sats=" << int(gps->num_sats) << ", fix=" << int(gps->fix_type) << std::endl;

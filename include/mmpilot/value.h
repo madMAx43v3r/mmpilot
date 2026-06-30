@@ -10,6 +10,7 @@
 
 #include <string>
 #include <memory>
+#include <cstdint>
 
 
 namespace mmpilot {
@@ -34,6 +35,10 @@ public:
 
 	std::shared_ptr<Value>& operator=(const std::shared_ptr<Value>& v) {
 		value = v;
+		return value;
+	}
+
+	operator bool() const {
 		return value;
 	}
 
@@ -67,6 +72,10 @@ public:
 
 	std::shared_ptr<const Value>& operator=(const std::shared_ptr<const Value>& v) {
 		value = v;
+		return value;
+	}
+
+	operator bool() const {
 		return value;
 	}
 
@@ -112,9 +121,11 @@ public:
 };
 
 using Integer = Integral<int>;
+using Integer64 = Integral<int64_t>;
 using Bool    = Integral<bool>;
 using Float   = Integral<float>;
 using Double  = Integral<double>;
+using String  = Integral<std::string>;
 
 
 

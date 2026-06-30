@@ -56,7 +56,7 @@ public:
 
 	Vec3f att_scale = Vec3f(0.1, 0.1, 1);		// [deg]
 
-	void on_raw_imu(const MSP2Client::RawImu& imu)
+	void on_raw_imu(const MSP2::RawImu& imu)
 	{
 		if(history.empty() || imu.ts <= head_ts()) {
 			return;
@@ -101,7 +101,7 @@ public:
 		}
 	}
 
-	void on_attitude(const MSP2Client::Attitude& att)
+	void on_attitude(const MSP2::Attitude& att)
 	{
 		const Vec3f RPY = Vec3f(att.roll, att.pitch, att.yaw).cwiseProduct(att_scale);
 

@@ -61,7 +61,7 @@ public:
 
 	Transform2D odom;
 
-	TestControl(MSP2Client* msp_)
+	TestControl(MSP2* msp_)
 		:	msp(msp_)
 	{
 	}
@@ -185,7 +185,7 @@ protected:
 	{
 		Pipeline::on_sample(sample);
 
-		if(auto rc = std::dynamic_pointer_cast<MSP2Client::RcPacket>(sample))
+		if(auto rc = std::dynamic_pointer_cast<MSP2::RcPacket>(sample))
 		{
 			if(!active) {
 				base_throttle = (float(rc->throttle()) - 1000) / 1000;
@@ -212,7 +212,7 @@ private:
 
 	float target_yaw = 0;				// deg
 
-	MSP2Client* msp = nullptr;
+	MSP2* msp = nullptr;
 
 };
 

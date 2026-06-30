@@ -79,31 +79,31 @@ public:
 		exec_chain.push_back(stage);
 	}
 
-	void connect(MSP2Client& msp)
+	void connect(MSP2& msp)
 	{
-		msp.on_raw_imu = [this](const MSP2Client::RawImu& imu) {
-			handle(std::make_shared<MSP2Client::RawImu>(imu));
+		msp.on_raw_imu = [this](const MSP2::RawImu& imu) {
+			handle(std::make_shared<MSP2::RawImu>(imu));
 		};
-		msp.on_attitude = [this](const MSP2Client::Attitude& att) {
-			handle(std::make_shared<MSP2Client::Attitude>(att));
+		msp.on_attitude = [this](const MSP2::Attitude& att) {
+			handle(std::make_shared<MSP2::Attitude>(att));
 		};
-		msp.on_altitude = [this](const MSP2Client::Altitude& alt) {
-			handle(std::make_shared<MSP2Client::Altitude>(alt));
+		msp.on_altitude = [this](const MSP2::Altitude& alt) {
+			handle(std::make_shared<MSP2::Altitude>(alt));
 		};
-		msp.on_rc = [this](const MSP2Client::RcPacket& rc) {
-			handle(std::make_shared<MSP2Client::RcPacket>(rc));
+		msp.on_rc = [this](const MSP2::RcPacket& rc) {
+			handle(std::make_shared<MSP2::RcPacket>(rc));
 		};
-		msp.on_gps = [this](const MSP2Client::RawGPS& gps) {
-			handle(std::make_shared<MSP2Client::RawGPS>(gps));
+		msp.on_gps = [this](const MSP2::RawGPS& gps) {
+			handle(std::make_shared<MSP2::RawGPS>(gps));
 		};
 	}
 
 	// ---- Stage members ----
 
-	int64_t ts = 0;			// usec
-
 	int width = 0;			// input to pipeline
 	int height = 0;			// input to pipeline
+
+	Integer64 ts = 0;		// usec
 
 	Gyro::State gyro;
 
@@ -112,8 +112,11 @@ public:
 	ConstPointer output;		// GL_Tex2D
 	ConstPointer output_rgb;	// GL_Tex2D
 
-	ConstPointer gps;			// GPS::State
+	ConstPointer gps_out;		// GPS::State
+	ConstPointer loc_out;		// PositionWGS (localization)
+
 	ConstPointer msp_rc;		// MSP2Client::RcPacket
+	ConstPointer msp_alt;		// MSP2Client::Altitude
 
 private:
 	GPS gps_api;
@@ -138,11 +141,14 @@ private:
 		}
 		weight_radius.init(GL_RED, width, height);
 
+		add_output("ts", &ts);
 		add_output("image", &output);
 		add_output("image_rgb", &output_rgb);
 		add_output("gyro", &gyro);
-		add_output("gps", &gps);
+		add_output("gps", &gps_out);
+		add_output("loc", &loc_out);
 		add_output("msp_rc", &msp_rc);
+		add_output("msp_alt", &msp_alt);
 
 		for(auto stage : exec_chain) {
 			stage->init();
@@ -167,12 +173,29 @@ private:
 			std::cout << "WARN: Waiting for gyro init ..." << std::endl;
 			return;
 		}
+		gyro = gyro_api.lookup(ts);
+
+		loc_out = nullptr;
+
 		if(gps_api.avail()) {
 			try {
-				gps = gps_api.lookup(ts, false);
-			} catch(...) {}
+				if(auto gps = gps_api.lookup(ts, false))
+				{
+					if(gps->fix_type >= 2) {
+						// provide GPS fallback
+						auto pos = std::make_shared<PositionWGS>();
+						pos->lat_deg = gps->lat_deg;
+						pos->lon_deg = gps->lon_deg;
+						pos->alt_m = gps->alt_m;
+						loc_out = pos;
+					}
+					gps_out = gps;
+				}
+			} catch(...) {
+				gps_out = nullptr;
+				loc_out = nullptr;
+			}
 		}
-		gyro = gyro_api.lookup(ts);
 
 		flip_image.exec(input_luma);
 
@@ -247,21 +270,22 @@ private:
 		if(auto img = std::dynamic_pointer_cast<Image>(sample)) {
 			on_image(img);
 		}
-		else if(auto imu = std::dynamic_pointer_cast<MSP2Client::RawImu>(sample)) {
+		else if(auto imu = std::dynamic_pointer_cast<MSP2::RawImu>(sample)) {
 			gyro_api.on_raw_imu(*imu);
 		}
-		else if(auto att = std::dynamic_pointer_cast<MSP2Client::Attitude>(sample)) {
+		else if(auto att = std::dynamic_pointer_cast<MSP2::Attitude>(sample)) {
 			gyro_api.on_attitude(*att);
 			std::cout << "ATT: ts = " << att->ts << ", roll = " << att->roll << ", pitch = " << att->pitch << ", yaw = " << att->yaw << std::endl;
 		}
-		else if(auto alt = std::dynamic_pointer_cast<MSP2Client::Altitude>(sample)) {
+		else if(auto alt = std::dynamic_pointer_cast<MSP2::Altitude>(sample)) {
+			msp_alt = alt;
 			std::cout << "ALT: ts = " << alt->ts << ", alt_cm = " << alt->alt_cm << ", vario_cms = " << alt->vario_cms << std::endl;
 		}
-		else if(auto rc = std::dynamic_pointer_cast<MSP2Client::RcPacket>(sample)) {
+		else if(auto rc = std::dynamic_pointer_cast<MSP2::RcPacket>(sample)) {
 			msp_rc = rc;
 			std::cout << "RC: ts = " << rc->ts << ", roll = " << rc->roll() << ", pitch = " << rc->pitch() << ", yaw = " << rc->yaw() << ", throttle = " << rc->throttle() << std::endl;
 		}
-		else if(auto gps = std::dynamic_pointer_cast<MSP2Client::RawGPS>(sample)) {
+		else if(auto gps = std::dynamic_pointer_cast<MSP2::RawGPS>(sample)) {
 			gps_api.on_gps(*gps);
 			std::cout << "GPS: lat = " << gps->lat << ", lon = " << gps->lon
 					<< ", speed = " << gps->speed << ", heading = " << gps->course

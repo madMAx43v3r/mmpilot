@@ -31,10 +31,6 @@ public:
 		pipe.init_sync(width, height);
 	}
 
-	void exec() {
-		pipe.exec();
-	}
-
 };
 
 

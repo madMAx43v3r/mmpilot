@@ -87,7 +87,7 @@ protected:
 	{
 		Pipeline::on_sample(sample);
 
-		if(auto gps = std::dynamic_pointer_cast<MSP2Client::RawGPS>(sample))
+		if(auto gps = std::dynamic_pointer_cast<MSP2::RawGPS>(sample))
 		{
 			const auto lat = gps->get_lat();
 			const auto lon = gps->get_lon();

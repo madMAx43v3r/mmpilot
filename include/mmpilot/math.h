@@ -53,6 +53,11 @@ Eigen::Matrix<T, N, M> rad2deg(const Eigen::Matrix<T, N, M>& r) {
 	return r * T(180 / M_PI);
 }
 
+template<typename T>
+T exp_gain(const T state, const T value, const T gain) {
+	return state * (T(1) - gain) + value * gain;
+}
+
 // Wrap to [-pi, pi)
 template<typename T>
 T angle_norm_pi(T a) {

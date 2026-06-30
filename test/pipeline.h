@@ -394,10 +394,10 @@ protected:
 		if(auto img = std::dynamic_pointer_cast<Image>(sample)) {
 			on_image(img);
 		}
-		else if(auto imu = std::dynamic_pointer_cast<MSP2Client::RawImu>(sample)) {
+		else if(auto imu = std::dynamic_pointer_cast<MSP2::RawImu>(sample)) {
 			gyro.on_raw_imu(*imu);
 		}
-		else if(auto att = std::dynamic_pointer_cast<MSP2Client::Attitude>(sample)) {
+		else if(auto att = std::dynamic_pointer_cast<MSP2::Attitude>(sample)) {
 			gyro.on_attitude(*att);
 		}
 	}

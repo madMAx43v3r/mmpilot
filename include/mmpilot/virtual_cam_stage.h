@@ -44,14 +44,17 @@ public:
 
 	ConstPointer output;		// GL_Tex2D
 
+	Float cam_fpx = 0;			// focal length [pix]
+	Float cam_yaw = 0;			// yaw between virtual camera and body [deg]
+
 	std::shared_ptr<const GL_Tex2D> input;
 
 private:
 	void init() override
 	{
-		pipe = get_stage<Pipeline>("root");
-
 		input = get_input<ConstPointer>("image").get<GL_Tex2D>();
+
+		cam_fpx = Vec2f(width, height).norm() / (2 * tan(deg2rad(FOV_cam) / 2));
 
 		// shuffle matrix to make hand calibration easier
 		// defaults to camera looking down, XY aligned to body frame
@@ -59,7 +62,7 @@ private:
 				-1,  0,  0,
 				 0,  0,  1;
 
-//		R_BC = rpy_to_rot_zyx_deg(RPY_cam) * R_EB;
+//		R_BC = rpy_to_rot_zyx_deg(RPY_cam) * R_EB;	// TODO
 		R_BC = rpy_to_rot_zyx_deg(RPY_cam);
 
 		virtual_cam.width = width;
@@ -74,30 +77,33 @@ private:
 
 		weight_radius.init(GL_RG, width, height);
 
-		output = weight_radius.out;
-
 		add_output("width", &width);
 		add_output("height", &height);
 		add_output("image", &output);
+		add_output("cam_fpx", &cam_fpx);
+		add_output("cam_yaw", &cam_yaw);
 	}
 
 	void exec() override
 	{
-		const Vec3f RPY = pipe->gyro.get_rpy();
+		const auto& gyro = get_input<Gyro::State>("gyro");
 
-		std::cout << "RPY: " << RPY[0] << " " << RPY[1] << " " << RPY[2] << std::endl;
+		const Vec3f RPY = gyro.get_rpy();
+
+		cam_yaw = RPY.z() - RPY_cam.z();	// [deg]
+
+		std::cout << "RPY: " << RPY[0] << ", " << RPY[1] << ", " << RPY[2] << std::endl;
 
 //		R_WB = rpy_to_rot_zyx_deg<float>({RPY[1], -RPY[0], RPY[2]});
-		R_WB = pipe->gyro.matrix();
+		R_WB = gyro.matrix();
 
 		virtual_cam.R_mat = R_BC * R_WB.transpose();
 		virtual_cam.exec(input);
 
 		weight_radius.exec(virtual_cam.out);
-	}
 
-private:
-	const Pipeline* pipe = nullptr;
+		output = weight_radius.out;
+	}
 
 };
 

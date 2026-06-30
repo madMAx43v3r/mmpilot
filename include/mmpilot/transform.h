@@ -9,11 +9,12 @@
 #define INCLUDE_MMPILOT_TRANSFORM_H_
 
 #include <mmpilot/math.h>
+#include <mmpilot/value.h>
 
 
 namespace mmpilot {
 
-class Transform2D {
+class Transform2D : public Value {
 public:
 	float scale = 1;
 	Mat2f rot = Mat2f::Identity();	// rotation

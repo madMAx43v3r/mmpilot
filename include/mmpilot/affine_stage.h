@@ -13,6 +13,8 @@
 #include <mmpilot/gradient.h>
 #include <mmpilot/affine.h>
 #include <mmpilot/pyramid.h>
+#include <mmpilot/control.h>
+#include <mmpilot/gyro.h>
 
 
 namespace mmpilot {
@@ -135,6 +137,8 @@ public:
 
 	Affine::Params output;
 
+	ImageVelocity vel_out;
+
 	bool have_base = false;
 
 private:
@@ -168,6 +172,7 @@ private:
 		}
 
 		add_output("affine", &output);
+		add_output("affine_vel", &vel_out);
 	}
 
 	void exec() override
@@ -195,7 +200,22 @@ private:
 //		show(display, stage[0]->base_img);
 //		show(display, stage[0]->solver.tex_debug);
 
+		// --- compute velocity ---
+		const int64_t ts = get_input<Integer64>("ts");
+
+		const float dt = last_ts ? (ts - last_ts) * 1e-6 : 0;		// [sec]
+
+		if(dt > 0 && output.valid()) {
+			vel_out.z = pow(output.scale(), 1 / dt);
+			vel_out.xy = output.translation() / dt;
+			vel_out.yaw_rate = rad2deg(angle_norm_pi(output.yaw())) / dt;
+		} else {
+			vel_out = ImageVelocity();
+		}
+
 		rebase();
+
+		last_ts = ts;
 	}
 
 	void rebase()
@@ -204,6 +224,9 @@ private:
 			stage[i]->rebase(pyramid.out[i]);
 		}
 	}
+
+private:
+	int64_t last_ts = 0;				// us
 
 };
 

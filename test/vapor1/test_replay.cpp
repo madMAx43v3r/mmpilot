@@ -53,39 +53,39 @@ int main(int argc, char** argv)
 		pipe_0.sync();
 	};
 
-	const auto on_raw_imu = [&](std::shared_ptr<MSP2Client::RawImu> imu) {
+	const auto on_raw_imu = [&](std::shared_ptr<MSP2::RawImu> imu) {
 		pipe_0.handle(imu);
 	};
 
-	const auto on_att = [&](std::shared_ptr<MSP2Client::Attitude> att) {
+	const auto on_att = [&](std::shared_ptr<MSP2::Attitude> att) {
 		pipe_0.handle(att);
 	};
 
-	const auto on_gps = [&](std::shared_ptr<MSP2Client::RawGPS> gps) {
+	const auto on_gps = [&](std::shared_ptr<MSP2::RawGPS> gps) {
 		pipe_0.handle(gps);
 	};
 
-	const auto on_alt = [&](std::shared_ptr<MSP2Client::Altitude> alt) {
+	const auto on_alt = [&](std::shared_ptr<MSP2::Altitude> alt) {
 		pipe_0.handle(alt);
 	};
 
-	const auto on_rc = [&](std::shared_ptr<MSP2Client::RcPacket> rc) {
+	const auto on_rc = [&](std::shared_ptr<MSP2::RcPacket> rc) {
 		pipe_0.handle(rc);
 	};
 
 	Player player(file_name);
 
-	player.decode["msp.raw_imu"] 	= &MSP2Client::RawImu::read;
-	player.decode["msp.attitude"] 	= &MSP2Client::Attitude::read;
-	player.decode["msp.altitude"] 	= &MSP2Client::Altitude::read;
-	player.decode["msp.raw_gps"] 	= &MSP2Client::RawGPS::read;
-	player.decode["msp.rc"] 		= &MSP2Client::RcPacket::read;
+	player.decode["msp.raw_imu"] 	= &MSP2::RawImu::read;
+	player.decode["msp.attitude"] 	= &MSP2::Attitude::read;
+	player.decode["msp.altitude"] 	= &MSP2::Altitude::read;
+	player.decode["msp.raw_gps"] 	= &MSP2::RawGPS::read;
+	player.decode["msp.rc"] 		= &MSP2::RcPacket::read;
 
-	player.handle["msp.raw_imu"]  = dispatch<MSP2Client::RawImu>(on_raw_imu);
-	player.handle["msp.attitude"] = dispatch<MSP2Client::Attitude>(on_att);
-	player.handle["msp.altitude"] = dispatch<MSP2Client::Altitude>(on_alt);
-	player.handle["msp.raw_gps"]  = dispatch<MSP2Client::RawGPS>(on_gps);
-	player.handle["msp.rc"]       = dispatch<MSP2Client::RcPacket>(on_rc);
+	player.handle["msp.raw_imu"]  = dispatch<MSP2::RawImu>(on_raw_imu);
+	player.handle["msp.attitude"] = dispatch<MSP2::Attitude>(on_att);
+	player.handle["msp.altitude"] = dispatch<MSP2::Altitude>(on_alt);
+	player.handle["msp.raw_gps"]  = dispatch<MSP2::RawGPS>(on_gps);
+	player.handle["msp.rc"]       = dispatch<MSP2::RcPacket>(on_rc);
 
 	player.decode["camera.wide"] = &Image::read;
 	player.handle["camera.wide"] = dispatch<Image>(on_frame_0);

@@ -9,6 +9,7 @@
 #define INCLUDE_MMPILOT_WGS84_H_
 
 #include <mmpilot/math.h>
+#include <mmpilot/value.h>
 
 
 namespace mmpilot {
@@ -165,6 +166,19 @@ public:
 		const Vec3<T> ll = ecef_to_wgs84<T>(p_ecef);
 		return Vec2<T>(ll.x(), ll.y());
 	}
+};
+
+
+class PositionWGS : public Value {
+public:
+	double lat_deg = 0;			// [deg]
+	double lon_deg = 0;			// [deg]
+	double alt_m = 0;			// ellipsoidal height (not AGL) [m]
+
+	std::string to_string() const override {
+		return mmpilot::to_string(std::array<double, 2>{lat_deg, lon_deg});
+	}
+
 };
 
 

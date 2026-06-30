@@ -26,7 +26,7 @@ namespace mmpilot {
 // Where <type> is '<' request, '>' response, '!' error. :contentReference[oaicite:2]{index=2}
 // CRC is CRC-8/DVB-S2 (poly 0xD5), computed over bytes starting at <flags> through end of payload. :contentReference[oaicite:3]{index=3}
 
-class MSP2Client {
+class MSP2 {
 public:
 	struct Frame {
 		char type = 0;          // '>' response, '!' error (we only parse incoming)
@@ -194,6 +194,10 @@ public:
 		int32_t alt_cm;					// [cm]
 		int16_t vario_cms;				// [cm/s]
 
+		float get_alt() const {
+			return alt_cm / 100.f;		// [m]
+		}
+
 		void write(Recorder& out) const {
 			out.write_u32(MAGIC);
 			out.write_i32(alt_cm);
@@ -225,12 +229,12 @@ public:
 	std::function<void(const RawGPS&)> on_gps;
 
 
-	MSP2Client(const std::string& path, int baud = 115200)
+	MSP2(const std::string& path, int baud = 115200)
 	{
 		_serial.open(path, baud);
 	}
 
-	~MSP2Client()
+	~MSP2()
 	{
 		shutdown();
 		if(thread.joinable()) {
@@ -238,8 +242,8 @@ public:
 		}
 	}
 
-	MSP2Client(const MSP2Client&) = delete;
-	MSP2Client& operator=(const MSP2Client&) = delete;
+	MSP2(const MSP2&) = delete;
+	MSP2& operator=(const MSP2&) = delete;
 
 	void send_raw_rc(const std::array<uint16_t, 8>& ch)
 	{

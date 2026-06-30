@@ -31,11 +31,11 @@ int main(int argc, char** argv)
 
 	Recorder rec(file_name);
 
-	MSP2Client msp("/dev/ttyAMA0");
+	MSP2 msp("/dev/ttyAMA0");
 
 	msp.interval = std::chrono::milliseconds(20);
 
-	msp.on_raw_imu = [&](const MSP2Client::RawImu& imu)
+	msp.on_raw_imu = [&](const MSP2::RawImu& imu)
 	{
 		std::lock_guard<std::mutex> lock(mutex);
 		write_sample(rec, "msp.raw_imu", imu);
@@ -43,7 +43,7 @@ int main(int argc, char** argv)
 		std::cout << "IMU: ts = " << imu.ts << ", gyro = " << to_string(imu.gyro) << std::endl;
 	};
 
-	msp.on_attitude = [&](const MSP2Client::Attitude& att)
+	msp.on_attitude = [&](const MSP2::Attitude& att)
 	{
 		std::lock_guard<std::mutex> lock(mutex);
 		write_sample(rec, "msp.attitude", att);
@@ -51,7 +51,7 @@ int main(int argc, char** argv)
 		std::cout << "ATT: ts = " << att.ts << ", roll = " << att.roll << ", pitch = " << att.pitch << ", yaw = " << att.yaw << std::endl;
 	};
 
-	msp.on_altitude = [&](const MSP2Client::Altitude& alt)
+	msp.on_altitude = [&](const MSP2::Altitude& alt)
 	{
 		std::lock_guard<std::mutex> lock(mutex);
 		write_sample(rec, "msp.altitude", alt);
@@ -59,7 +59,7 @@ int main(int argc, char** argv)
 		std::cout << "ALT: ts = " << alt.ts << ", alt_cm = " << alt.alt_cm << ", vario_cms = " << alt.vario_cms << std::endl;
 	};
 
-	msp.on_rc = [&](const MSP2Client::RcPacket& rc)
+	msp.on_rc = [&](const MSP2::RcPacket& rc)
 	{
 		std::lock_guard<std::mutex> lock(mutex);
 		write_sample(rec, "msp.rc", rc);
@@ -67,7 +67,7 @@ int main(int argc, char** argv)
 		std::cout << "RC: ts = " << rc.ts << ", roll = " << rc.roll() << ", pitch = " << rc.pitch() << ", yaw = " << rc.yaw() << ", throttle = " << rc.throttle() << std::endl;
 	};
 
-	msp.on_gps = [&](const MSP2Client::RawGPS& gps)
+	msp.on_gps = [&](const MSP2::RawGPS& gps)
 	{
 		std::lock_guard<std::mutex> lock(mutex);
 		write_sample(rec, "msp.raw_gps", gps);

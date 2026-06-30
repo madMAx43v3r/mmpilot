@@ -13,7 +13,7 @@ using namespace mmpilot;
 
 int main()
 {
-	MSP2Client msp("/dev/ttyAMA0", 115200);
+	MSP2 msp("/dev/ttyAMA0", 115200);
 
 	std::array<uint16_t, 8> rc = {
 		1500, // roll

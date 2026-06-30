@@ -39,7 +39,9 @@ int main()
 {
 	NavigationTest test;
 
-	test.exec();
+	// TODO
+
+	wait_for_exit();
 
 	return 0;
 }

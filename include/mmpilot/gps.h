@@ -67,7 +67,7 @@ public:
 
 	int64_t max_extrapolate_ms = 1000;
 
-	void on_gps(const MSP2Client::RawGPS& gps)
+	void on_gps(const MSP2::RawGPS& gps)
 	{
 		if(gps.fix_type <= 0) {
 			return;

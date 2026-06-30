@@ -93,7 +93,7 @@ public:
 
 	void exec(const int64_t ts, std::shared_ptr<GL_Tex2D> img, const Affine::Params& A);
 
-	void on_gps(std::shared_ptr<MSP2Client::RawGPS> gps);
+	void on_gps(std::shared_ptr<MSP2::RawGPS> gps);
 
 	void finalize(const int num_pass);
 

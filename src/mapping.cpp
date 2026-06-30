@@ -133,7 +133,7 @@ void Mapping::set_gps(std::shared_ptr<Node> node, std::shared_ptr<const GPS::Sta
 	node->node->set_gps(lat, lon, alt, gps_info);
 }
 
-void Mapping::on_gps(std::shared_ptr<MSP2Client::RawGPS> gps)
+void Mapping::on_gps(std::shared_ptr<MSP2::RawGPS> gps)
 {
 	if(gps) {
 		auto gps_ = *gps;

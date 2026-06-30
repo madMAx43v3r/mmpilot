@@ -31,12 +31,11 @@ public:
 
 	virtual void exec() {};
 
-	template<typename T>
-	const T* find_output(const std::string& name) const
+	const Value* find_output(const std::string& name) const
 	{
 		auto it = output_map.find(name);
 		if(it != output_map.end()) {
-			return dynamic_cast<const T*>(it->second);
+			return it->second;
 		}
 		return nullptr;
 	}
@@ -69,8 +68,8 @@ protected:
 	{
 		auto stage = prev_stage;
 		while(stage) {
-			if(auto value = stage->find_output<T>(name)) {
-				return value;
+			if(auto value = stage->find_output(name)) {
+				return dynamic_cast<const T*>(value);
 			}
 			stage = stage->prev_stage;
 		}
@@ -86,12 +85,12 @@ protected:
 		throw std::runtime_error("missing input: " + name);
 	}
 
-	void add_output(const std::string& name, const void* value) {
+	void add_output(const std::string& name, const Value* value) {
 		output_map[name] = value;
 	}
 
 private:
-	std::map<std::string, const void*> output_map;
+	std::map<std::string, const Value*> output_map;
 
 };
 

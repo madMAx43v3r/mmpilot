@@ -54,24 +54,24 @@ int main(int argc, char** argv)
 	pipe_0.src_flip_y = true;
 	pipe_0.radius_mask = 0.9;
 
-	MSP2Client msp("/dev/ttyAMA0");
+	MSP2 msp("/dev/ttyAMA0");
 
 	msp.interval = std::chrono::milliseconds(20);
 
-	msp.on_raw_imu = [&](const MSP2Client::RawImu& imu) {
-		pipe_0.handle(std::make_shared<MSP2Client::RawImu>(imu));
+	msp.on_raw_imu = [&](const MSP2::RawImu& imu) {
+		pipe_0.handle(std::make_shared<MSP2::RawImu>(imu));
 	};
 
-	msp.on_attitude = [&](const MSP2Client::Attitude& att) {
-		pipe_0.handle(std::make_shared<MSP2Client::Attitude>(att));
+	msp.on_attitude = [&](const MSP2::Attitude& att) {
+		pipe_0.handle(std::make_shared<MSP2::Attitude>(att));
 	};
 
-	msp.on_rc = [&](const MSP2Client::RcPacket& rc) {
-		pipe_0.handle(std::make_shared<MSP2Client::RcPacket>(rc));
+	msp.on_rc = [&](const MSP2::RcPacket& rc) {
+		pipe_0.handle(std::make_shared<MSP2::RcPacket>(rc));
 	};
 
-	msp.on_gps = [&](const MSP2Client::RawGPS& gps) {
-		pipe_0.handle(std::make_shared<MSP2Client::RawGPS>(gps));
+	msp.on_gps = [&](const MSP2::RawGPS& gps) {
+		pipe_0.handle(std::make_shared<MSP2::RawGPS>(gps));
 	};
 
 	Camera::init();

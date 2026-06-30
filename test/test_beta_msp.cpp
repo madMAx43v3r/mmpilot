@@ -23,18 +23,18 @@ int main(int argc, char** argv) try
 	std::string dev = argv[1];
 	int baud = (argc >= 3) ? std::stoi(argv[2]) : 115200;
 
-	MSP2Client msp(dev, baud);
+	MSP2 msp(dev, baud);
 
 	msp.interval = std::chrono::milliseconds(20);
 
-	msp.on_attitude = [](const MSP2Client::Attitude& att) {
+	msp.on_attitude = [](const MSP2::Attitude& att) {
 		std::cout << "att: ts=" << att.ts
 				<< " roll=" << att.roll << " pitch=" << att.pitch << " yaw=" << att.yaw << std::endl;
 	};
 
 	int64_t last_imu = 0;
 
-	msp.on_raw_imu = [&](const MSP2Client::RawImu& imu) {
+	msp.on_raw_imu = [&](const MSP2::RawImu& imu) {
 		std::cout << "imu: ts=" << imu.ts
 				<< " gyro=[" << imu.gyro[0] << "," << imu.gyro[1] << "," << imu.gyro[2] << "]" << " acc=["
 				<< imu.acc[0] << "," << imu.acc[1] << "," << imu.acc[2] << "]" << " mag=[" << imu.mag[0] << ","
@@ -42,7 +42,7 @@ int main(int argc, char** argv) try
 		last_imu = imu.ts;
 	};
 
-	msp.on_rc = [](const MSP2Client::RcPacket& rc) {
+	msp.on_rc = [](const MSP2::RcPacket& rc) {
 		std::cout << "rc:  ts=" << rc.ts;
 		for(size_t i = 0; i < rc.ch.size(); ++i) {
 			std::cout << " ch" << i << "=" << rc.ch[i];
@@ -50,7 +50,7 @@ int main(int argc, char** argv) try
 		std::cout << std::endl;
 	};
 
-	msp.on_gps = [](const MSP2Client::RawGPS& gps) {
+	msp.on_gps = [](const MSP2::RawGPS& gps) {
 		std::cout << "gps: ts=" << gps.ts
 				<< " lat=" << gps.lat << " lon=" << gps.lon << " speed=" << gps.speed
 				<< " course=" << gps.course << " fix=" << int(gps.fix_type) << std::endl;

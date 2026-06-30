@@ -28,16 +28,16 @@ int main(int argc, char** argv)
 	std::string msp_port = "/dev/ttyAMA0";
 
 
-	MSP2Client msp(msp_port);
-	msp.interval = std::chrono::milliseconds(msp_inverval_ms);
-
-
 	Navigation nav;
 	// TODO: settings
 
-	nav.pipe.connect(msp);
-
 	nav.init(sensor_width, sensor_height);
+
+
+	MSP2 msp(msp_port);
+	msp.interval = std::chrono::milliseconds(msp_inverval_ms);
+
+	nav.pipe.connect(msp);
 
 	msp.start();
 

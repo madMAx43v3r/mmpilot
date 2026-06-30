@@ -52,10 +52,10 @@ int main(int argc, char** argv)
 	Player player(file_name);
 	player.real_time = false;
 
-	player.decode["msp.raw_imu"] 	= &MSP2Client::RawImu::read;
-	player.decode["msp.attitude"] 	= &MSP2Client::Attitude::read;
-	player.decode["msp.rc"] 		= &MSP2Client::RcPacket::read;
-	player.decode["msp.raw_gps"] 	= &MSP2Client::RawGPS::read;
+	player.decode["msp.raw_imu"] 	= &MSP2::RawImu::read;
+	player.decode["msp.attitude"] 	= &MSP2::Attitude::read;
+	player.decode["msp.rc"] 		= &MSP2::RcPacket::read;
+	player.decode["msp.raw_gps"] 	= &MSP2::RawGPS::read;
 
 	player.decode["camera.wide"] = &Image::read;
 	player.handle["camera.wide"] = dispatch<Image>(on_frame_0);
