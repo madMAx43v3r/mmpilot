@@ -197,8 +197,7 @@ private:
 
 		output = get_params();
 
-//		show(display, stage[0]->base_img);
-//		show(display, stage[0]->solver.tex_debug);
+		rebase();
 
 		// --- compute velocity ---
 		const int64_t ts = get_input<Integer64>("ts");
@@ -212,8 +211,6 @@ private:
 		} else {
 			vel_out = ImageVelocity();
 		}
-
-		rebase();
 
 		last_ts = ts;
 	}

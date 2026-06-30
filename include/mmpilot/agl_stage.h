@@ -13,6 +13,7 @@
 #include <mmpilot/beta_msp.h>
 #include <mmpilot/math.h>
 #include <mmpilot/gps.h>
+#include <mmpilot/affine.h>
 
 
 namespace mmpilot {
@@ -34,7 +35,7 @@ public:
 
 	Float AGL_out = 0;				// altitude over ground [m]
 
-	String AGL_source {"NONE"};		// GPS | BARO | NONE
+	String AGL_source {"NONE"};		// GPS_CAM | BARO | CAM | GPS | NONE
 
 
 	void init() override
@@ -45,9 +46,10 @@ public:
 
 	void exec() override
 	{
-		const auto gps  = get_input<ConstPointer>("gps").get<GPS::State>();
-		const auto baro = get_input<ConstPointer>("msp_alt").get<MSP2::Altitude>();
-		const auto vel  = get_input<ImageVelocity>("affine_vel");
+		const auto gps   = get_input<ConstPointer>("gps").get<GPS::State>();
+		const auto baro  = get_input<ConstPointer>("msp_alt").get<MSP2::Altitude>();
+		const auto delta = get_input<Affine::Params>("affine");
+		const auto vel   = get_input<ImageVelocity>("affine_vel");
 
 		if(gps  && gps->fix_type >= 1
 				&& gps->speed_ms > min_gps_speed
@@ -55,24 +57,40 @@ public:
 		{
 			const float cam_fpx = get_input<Float>("cam_fpx");
 
+			// only this case is a true absolute AGL measurement
 			const float alt_m = cam_fpx * gps->speed_ms / vel.xy.norm();
 
 			AGL_out = exp_gain<float>(AGL_out, alt_m, gain);
-			AGL_source = "GPS";
+			AGL_source = "GPS_CAM";
 
 			if(baro) {
-				// keep baro reference
-				base_ref = AGL_out;
-				baro_ref = baro->get_alt();
+				baro_ref = baro->get_alt();		// keep baro reference
 			}
+			if(gps->fix_type >= 2) {
+				gps_ref = gps->alt_m;			// keep GPS reference
+			}
+			base_ref = AGL_out;
 			return;
 		}
 
-		// barometer fallback
+		// barometer fallback (better than GPS fallback)
 		if(baro) {
-			// offset from last known AGL
 			AGL_out = base_ref + (baro->get_alt() - baro_ref);
 			AGL_source = "BARO";
+			return;
+		}
+
+		// affine fallback
+		if(delta.valid()) {
+			AGL_out *= delta.scale();
+			AGL_source = "CAM";
+			return;
+		}
+
+		// GPS fallback
+		if(gps && gps->fix_type >= 2) {
+			AGL_out = base_ref + (gps->alt_m - gps_ref);
+			AGL_source = "GPS";
 			return;
 		}
 
@@ -83,6 +101,7 @@ public:
 private:
 	float base_ref = 0;		// [m]
 	float baro_ref = 0;		// [m]
+	float gps_ref = 0;		// [m]
 
 };
 

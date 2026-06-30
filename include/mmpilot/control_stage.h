@@ -78,8 +78,9 @@ protected:
 			}
 		}
 		else {
-			// fallback to hover on missing control input
+			// fallback to hover when missing control input
 			std::cout << "WARN: Missing control input, fallback to hover" << std::endl;
+
 			exec_pos(PositionControl());
 		}
 	}
@@ -97,9 +98,10 @@ protected:
 	{
 		if(mode != POS) {
 			mode = POS;
+			reset();
 			std::cout << "INFO: Switching to POSITION control mode" << std::endl;
 		}
-
+		// TODO
 	}
 
 	void send()
@@ -123,11 +125,7 @@ protected:
 	{
 		active = true;
 
-		// reset odometry
-		odom = Transform2D();
-
-		// keep current yaw
-		target_yaw = angle_norm_180(gyro.get_rpy().z());
+		reset();
 
 		std::cout << "Control: Enabled with yaw " << target_yaw << " deg" << std::endl;
 	}
@@ -137,6 +135,15 @@ protected:
 		active = false;
 
 		std::cout << "Control: Disabled" << std::endl;
+	}
+
+	void reset()
+	{
+		// reset odometry
+		odom = Transform2D();
+
+		// keep current yaw
+		target_yaw = angle_norm_180(gyro.get_rpy().z());
 	}
 
 private:

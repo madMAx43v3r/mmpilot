@@ -18,9 +18,10 @@ public:
 	double gain = 1;
 	double damping = 1;
 
+
 	NavPoint() : Stage("nav_point") {}
 
-	ConstPointer out_cmd;		// PositionControl | VelocityControl
+	ConstPointer out_cmd;		// VelocityControl
 
 
 	void init() override
@@ -30,7 +31,7 @@ public:
 
 	void exec() override
 	{
-
+		// TODO
 	}
 
 

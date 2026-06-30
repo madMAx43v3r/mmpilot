@@ -21,11 +21,11 @@ public:
 	Integer width = 1024;			// output size
 	Integer height = 1024;			// output size
 
-	float FOV_in = 200;				// fisheye deg (diagonal)
-	float FOV_cam = 120;			// virtual deg (diagonal)
+	float FOV_in = 200;				// fisheye [deg] (diagonal)
+	float FOV_cam = 120;			// virtual [deg] (diagonal)
 	float FOV_circle = 1;			// for FOV_in
 
-	int cam_model = 3;				// (pinhole, equi-distant, equi-solid, stereo-graphic)
+	int cam_model = 3;				// (0 = pinhole, 1 = equi-distant, 2 = equi-solid, 3 = stereo-graphic)
 
 	Vec2f K_param = Vec2f::Zero();	// distortion params (K2, K4)
 
@@ -40,7 +40,6 @@ public:
 
 	Mat3f R_BC;			// camera to body
 	Mat3f R_WB;			// body to world
-	Mat3f R_EB;			// camera to extrinsic
 
 	ConstPointer output;		// GL_Tex2D
 
@@ -56,13 +55,6 @@ private:
 
 		cam_fpx = Vec2f(width, height).norm() / (2 * tan(deg2rad(FOV_cam) / 2));
 
-		// shuffle matrix to make hand calibration easier
-		// defaults to camera looking down, XY aligned to body frame
-		R_EB <<  0,  1,  0,
-				-1,  0,  0,
-				 0,  0,  1;
-
-//		R_BC = rpy_to_rot_zyx_deg(RPY_cam) * R_EB;	// TODO
 		R_BC = rpy_to_rot_zyx_deg(RPY_cam);
 
 		virtual_cam.width = width;
