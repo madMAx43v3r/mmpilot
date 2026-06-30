@@ -11,6 +11,7 @@
 #include <mmpilot/beta_msp.h>
 #include <mmpilot/math.h>
 #include <mmpilot/value.h>
+#include <mmpilot/wgs84.h>
 
 #include <list>
 #include <memory>
@@ -30,19 +31,41 @@ public:
 		int fix_type = 0;		// 0 = no fix, 1 = 2D, 2 = 3D
 		int num_sats = 0;
 
-		double lat = 0;			// [deg]
-		double lon = 0;			// [deg]
-		double alt = 0;			// [m]
+		double lat_deg = 0;			// [deg]
+		double lon_deg = 0;			// [deg]
+		double alt_m = 0;			// [m]
 
-		double speed = 0;		// [m/s]
-		double heading = 0;		// [deg]
+		double speed_ms = 0;		// [m/s]
+		double heading_deg = 0;		// [deg]
+
+		State extrapolate(int64_t delta_us) const
+		{
+			State out = *this;
+			out.ts += delta_us;
+
+			if(fix_type <= 0) {
+				return out;
+			}
+			const double dt = double(delta_us) * 1e-6;
+			const double dist = speed_ms * dt;
+			const double yaw = deg2rad(heading_deg);
+
+			const WGS84<double> wgs(deg2rad(lat_deg), deg2rad(lon_deg), alt_m);
+			const auto ll = wgs.get_ll(sin(yaw) * dist, cos(yaw) * dist);
+
+			out.lat_deg = rad2deg(ll.x());
+			out.lon_deg = rad2deg(ll.y());
+			return out;
+		}
 
 		std::string to_string() const override {
-			return mmpilot::to_string(std::array<double, 3>{lat, lon, alt});
+			return mmpilot::to_string(std::array<double, 3>{lat_deg, lon_deg, alt_m});
 		}
 	};
 
 	size_t max_history = 1000;					// samples
+
+	int64_t max_extrapolate_ms = 1000;
 
 	void on_gps(const MSP2Client::RawGPS& gps)
 	{
@@ -57,12 +80,12 @@ public:
 		s.fix_type = gps.fix_type;
 		s.num_sats = gps.num_sats;
 
-		s.lat = gps.get_lat();
-		s.lon = gps.get_lon();
-		s.alt = gps.get_alt();
+		s.lat_deg = gps.get_lat();
+		s.lon_deg = gps.get_lon();
+		s.alt_m = gps.get_alt();
 
-		s.speed = gps.get_speed();
-		s.heading = angle_norm_360(gps.get_heading());
+		s.speed_ms = gps.get_speed();
+		s.heading_deg = angle_norm_360(gps.get_heading());
 
 		history.push_back(s);
 
@@ -74,7 +97,7 @@ public:
 	std::shared_ptr<const State> lookup(const int64_t ts, const bool strict = true) const
 	{
 		if(history.empty()) {
-			throw std::runtime_error("GPS::lookup(): history is empty");
+			return nullptr;
 		}
 		if(ts < front_ts()) {
 			if(strict) {
@@ -86,7 +109,9 @@ public:
 			if(strict) {
 				return nullptr;
 			}
-			return std::make_shared<State>(history.back());
+			const auto& state = history.back();
+			return std::make_shared<State>(
+					state.extrapolate(std::min(ts - state.ts, max_extrapolate_ms * 1000)));
 		}
 
 		// Find bracketing states [a,b] with a.ts <= ts <= b.ts
@@ -108,11 +133,11 @@ public:
 
 		auto out = std::make_shared<State>();
 		out->ts = ts;
-		out->lat = lerp(a.lat, b.lat, t);
-		out->lon = lerp(a.lon, b.lon, t);
-		out->alt = lerp(a.alt, b.alt, t);
-		out->speed = lerp(a.speed, b.speed, t);
-		out->heading = lerp_deg(a.heading, b.heading, t);
+		out->lat_deg = lerp(a.lat_deg, b.lat_deg, t);
+		out->lon_deg = lerp(a.lon_deg, b.lon_deg, t);
+		out->alt_m = lerp(a.alt_m, b.alt_m, t);
+		out->speed_ms = lerp(a.speed_ms, b.speed_ms, t);
+		out->heading_deg = lerp_deg(a.heading_deg, b.heading_deg, t);
 
 		if(t < 0.5) {
 			out->num_sats = a.num_sats;

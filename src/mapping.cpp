@@ -124,9 +124,9 @@ void Mapping::set_gps(std::shared_ptr<Node> node, std::shared_ptr<const GPS::Sta
 	if(!gps || gps->fix_type <= 0) {
 		return;
 	}
-	const auto lat = deg2rad(gps->lat);
-	const auto lon = deg2rad(gps->lon);
-	const auto alt = gps_alt_override.value_or(gps->alt);
+	const auto lat = deg2rad(gps->lat_deg);
+	const auto lon = deg2rad(gps->lon_deg);
+	const auto alt = gps_alt_override.value_or(gps->alt_m);
 
 	const auto gps_info = Mat2d::Identity() / pow(gps_sigma, 2);
 
@@ -191,7 +191,7 @@ void Mapping::exec(const int64_t ts, std::shared_ptr<GL_Tex2D> img, const Affine
 	} else {
 		GL_blit(image, img);
 	}
-	auto gnode = graph.add_node(deg2rad(gps->lat), deg2rad(gps->lon));
+	auto gnode = graph.add_node(deg2rad(gps->lat_deg), deg2rad(gps->lon_deg));
 
 	auto node = std::make_shared<Node>();
 	node->ts = ts;
