@@ -24,11 +24,11 @@ public:
 	int max_throttle = 700;		// RC offset
 
 	float yaw_gain = 2;
-	float angle_gain = 1;
+	float position_gain = 1;
 	float throttle_gain = 0.1;
 
-	float velocity_gain = 1;
 	float yawrate_gain = 1;
+	float velocity_gain = 1;
 	float vertical_gain = 0.1;
 
 	float AGL_min = 1;					// sanity limit [m]
@@ -53,14 +53,15 @@ public:
 
 	Mat2f R_BC = Mat2f::Identity();		// camera to body transform
 
-	ControlPD<float> yaw_control;
-	ControlPD<Vec2f> angle_control;
-	ControlPD<float> throttle_control;
+	ControlVar posx_control;
+	ControlVar posy_control;
+	ControlVar yaw_control;
+	ControlVar throttle_control;
 
-	ControlPID velx_control;
-	ControlPID vely_control;
-	ControlPID yawrate_control;
-	ControlPID vertical_control;
+	ControlVar velx_control;
+	ControlVar vely_control;
+	ControlVar yawrate_control;
+	ControlVar vertical_control;
 
 	float z_speed = 1;					// [scale / sec]
 	float yaw_rate = 0;					// [deg / sec]
@@ -78,19 +79,25 @@ public:
 protected:
 	void init() override
 	{
+		posx_control.gain = position_gain;
+		posy_control.gain = position_gain;
 		yaw_control.gain = yaw_gain;
-		angle_control.gain = angle_gain;
 		throttle_control.gain = throttle_gain;
+
+		posx_control.set_limit(-max_angle, max_angle);
+		posy_control.set_limit(-max_angle, max_angle);
+		yaw_control.set_limit(-max_yaw, max_yaw);
+		throttle_control.set_limit(0, max_throttle / 1000.f);
 
 		velx_control.gain = velocity_gain;
 		vely_control.gain = velocity_gain;
 		yawrate_control.gain = yawrate_gain;
 		vertical_control.gain = vertical_gain;
 
-		velx_control.set_bias_limit(-max_angle, max_angle);
-		vely_control.set_bias_limit(-max_angle, max_angle);
-		yawrate_control.set_bias_limit(-max_yaw, max_yaw);
-		vertical_control.set_bias_limit(0, max_throttle / 1000.f);
+		velx_control.set_limit(-max_angle, max_angle);
+		vely_control.set_limit(-max_angle, max_angle);
+		yawrate_control.set_limit(-max_yaw, max_yaw);
+		vertical_control.set_limit(0, max_throttle / 1000.f);
 
 		add_output("control", &out);
 		add_output("control_odom", &odom);
@@ -178,17 +185,15 @@ protected:
 
 		const float target_z = 1 + cmd.vel.z() / std::max(AGL, AGL_min);
 
-		std::cout << "Target: xy = " << target_vel.transpose() << " pix/s, z = " << target_z << " 1/s, AGL = " << AGL << " m" << std::endl;
+		std::cout << "Target: xy = " << target_vel.transpose() << " pix/s, z = " << target_z << ", AGL = " << AGL << " m" << std::endl;
 
 		if(active) {
-			out.angle.x() = velx_control.update(target_vel.x() - xy_speed.x(), dt);
-			out.angle.y() = vely_control.update(target_vel.y() - xy_speed.y(), dt);
+			out.angle.x() = -1 * velx_control.update(target_vel.x() - xy_speed.x(), dt);
+			out.angle.y() = -1 * vely_control.update(target_vel.y() - xy_speed.y(), dt);
 
-			out.yaw_rate = yawrate_control.update(cmd.yaw_rate - yaw_rate, dt);
+			out.yaw_rate = -1 * yawrate_control.update(cmd.yaw_rate - yaw_rate, dt);
 
 			out.throttle = vertical_control.update(target_z - z_speed, dt);
-
-			std::cout << "Bias: xy = " << velx_control.bias << " " << vely_control.bias << ", yaw = " << yawrate_control.bias << ", throttle = " << vertical_control.bias << std::endl;
 		}
 		else {
 			out.yaw_rate = 0;
@@ -211,27 +216,23 @@ protected:
 		std::cout << "Odometry: pos = " << offset.transpose() << ", yaw = " << yaw_deg << " deg, scale = " << odom.scale << std::endl;
 
 		// convert target to image units
-		const Vec2f target_pos = cam_fpx * Vec2f(cmd.pos.x(), cmd.pos.y()) / std::max(AGL, AGL_min);
+		const float factor = cam_fpx / std::max(AGL, AGL_min);
+
+		const Vec2f target_pos = factor * Vec2f(cmd.pos.x(), cmd.pos.y());
 
 		const float target_z = (base_AGL + cmd.pos.z()) / std::max(AGL, AGL_min);
 
 		const float target_yaw = base_yaw + cmd.yaw_deg;		// [deg]
 
+		std::cout << "Target: xy = " << target_pos.transpose() << " pix, z = " << target_z << ", AGL = " << AGL << " m" << std::endl;
+
 		if(active) {
-			out.angle = angle_control.update(
-					offset - target_pos,
-					-xy_speed
-			);
+			out.angle.x() = -1 * posx_control.update(target_pos.x() - offset.x(), dt);
+			out.angle.y() = -1 * posy_control.update(target_pos.y() - offset.y(), dt);
 
-			out.throttle = base_throttle + throttle_control.update(
-					target_z - odom.scale,
-					z_speed - 1
-			);
+			out.yaw_rate = -1 * yaw_control.update(angle_norm_180(target_yaw - yaw_deg), dt);
 
-			out.yaw_rate = yaw_control.update(
-					angle_norm_180(yaw_deg - target_yaw),
-					-yaw_rate
-			);
+			out.throttle = base_throttle + throttle_control.update(target_z - odom.scale, dt);
 		}
 		else {
 			out.yaw_rate = 0;
@@ -298,9 +299,14 @@ protected:
 		offset = Vec2f::Zero();
 
 		// reset controllers
-		velx_control.reset();
-		vely_control.reset();
-		yawrate_control.reset();
+		yaw_control.reset(0);
+		posx_control.reset(0);
+		posy_control.reset(0);
+		throttle_control.reset(0);
+
+		velx_control.reset(0);
+		vely_control.reset(0);
+		yawrate_control.reset(0);
 		vertical_control.reset(base_throttle);
 
 		// reset base values (for position mode)

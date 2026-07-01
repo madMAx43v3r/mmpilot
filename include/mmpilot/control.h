@@ -84,31 +84,28 @@ public:
 	}
 };
 
-class ControlPID {
+class ControlVar {
 public:
-	Vec3f PID = Vec3f(0, 1, -1);		// (P, I, D)
+	float gain = 1;					// global gain
+	float rate_gain = 0.5;			// derivative gain
+	float look_ahead = 1;			// [sec]
 
-	float gain = 1;						// global gain
-	float rate_gain = 0.5;				// derivative gain
+	float min_value = 0;
+	float max_value = 0;
 
-	float min_bias = 0;
-	float max_bias = 0;
+	ControlVar() = default;
 
-	ControlPID() = default;
-
-	void set_bias_limit(float min, float max) {
-		min_bias = min;
-		max_bias = max;
-	}
-
-	void reset() {
-		reset(0);
-	}
-
-	void reset(float init) {
-		bias = init;
+	void reset(float init)
+	{
+		state = init;
 		rate = 0;
 		last = 0;
+	}
+
+	void set_limit(float min, float max)
+	{
+		min_value = min;
+		max_value = max;
 	}
 
 	float update(float err, const float dt)
@@ -116,21 +113,20 @@ public:
 		err *= gain;
 
 		if(dt > 0) {
-			bias += err * PID.y() * dt;		// I
-
 			rate = exp_gain(rate, (err - last) / dt, rate_gain);
 		}
-		bias = std::min(std::max(bias, min_bias), max_bias);
-
-		const float out = bias
-				+ err * PID.x()			// P
-				+ rate * PID.z();		// D
-
 		last = err;
-		return out;
+
+		if(rate < 0) {
+			err += rate * look_ahead;
+		}
+		state += err * dt;
+
+		state = std::min(std::max(state, min_value), max_value);
+		return state;
 	}
 
-	float bias = 0;
+	float state = 0;
 	float rate = 0;
 
 private:
