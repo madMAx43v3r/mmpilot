@@ -17,87 +17,6 @@
 
 namespace mmpilot {
 
-template<typename T>
-class ControlPD {
-public:
-	Vec2f PD = Vec2f(1, -1);		// (P, D)
-
-	float gain = 1;					// global gain
-
-	ControlPD() = default;
-
-	T update(const T& error, const T& derivative)
-	{
-		return (error * PD.x() + derivative * PD.y()) * gain;
-	}
-};
-
-template<typename T>
-class ControlPID {
-public:
-	Vec3f PID = Vec3f(0, 1, 0.1);		// (P, I, D)
-	
-	float gain = 1;						// global gain
-
-	float min_bias = 0;
-	float max_bias = 0;
-
-	ControlPID() = default;
-
-	ControlPID(const T& zero_) : zero(zero_) {
-		reset();
-	}
-
-	void set_bias_limit(float min, float max) {
-		min_bias = min;
-		max_bias = max;
-	}
-
-	void reset() {
-		bias = zero;
-		last_error = zero;
-		have_init = false;
-	}
-
-	void reset(const T& init) {
-		bias = init;
-		last_error = zero;
-		have_init = false;
-	}
-
-	T update(const T& error, const float dt)
-	{
-		const T err = error * gain;
-
-		const T derr = have_init && dt > 0
-				? (err - last_error) / dt
-				: zero;
-
-		const T out = bias
-				+ err * PID.x()			// P
-				+ derr * PID.z();		// D
-
-		if(dt > 0) {
-			bias += err * PID.y() * dt;	// I
-		}
-		bias = std::min(std::max(bias, min_bias), max_bias);
-
-		last_error = err;
-		have_init = true;
-		return out;
-	}
-
-	T bias = T();
-
-private:
-	T zero = T();
-	T last_error = T();
-
-	bool have_init = false;
-
-};
-
-
 class ControlStage : public Stage {
 public:
 	int max_yaw = 50;			// RC offset
@@ -108,7 +27,7 @@ public:
 	float angle_gain = 1;
 	float throttle_gain = 0.1;
 
-	float speed_gain = 1;
+	float velocity_gain = 1;
 	float yawrate_gain = 1;
 	float vertical_gain = 0.1;
 
@@ -119,8 +38,7 @@ public:
 
 
 	ControlStage(MSP2* msp_)
-		:	Stage("control"), msp(msp_),
-			speed_control(Vec2f::Zero())
+		:	Stage("control"), msp(msp_)
 	{
 	}
 
@@ -139,9 +57,10 @@ public:
 	ControlPD<Vec2f> angle_control;
 	ControlPD<float> throttle_control;
 
-	ControlPID<Vec2f> speed_control;
-	ControlPID<float> yawrate_control;
-	ControlPID<float> vertical_control;
+	ControlPID velx_control;
+	ControlPID vely_control;
+	ControlPID yawrate_control;
+	ControlPID vertical_control;
 
 	float z_speed = 1;					// [scale / sec]
 	float yaw_rate = 0;					// [deg / sec]
@@ -163,11 +82,13 @@ protected:
 		angle_control.gain = angle_gain;
 		throttle_control.gain = throttle_gain;
 
-		speed_control.gain = speed_gain;
+		velx_control.gain = velocity_gain;
+		vely_control.gain = velocity_gain;
 		yawrate_control.gain = yawrate_gain;
 		vertical_control.gain = vertical_gain;
 
-		speed_control.set_bias_limit(-max_angle, max_angle);
+		velx_control.set_bias_limit(-max_angle, max_angle);
+		vely_control.set_bias_limit(-max_angle, max_angle);
 		yawrate_control.set_bias_limit(-max_yaw, max_yaw);
 		vertical_control.set_bias_limit(0, max_throttle / 1000.f);
 
@@ -250,20 +171,24 @@ protected:
 			reset();
 			std::cout << "INFO: Switched to VELOCITY control mode" << std::endl;
 		}
-
 		// convert target to image units
-		const Vec2f target_vel = cam_fpx * Vec2f(cmd.vel.x(), cmd.vel.y()) / std::max(AGL, AGL_min);
+		const float factor = cam_fpx / std::max(AGL, AGL_min);
+
+		const Vec2f target_vel = factor * Vec2f(cmd.vel.x(), cmd.vel.y());		// [pix/s]
 
 		const float target_z = 1 + cmd.vel.z() / std::max(AGL, AGL_min);
 
 		std::cout << "Target: xy = " << target_vel.transpose() << " pix/s, z = " << target_z << " 1/s, AGL = " << AGL << " m" << std::endl;
 
 		if(active) {
-			out.angle = speed_control.update(xy_speed - target_vel, dt);
+			out.angle.x() = velx_control.update(target_vel.x() - xy_speed.x(), dt);
+			out.angle.y() = vely_control.update(target_vel.y() - xy_speed.y(), dt);
 
 			out.yaw_rate = yawrate_control.update(cmd.yaw_rate - yaw_rate, dt);
 
 			out.throttle = vertical_control.update(target_z - z_speed, dt);
+
+			std::cout << "Bias: xy = " << velx_control.bias << " " << vely_control.bias << ", yaw = " << yawrate_control.bias << ", throttle = " << vertical_control.bias << std::endl;
 		}
 		else {
 			out.yaw_rate = 0;
@@ -373,7 +298,8 @@ protected:
 		offset = Vec2f::Zero();
 
 		// reset controllers
-		speed_control.reset();
+		velx_control.reset();
+		vely_control.reset();
 		yawrate_control.reset();
 		vertical_control.reset(base_throttle);
 

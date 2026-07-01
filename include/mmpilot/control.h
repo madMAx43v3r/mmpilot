@@ -69,6 +69,75 @@ public:
 
 };
 
+template<typename T>
+class ControlPD {
+public:
+	Vec2f PD = Vec2f(1, -1);		// (P, D)
+
+	float gain = 1;					// global gain
+
+	ControlPD() = default;
+
+	T update(const T& err, const T& rate)
+	{
+		return (err * PD.x() + rate * PD.y()) * gain;
+	}
+};
+
+class ControlPID {
+public:
+	Vec3f PID = Vec3f(0, 1, -1);		// (P, I, D)
+
+	float gain = 1;						// global gain
+	float rate_gain = 0.5;				// derivative gain
+
+	float min_bias = 0;
+	float max_bias = 0;
+
+	ControlPID() = default;
+
+	void set_bias_limit(float min, float max) {
+		min_bias = min;
+		max_bias = max;
+	}
+
+	void reset() {
+		reset(0);
+	}
+
+	void reset(float init) {
+		bias = init;
+		rate = 0;
+		last = 0;
+	}
+
+	float update(float err, const float dt)
+	{
+		err *= gain;
+
+		if(dt > 0) {
+			bias += err * PID.y() * dt;		// I
+
+			rate = exp_gain(rate, (err - last) / dt, rate_gain);
+		}
+		bias = std::min(std::max(bias, min_bias), max_bias);
+
+		const float out = bias
+				+ err * PID.x()			// P
+				+ rate * PID.z();		// D
+
+		last = err;
+		return out;
+	}
+
+	float bias = 0;
+	float rate = 0;
+
+private:
+	float last = 0;
+
+};
+
 
 } // mmpilot
 

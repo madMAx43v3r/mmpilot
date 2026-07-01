@@ -31,6 +31,8 @@ public:
 
 		Vec3f rates = Vec3f::Zero();		// (roll, pitch, yaw) [deg/s]
 
+		Vec3f accel = Vec3f::Zero();		// [m/s^2]
+
 		Mat3f matrix() const {
 			return rot;
 		}
@@ -68,11 +70,14 @@ public:
 
 		const Vec3f omega = deg2rad(Vec3f(rates + att_correction));   	// [rad/s]
 
+		const Vec3f accel = Vec3f(imu.acc[0], imu.acc[1], imu.acc[2]) * accel_scale;	// [m/s^2]
+
 		State out;
 		out.ts = imu.ts;
 		out.rot = prev.rot * so3_exp<float>(omega * dt);
 		out.rot = orthonormalize(out.rot);
 		out.rates = rates;
+		out.accel = accel;
 		history.push_back(out);
 
 		const auto RPY = out.get_rpy();
@@ -80,8 +85,6 @@ public:
 //		std::cout << "gyro imu raw:   ts=" << out.ts << " roll=" << imu.gyro[0] << ", pitch=" << imu.gyro[1] << ", yaw=" << imu.gyro[2] << std::endl;
 //		std::cout << "gyro imu rates: ts=" << out.ts << " roll=" << rates[0] << " deg/s, pitch=" << rates[1] << " deg/s, yaw=" << rates[2] << " deg/s" << std::endl;
 //		std::cout << "gyro imu rpy:   ts=" << out.ts << " roll=" << RPY[0] << " deg, pitch=" << RPY[1] << " deg, yaw=" << RPY[2] << " deg" << std::endl;
-
-		const Vec3f accel = Vec3f(imu.acc[0], imu.acc[1], imu.acc[2]) * accel_scale;
 
 		if(accel.norm() > 0.1) {
 			const Vec3f g = accel.normalized();
@@ -163,6 +166,7 @@ public:
 		out.ts = ts;
 		out.rot = slerp_R(a.rot, b.rot, t);
 		out.rates = a.rates * (1 - t) + b.rates * t;
+		out.accel = a.accel * (1 - t) + b.accel * t;
 		return out;
 	}
 
