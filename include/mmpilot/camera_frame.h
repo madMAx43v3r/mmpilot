@@ -99,7 +99,7 @@ public:
 		return out;
 	}
 
-	std::shared_ptr<Image> convert()
+	std::shared_ptr<Image> convert() const
 	{
 		if(pixel_format != "YUV420") {
 			throw std::logic_error("unsupported pixel format");
