@@ -69,9 +69,6 @@ public:
 
 	Vec2f offset;						// body frame
 
-	Float base_throttle = 0.5;			// 0 to 1
-	float base_throttle_gain = 0.2;
-
 	Transform2D odom;					// camera frame
 
 	ControlOutput out;
@@ -100,8 +97,6 @@ protected:
 		vertical_control.set_limit(0, max_throttle / 1000.f);
 
 		add_output("control", &out);
-		add_output("control_odom", &odom);
-		add_output("control_base_throttle", &base_throttle);
 	}
 
 	void exec() override
@@ -124,11 +119,9 @@ protected:
 
 		if(auto rc = get_input<ConstPointer>("msp_rc").get<MSP2::RcPacket>())
 		{
-			if(!active) {
-				base_throttle = (float(rc->throttle()) - 1000) / 1000;
-			}
-			const int override_index = (4 + override_channel) - 1;
+			base_throttle = (float(rc->throttle()) - 1000) / 1000;
 
+			const int override_index = (4 + override_channel) - 1;
 			if(override_index < rc->ch.size()) {
 				if(rc->ch.at(override_index) > override_threshold) {
 					if(!active) {
@@ -232,7 +225,7 @@ protected:
 
 			out.yaw_rate = -1 * yaw_control.update(angle_norm_180(target_yaw - yaw_deg), dt);
 
-			out.throttle = base_throttle + throttle_control.update(target_z - odom.scale, dt);
+			out.throttle = throttle_control.update(target_z - odom.scale, dt);
 		}
 		else {
 			out.yaw_rate = 0;
@@ -247,11 +240,6 @@ protected:
 	{
 		const Vec3f RPY = gyro.get_rpy();		// [deg]
 
-		if(active) {
-			// update base throttle
-			base_throttle = exp_gain<float>(base_throttle, out.throttle, base_throttle_gain * dt);
-		}
-
 		// compensate for thrust vector loss
 		const auto extra_throttle = 1 / (cosf(deg2rad(RPY.x())) * cosf(deg2rad(RPY.y())));
 		out.throttle *= extra_throttle;
@@ -260,7 +248,7 @@ protected:
 
 		if(active) {
 			std::cout << "Control: roll = " << out.angle.x() << ", pitch = " << out.angle.y() << ", yaw = " << out.yaw_rate
-					<< ", throttle = " << out.throttle << " (base " << base_throttle << ", extra " << extra_throttle << ")" << std::endl;
+					<< ", throttle = " << out.throttle << " (extra " << extra_throttle << ")" << std::endl;
 		}
 
 		std::array<uint16_t, 8> rc = {};
@@ -302,7 +290,7 @@ protected:
 		yaw_control.reset(0);
 		posx_control.reset(0);
 		posy_control.reset(0);
-		throttle_control.reset(0);
+		throttle_control.reset(base_throttle);
 
 		velx_control.reset(0);
 		vely_control.reset(0);
@@ -323,6 +311,7 @@ private:
 
 	float base_AGL = 0;				// [m]
 	float base_yaw = 0;				// [deg]
+	float base_throttle = 0.5;
 
 	int64_t last_ts = 0;			// [us]
 
