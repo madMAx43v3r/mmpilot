@@ -117,7 +117,7 @@ public:
 		}
 		last = err;
 
-		if(rate < 0) {
+		if(err * rate < 0) {
 			err += rate * look_ahead;
 		}
 		state += err * dt;
