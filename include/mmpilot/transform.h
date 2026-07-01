@@ -28,7 +28,25 @@ public:
 		normalize_rot(rot);
 	}
 
-	void set_rot(float alpha) {
+	Transform2D& transform(float alpha)
+	{
+		return transform(get_rotation_matrix(alpha));
+	}
+
+	Transform2D& transform(const Mat2f& R)
+	{
+		rot = R * rot;
+		pos = R * pos;
+		return *this;
+	}
+
+	friend Transform2D operator*(const Mat2f& R, const Transform2D& T)
+	{
+		return Transform2D(T).transform(R);
+	}
+
+	void set_rot(float alpha)
+	{
 		rot = get_rotation_matrix(alpha);
 	}
 

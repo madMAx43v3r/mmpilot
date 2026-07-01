@@ -5,102 +5,67 @@
  *      Author: mad
  */
 
+#include <mmpilot/navigation.h>
 #include <mmpilot/camera.h>
 #include <mmpilot/image.h>
-#include <mmpilot/util.h>
-#include <mmpilot/beta_msp.h>
 
-#include "../pipeline2.h"
-
-#include <string>
-#include <memory>
 #include <iostream>
-
-std::shared_ptr<Image> convert(const CameraFrame& frame)
-{
-	if(frame.pixel_format != "YUV420") {
-		throw std::logic_error("invalid pixel format");
-	}
-	const auto& Y = frame.data[0];
-	const auto& U = frame.data[1];
-	const auto& V = frame.data[2];
-
-	auto out = std::make_shared<Image>();
-	out->ts = frame.ts;
-	out->width = frame.width;
-	out->height = frame.height;
-	out->stride = frame.stride;
-	out->exposure = frame.exposure;
-	out->analog_gain = frame.analog_gain;
-	out->sequence = frame.sequence;
-	out->timestamp = frame.timestamp / 1000;
-	out->format = frame.pixel_format;
-
-	out->data.emplace_back((const uint8_t*)Y.first, (const uint8_t*)Y.first + Y.second);
-	out->data.emplace_back((const uint8_t*)U.first, (const uint8_t*)U.first + U.second);
-	out->data.emplace_back((const uint8_t*)V.first, (const uint8_t*)V.first + V.second);
-
-	std::cout << "Frame " << frame.sequence << ": ts = " << frame.timestamp
-			<< ", width = " << frame.width << ", height = " << frame.height
-			<< ", stride = " << frame.stride << ", format = " << frame.pixel_format
-			<< ", planes = " << out->data.size() << std::endl;
-	return out;
-};
 
 
 int main(int argc, char** argv)
 {
-	Pipeline pipe_0;
-	pipe_0.src_flip_y = true;
-	pipe_0.radius_mask = 0.9;
+	int camera_index = 0;
+	int camera_stream = 0;
+	int camera_interval_ms = 200;
 
-	MSP2 msp("/dev/ttyAMA0");
+	int sensor_width = 1640;
+	int sensor_height = 1232;
 
-	msp.interval = std::chrono::milliseconds(20);
+	int msp_inverval_ms = 20;
 
-	msp.on_raw_imu = [&](const MSP2::RawImu& imu) {
-		pipe_0.handle(std::make_shared<MSP2::RawImu>(imu));
-	};
+	std::string msp_port = "/dev/ttyAMA0";
 
-	msp.on_attitude = [&](const MSP2::Attitude& att) {
-		pipe_0.handle(std::make_shared<MSP2::Attitude>(att));
-	};
 
-	msp.on_rc = [&](const MSP2::RcPacket& rc) {
-		pipe_0.handle(std::make_shared<MSP2::RcPacket>(rc));
-	};
+	MSP2 msp(msp_port);
+	msp.interval = std::chrono::milliseconds(msp_inverval_ms);
 
-	msp.on_gps = [&](const MSP2::RawGPS& gps) {
-		pipe_0.handle(std::make_shared<MSP2::RawGPS>(gps));
-	};
+	Navigation nav(&msp);
+	nav.pipe.src_flip_y = true;
+	nav.pipe.radius_mask = 0.9;
+	nav.virtual_cam.FOV_in = 190;
+	nav.virtual_cam.FOV_cam = 120;
+	nav.virtual_cam.RPY_cam = Vec3f(0, 0, -30 -90);
+	nav.virtual_cam.cam_model = 3;
+	nav.virtual_cam.K_param  = Vec2f(-0.01, -0.01);		// stereo
+
+	nav.init(sensor_width, sensor_height);
+
+	nav.pipe.connect(&msp);
+
+	msp.start();
+
 
 	Camera::init();
 
-	auto cam_0 = std::make_unique<Camera>(0, 0, 1640, 1232, "YUV420");
+	auto cam = std::make_unique<Camera>(camera_index, camera_stream, sensor_width, sensor_height, "YUV420");
 
-	cam_0->open();
+	cam->open();
+	cam->set_interval(camera_interval_ms);
 
-	cam_0->on_frame = [&](const CameraFrame& frame) {
-		pipe_0.handle(convert(frame));
-		pipe_0.sync();
+	cam->on_frame = [&](const CameraFrame& frame) {
+		nav.pipe.handle(frame.convert());
+		nav.pipe.sync();
 	};
+	cam->start();
 
-	cam_0->set_interval(200);
-
-	cam_0->start();
-
-	std::thread msp_thread([&]() {
-		msp.run();
-	});
 
 	wait_for_exit();
 
 	msp.shutdown();
-	msp_thread.join();
 
-	cam_0->stop();
+	cam->stop();
 
-	cam_0 = nullptr;
+	cam = nullptr;
 
 	Camera::cleanup();
 

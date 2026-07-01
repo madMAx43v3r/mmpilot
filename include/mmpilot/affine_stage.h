@@ -197,6 +197,9 @@ private:
 
 		output = get_params();
 
+		if(!output.valid()) {
+			std::cout << "WARN: Affine result not valid!" << std::endl;
+		}
 		rebase();
 
 		// --- compute velocity ---

@@ -11,25 +11,58 @@
 #include <mmpilot/stage.h>
 #include <mmpilot/control.h>
 #include <mmpilot/gyro.h>
+#include <mmpilot/affine.h>
 #include <mmpilot/transform.h>
 
 
 namespace mmpilot {
 
 template<typename T>
-class PDControl {
+class ControlPD {
 public:
 	Vec2f PD = Vec2f(1, -1);		// (P, D)
 
 	float gain = 1;					// global gain
 
-	PDControl() = default;
-	PDControl(float gain_) : gain(gain_) {}
+	ControlPD() = default;
 
 	T update(const T& error, const T& derivative)
 	{
 		return (error * PD.x() + derivative * PD.y()) * gain;
 	}
+};
+
+template<typename T>
+class ControlPID {
+public:
+	Vec3f PID = Vec3f(1, 0.1, -1);		// (P, I, D)
+	
+	float gain = 1;						// global gain
+
+	ControlPID() = default;
+
+	ControlPID(const T& zero_) : zero(zero_) {
+		reset();
+	}
+
+	void reset() {
+		state = zero;
+		last_error = zero;
+	}
+
+	T update(const T& error, const float dt)
+	{
+		state += error * PID.y() * dt;				// I
+		return state
+				+ error * PID.x()					// P
+				+ (last_error - error) * PID.z();	// D
+	}
+
+private:
+	T zero = T();
+	T state = T();
+	T last_error = T();
+
 };
 
 
@@ -39,34 +72,120 @@ public:
 	int max_angle = 200;		// RC offset
 	int max_throttle = 700;		// RC offset
 
-	int override_channel = (4 + 5) - 1;		// AUX
+	float yaw_gain = 2;
+	float angle_gain = 1;
+	float throttle_gain = 0.1;
+
+	float speed_gain = 1;
+	float yawrate_gain = 1;
+	float vertical_gain = 1;
+
+	float AGL_min = 1;					// sanity limit [m]
+
+	int override_channel = 5;			// AUX
+	int override_threshold = 1550;
 
 
-	ControlStage(MSP2* msp_) : Stage("control"), msp(msp_) {}
+	ControlStage(MSP2* msp_)
+		:	Stage("control"), msp(msp_),
+			speed_control(Vec2f::Zero())
+	{
+	}
 
 	Gyro::State gyro;
+	Affine::Params affine;
+	ImageVelocity velocity;
 
-	PDControl<float> yaw_control = PDControl<float>(2);
-	PDControl<Vec2f> angle_control = PDControl<Vec2f>(1);
-	PDControl<float> throttle_control = PDControl<float>(0.1);
+	float dt = 0;						// [sec]
+	float AGL = 0;						// [m]
+	float cam_yaw = 0;					// [rad]
+	float cam_fpx = 0;					// focal length [pix]
 
-	float z_speed = 1;					// scale / sec
-	float yaw_rate = 0;					// deg / sec
-	Vec2f xy_speed = Vec2f(0, 0);		// pix / sec
+	Mat2f R_BC = Mat2f::Identity();		// camera to body transform
 
-	float out_yawrate = 0;				// ticks
-	float out_throttle = 0;				// 0 to 1
-	Vec2f out_angle = Vec2f(0, 0);		// ticks
+	ControlPD<float> yaw_control;
+	ControlPD<Vec2f> angle_control;
+	ControlPD<float> throttle_control;
 
-	float base_throttle = 0.5;			// 0 to 1
+	ControlPID<Vec2f> speed_control;
+	ControlPID<float> yawrate_control;
+	ControlPID<float> vertical_control;
+
+	float z_speed = 1;					// [scale / sec]
+	float yaw_rate = 0;					// [deg / sec]
+	Vec2f xy_speed = Vec2f(0, 0);		// body frame [pix / sec]
+
+	Float base_throttle = 0.5;			// 0 to 1
 	float base_throttle_gain = 0.2;
 
-	Transform2D odom;
+	Transform2D odom;					// camera frame
+	Transform2D offset;					// body frame
+
+	ControlOutput out;
 
 protected:
+	void init() override
+	{
+		yaw_control.gain = yaw_gain;
+		angle_control.gain = angle_gain;
+		throttle_control.gain = throttle_gain;
+
+		speed_control.gain = speed_gain;
+		yawrate_control.gain = yawrate_gain;
+		vertical_control.gain = vertical_gain;
+
+		add_output("control", &out);
+		add_output("control_odom", &odom);
+		add_output("control_base_throttle", &base_throttle);
+	}
+
 	void exec() override
 	{
 		gyro = get_input<Gyro::State>("gyro");
+		affine = get_input<ImageVelocity>("affine");
+		velocity = get_input<ImageVelocity>("affine_vel");
+		cam_yaw = deg2rad(get_input<Float>("cam_yaw"));
+		cam_fpx = get_input<Float>("cam_fpx");
+		AGL = get_input<Float>("AGL");
+
+		const int64_t ts = get_input<Integer64>("ts");
+
+		dt = last_ts ? (ts - last_ts) * 1e-6 : 0;		// [sec]
+
+		if(affine.valid()) {
+			odom.add(affine.transform());
+		}
+		R_BC = get_rotation_matrix(cam_yaw);
+
+		if(auto rc = get_input<ConstPointer>("msp_rc").get<MSP2::RcPacket>())
+		{
+			if(!active) {
+				base_throttle = (float(rc->throttle()) - 1000) / 1000;
+			}
+			const int override_index = (4 + override_channel) - 1;
+
+			if(override_index < rc->ch.size()) {
+				if(rc->ch.at(override_index) > override_threshold) {
+					if(!active) {
+						enable();
+					}
+				} else {
+					if(active) {
+						disable();
+					}
+				}
+			}
+			std::cout << "RC: roll = " << rc->roll() << ", pitch = " << rc->pitch() << ", yaw = " << rc->yaw() << ", throttle = " << rc->throttle() << std::endl;
+		}
+
+		// convert to body frame
+		offset = R_BC * odom;
+		xy_speed = R_BC * velocity.xy;
+
+		z_speed = velocity.z;
+		yaw_rate = gyro.rates.z();
+
+		std::cout << "Speed: xy = " << xy_speed.transpose() << " pix/s, yaw = " << yaw_rate << " deg/s, z = " << z_speed << std::endl;
 
 		if(auto in = find_input<ConstPointer>("control"))
 		{
@@ -83,15 +202,37 @@ protected:
 
 			exec_pos(PositionControl());
 		}
+
+		last_ts = ts;
 	}
 
 	void exec_vel(const VelocityControl& cmd)
 	{
 		if(mode != VEL) {
 			mode = VEL;
-			std::cout << "INFO: Switching to VELOCITY control mode" << std::endl;
+			reset();
+			std::cout << "INFO: Switched to VELOCITY control mode" << std::endl;
 		}
-		// TODO
+
+		// convert target to image units
+		const Vec2f target_vel = cam_fpx * Vec2f(cmd.vel.x(), cmd.vel.y()) / std::max(AGL, AGL_min);
+
+		const float target_z = cmd.vel.z() / std::max(AGL, AGL_min);
+
+		if(active) {
+			out.angle = speed_control.update(xy_speed - target_vel, dt);
+
+			out.yaw_rate = yawrate_control.update(cmd.yaw_rate - yaw_rate, dt);
+
+			out.throttle = vertical_control.update(target_z - z_speed, dt);
+		}
+		else {
+			out.yaw_rate = 0;
+			out.throttle = base_throttle;
+			out.angle = Vec2f(0, 0);
+		}
+
+		send();
 	}
 
 	void exec_pos(const PositionControl& cmd)
@@ -99,20 +240,67 @@ protected:
 		if(mode != POS) {
 			mode = POS;
 			reset();
-			std::cout << "INFO: Switching to POSITION control mode" << std::endl;
+			std::cout << "INFO: Switched to POSITION control mode" << std::endl;
 		}
-		// TODO
+		const float yaw_deg = get_angle_deg(offset.rot);
+
+		std::cout << "Odometry: pos = " << offset.pos.transpose() << ", yaw = " << yaw_deg << " deg, scale = " << offset.scale << std::endl;
+
+		// convert target to image units
+		const Vec2f target_pos = cam_fpx * Vec2f(cmd.pos.x(), cmd.pos.y()) / std::max(AGL, AGL_min);
+
+		const float target_z = (base_AGL + cmd.pos.z()) / std::max(AGL, AGL_min);
+
+		const float target_yaw = base_yaw + cmd.yaw_deg;		// [deg]
+
+		if(active) {
+			out.angle = angle_control.update(
+					offset.pos - target_pos,
+					-xy_speed
+			);
+
+			out.throttle = base_throttle + throttle_control.update(
+					target_z - offset.scale,
+					z_speed - 1
+			);
+
+			out.yaw_rate = yaw_control.update(
+					angle_norm_180(yaw_deg - target_yaw),
+					-yaw_rate
+			);
+		}
+		else {
+			out.yaw_rate = 0;
+			out.throttle = base_throttle;
+			out.angle = Vec2f(0, 0);
+		}
+
+		send();
 	}
 
 	void send()
 	{
-		out_throttle = std::min(std::max(out_throttle, 0.f), 1.f);
+		const Vec3f RPY = gyro.get_rpy();		// [deg]
+
+		// update base throttle
+		base_throttle = exp_gain<float>(base_throttle, out.throttle, base_throttle_gain * dt);
+
+		// compensate for thrust vector loss
+		const auto extra_throttle = 1 / (cosf(deg2rad(RPY.x())) * cosf(deg2rad(RPY.y())));
+		out.throttle *= extra_throttle;
+
+		out.throttle = std::min(std::max(out.throttle, 0.f), 1.f);
+
+		if(active) {
+			std::cout << "Control: roll = " << out.angle.x() << ", pitch = " << out.angle.y() << ", yaw = " << out.yaw_rate
+					<< ", throttle = " << out.throttle << " (base " << base_throttle << ", extra " << extra_throttle << ")" << std::endl;
+		}
 
 		std::array<uint16_t, 8> rc = {};
-		rc[0] = 1500 + std::min(std::max(int(out_angle.x()), -max_angle), max_angle),	// roll
-		rc[1] = 1500 + std::min(std::max(int(out_angle.y()), -max_angle), max_angle),	// pitch
-		rc[2] = 1000 + std::min(std::max(int(out_throttle * 1000), 0), max_throttle),	// throttle
-		rc[3] = 1500 + std::min(std::max(int(out_yawrate), -max_yaw), max_yaw),			// yaw
+		rc[0] = 1500 + std::min(std::max(int(out.angle.x()), -max_angle), max_angle);	// roll
+		rc[1] = 1500 + std::min(std::max(int(out.angle.y()), -max_angle), max_angle);	// pitch
+		rc[2] = 1000 + std::min(std::max(int(out.throttle * 1000), 0), max_throttle);	// throttle
+		rc[3] = 1500 + std::min(std::max(int(out.yaw_rate), -max_yaw), max_yaw);		// yawrate
 
 		std::cout << "RC_OVERRIDE: " << to_string(rc) << std::endl;
 
@@ -127,7 +315,7 @@ protected:
 
 		reset();
 
-		std::cout << "Control: Enabled with yaw " << target_yaw << " deg" << std::endl;
+		std::cout << "Control: Enabled with yaw " << base_yaw << " deg" << std::endl;
 	}
 
 	void disable()
@@ -141,9 +329,16 @@ protected:
 	{
 		// reset odometry
 		odom = Transform2D();
+		offset = R_BC * odom;
 
-		// keep current yaw
-		target_yaw = angle_norm_180(gyro.get_rpy().z());
+		// reset controllers
+		speed_control.reset();
+		yawrate_control.reset();
+		vertical_control.reset();
+
+		// reset base values (for position mode)
+		base_AGL = std::max(AGL, AGL_min);
+		base_yaw = angle_norm_180(gyro.get_rpy().z());
 	}
 
 private:
@@ -153,9 +348,10 @@ private:
 
 	bool active = false;
 
-	int64_t last_ts = 0;				// us
+	float base_AGL = 0;				// [m]
+	float base_yaw = 0;				// [deg]
 
-	float target_yaw = 0;				// deg
+	int64_t last_ts = 0;			// [us]
 
 	MSP2* msp = nullptr;
 

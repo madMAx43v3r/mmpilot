@@ -51,6 +51,8 @@ public:
 		const auto delta = get_input<Affine::Params>("affine");
 		const auto vel   = get_input<ImageVelocity>("affine_vel");
 
+		bool done = false;
+
 		if(gps  && gps->fix_type >= 1
 				&& gps->speed_ms > min_gps_speed
 				&& vel.xy.norm() > min_affine_vel)
@@ -70,32 +72,35 @@ public:
 				gps_ref = gps->alt_m;			// keep GPS reference
 			}
 			base_ref = AGL_out;
-			return;
-		}
 
-		// barometer fallback (better than GPS fallback)
-		if(baro) {
-			AGL_out = base_ref + (baro->get_alt() - baro_ref);
-			AGL_source = "BARO";
-			return;
+			done = true;
 		}
 
 		// affine fallback
-		if(delta.valid()) {
+		if(!done && delta.valid()) {
 			AGL_out *= delta.scale();
 			AGL_source = "CAM";
-			return;
+			done = true;
+		}
+
+		// barometer fallback (better than GPS fallback)
+		if(!done && baro) {
+			AGL_out = base_ref + (baro->get_alt() - baro_ref);
+			AGL_source = "BARO";
+			done = true;
 		}
 
 		// GPS fallback
-		if(gps && gps->fix_type >= 2) {
+		if(!done && gps && gps->fix_type >= 2) {
 			AGL_out = base_ref + (gps->alt_m - gps_ref);
 			AGL_source = "GPS";
-			return;
+			done = true;
 		}
 
 		// keep last known value as a last resort
 		AGL_source = "NONE";
+
+		std::cout << "AGL: " << AGL_out << " m (" << AGL_source << ")" << std::endl;
 	}
 
 private:

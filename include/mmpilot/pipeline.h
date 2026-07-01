@@ -79,21 +79,21 @@ public:
 		exec_chain.push_back(stage);
 	}
 
-	void connect(MSP2& msp)
+	void connect(MSP2* msp)
 	{
-		msp.on_raw_imu = [this](const MSP2::RawImu& imu) {
+		msp->on_raw_imu = [this](const MSP2::RawImu& imu) {
 			handle(std::make_shared<MSP2::RawImu>(imu));
 		};
-		msp.on_attitude = [this](const MSP2::Attitude& att) {
+		msp->on_attitude = [this](const MSP2::Attitude& att) {
 			handle(std::make_shared<MSP2::Attitude>(att));
 		};
-		msp.on_altitude = [this](const MSP2::Altitude& alt) {
+		msp->on_altitude = [this](const MSP2::Altitude& alt) {
 			handle(std::make_shared<MSP2::Altitude>(alt));
 		};
-		msp.on_rc = [this](const MSP2::RcPacket& rc) {
+		msp->on_rc = [this](const MSP2::RcPacket& rc) {
 			handle(std::make_shared<MSP2::RcPacket>(rc));
 		};
-		msp.on_gps = [this](const MSP2::RawGPS& gps) {
+		msp->on_gps = [this](const MSP2::RawGPS& gps) {
 			handle(std::make_shared<MSP2::RawGPS>(gps));
 		};
 	}

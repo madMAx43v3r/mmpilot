@@ -15,6 +15,15 @@
 
 namespace mmpilot {
 
+class Velocity : public Value {
+public:
+	Vec2f xy = Vec2f::Zero();		// body frame [m/s]
+
+	float yaw_rate = 0;				// deg/s
+	float z = 0;					// [m/s]
+
+};
+
 class ImageVelocity : public Value {
 public:
 	Vec2f xy = Vec2f::Zero();		// image frame [pix/s]
@@ -24,18 +33,9 @@ public:
 
 };
 
-class Velocity : public Value {
-public:
-	Vec2f xy = Vec2f::Zero();		// body frame [m/s]
-
-	float yaw_rate = 0;				// deg/s
-	float z = 1;					// [m/s]
-
-};
-
 class PositionControl : public Value {
 public:
-	Vec3f pos = Vec3f::Zero();		// [m]
+	Vec3f pos = Vec3f::Zero();		// relative [m]
 
 	float yaw_deg = 0;				// [deg]
 
@@ -49,10 +49,22 @@ class VelocityControl : public Value {
 public:
 	Vec3f vel = Vec3f::Zero();		// [m/s]
 
-	float yawrate_deg = 0;			// [deg/s]
+	float yaw_rate = 0;				// [deg/s]
 
 	std::string to_string() const override {
-		return mmpilot::to_string(std::array<float, 4>{vel.x(), vel.y(), vel.z(), yawrate_deg});
+		return mmpilot::to_string(std::array<float, 4>{vel.x(), vel.y(), vel.z(), yaw_rate});
+	}
+
+};
+
+class ControlOutput : public Value {
+public:
+	Vec2f angle = Vec2f::Zero();	// ticks
+	float throttle = 0;				// 0 to 1
+	float yaw_rate = 0;				// ticks
+
+	std::string to_string() const override {
+		return mmpilot::to_string(std::array<float, 4>{angle.x(), angle.y(), throttle, yaw_rate});
 	}
 
 };

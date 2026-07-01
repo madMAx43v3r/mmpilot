@@ -39,7 +39,7 @@ public:
 	}
 
 	operator bool() const {
-		return value;
+		return bool(value);
 	}
 
 	template<typename T>
@@ -76,7 +76,7 @@ public:
 	}
 
 	operator bool() const {
-		return value;
+		return bool(value);
 	}
 
 	template<typename T>
