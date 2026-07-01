@@ -77,29 +77,33 @@ public:
 		}
 
 		// affine fallback
-		if(!done && delta.valid()) {
+		if(!done && delta.valid() && AGL_out > 0)
+		{
 			AGL_out = AGL_out * delta.scale();
 			AGL_source = "CAM";
 			done = true;
 		}
 
 		// barometer fallback (better than GPS fallback)
-		if(!done && baro) {
+		if(!done && baro)
+		{
 			AGL_out = base_ref + (baro->get_alt() - baro_ref);
 			AGL_source = "BARO";
 			done = true;
 		}
 
 		// GPS fallback
-		if(!done && gps && gps->fix_type >= 2) {
+		if(!done && gps && gps->fix_type >= 2)
+		{
 			AGL_out = base_ref + (gps->alt_m - gps_ref);
 			AGL_source = "GPS";
 			done = true;
 		}
 
-		// keep last known value as a last resort
-		AGL_source = "NONE";
-
+		if(!done) {
+			// keep last known value as a last resort
+			AGL_source = "NONE";
+		}
 		std::cout << "AGL: " << AGL_out << " m (" << AGL_source.value << ")" << std::endl;
 	}
 

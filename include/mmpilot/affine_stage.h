@@ -131,8 +131,6 @@ public:
 
 	PyramidFilter pyramid;
 
-	std::shared_ptr<const GL_Tex2D> input;
-
 	std::vector<std::shared_ptr<Level>> stage;
 
 	Affine::Params output;
@@ -146,8 +144,6 @@ private:
 	{
 		const int width  = get_input<Integer>("width");
 		const int height = get_input<Integer>("height");
-
-		input = get_input<ConstPointer>("image").get<GL_Tex2D>();
 
 		pyramid.depth = pyramid_depth;
 		pyramid.init(width, height, GL_RG16F, GL_RG, GL_HALF_FLOAT);
@@ -177,6 +173,8 @@ private:
 
 	void exec() override
 	{
+		const auto input = get_input<ConstPointer>("image").get<GL_Tex2D>();
+
 		pyramid.exec(input);
 
 		if(!have_base) {

@@ -46,13 +46,9 @@ public:
 	Float cam_fpx = 0;			// focal length [pix]
 	Float cam_yaw = 0;			// yaw between virtual camera and body [deg]
 
-	std::shared_ptr<const GL_Tex2D> input;
-
 private:
 	void init() override
 	{
-		input = get_input<ConstPointer>("image").get<GL_Tex2D>();
-
 		cam_fpx = Vec2f(width, height).norm() / (2 * tan(deg2rad(FOV_cam) / 2));
 
 		R_BC = rpy_to_rot_zyx_deg(RPY_cam);
@@ -78,7 +74,8 @@ private:
 
 	void exec() override
 	{
-		const auto& gyro = get_input<Gyro::State>("gyro");
+		const auto gyro = get_input<Gyro::State>("gyro");
+		const auto input = get_input<ConstPointer>("image").get<GL_Tex2D>();
 
 		const Vec3f RPY = gyro.get_rpy();
 
