@@ -50,6 +50,11 @@ public:
 		last_error = zero;
 	}
 
+	void reset(const T& init) {
+		state = init;
+		last_error = zero;
+	}
+
 	T update(const T& error, const float dt)
 	{
 		state += error * PID.y() * dt;				// I
@@ -283,8 +288,10 @@ protected:
 	{
 		const Vec3f RPY = gyro.get_rpy();		// [deg]
 
-		// update base throttle
-		base_throttle = exp_gain<float>(base_throttle, out.throttle, base_throttle_gain * dt);
+		if(active) {
+			// update base throttle
+			base_throttle = exp_gain<float>(base_throttle, out.throttle, base_throttle_gain * dt);
+		}
 
 		// compensate for thrust vector loss
 		const auto extra_throttle = 1 / (cosf(deg2rad(RPY.x())) * cosf(deg2rad(RPY.y())));
@@ -335,7 +342,7 @@ protected:
 		// reset controllers
 		speed_control.reset();
 		yawrate_control.reset();
-		vertical_control.reset();
+		vertical_control.reset(base_throttle);
 
 		// reset base values (for position mode)
 		base_AGL = std::max(AGL, AGL_min);
