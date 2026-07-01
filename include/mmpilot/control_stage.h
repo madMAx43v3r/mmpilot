@@ -142,7 +142,7 @@ protected:
 	void exec() override
 	{
 		gyro = get_input<Gyro::State>("gyro");
-		affine = get_input<ImageVelocity>("affine");
+		affine = get_input<Affine::Params>("affine");
 		velocity = get_input<ImageVelocity>("affine_vel");
 		cam_yaw = deg2rad(get_input<Float>("cam_yaw"));
 		cam_fpx = get_input<Float>("cam_fpx");

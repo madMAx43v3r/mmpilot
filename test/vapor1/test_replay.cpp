@@ -7,11 +7,7 @@
 
 #include <mmpilot/replay.h>
 #include <mmpilot/image.h>
-
-#include "../pipeline2.h"
-#include "../mapping.h"
-#include "../localization.h"
-#include "../test_control.h"
+#include <mmpilot/navigation.h>
 
 #include <iostream>
 
@@ -24,21 +20,14 @@ int main(int argc, char** argv)
 	std::cout << "offset = " << offset_sec << " sec" << std::endl;
 	std::cout << "file_name = " << file_name << std::endl;
 
-//	Pipeline pipe_0;
-//	MappingPipe pipe_0;
-	TestControl pipe_0(nullptr);
-//	LocalizationPipe pipe_0("map.dat");
-//	pipe_0.mapping.gps_alt_override = 150;
-//	CalibrationPipe pipe_0;
-	pipe_0.is_debug = true;
-	pipe_0.src_flip_y = true;
-	pipe_0.radius_mask = 0.9;
-	pipe_0.FOV_in = 190;
-	pipe_0.FOV_cam = 120;
-	pipe_0.RPY_cam = Vec3f(0, 0, -30 -90);
-	pipe_0.cam_model = 3;
-	pipe_0.K_param  = Vec2f(-0.01, -0.01);		// stereo
-//	pipe_0.K_param  = Vec2f(0.15, 0.01);	// equidistant
+	Navigation nav(nullptr);
+	nav.pipe.src_flip_y = true;
+	nav.pipe.radius_mask = 0.9;
+	nav.virtual_cam.FOV_in = 190;
+	nav.virtual_cam.FOV_cam = 120;
+	nav.virtual_cam.RPY_cam = Vec3f(0, 0, -30 -90);
+	nav.virtual_cam.cam_model = 3;
+	nav.virtual_cam.K_param  = Vec2f(-0.01, -0.01);		// stereo
 
 	const auto on_frame = [&](std::shared_ptr<Image> frame) {
 		std::cout << "[" << frame->topic << "] ts = " << frame->timestamp
@@ -49,28 +38,28 @@ int main(int argc, char** argv)
 
 	const auto on_frame_0 = [&](std::shared_ptr<Image> frame) {
 		on_frame(frame);
-		pipe_0.handle(frame);
-		pipe_0.sync();
+		nav.pipe.handle(frame);
+		nav.pipe.sync();
 	};
 
 	const auto on_raw_imu = [&](std::shared_ptr<MSP2::RawImu> imu) {
-		pipe_0.handle(imu);
+		nav.pipe.handle(imu);
 	};
 
 	const auto on_att = [&](std::shared_ptr<MSP2::Attitude> att) {
-		pipe_0.handle(att);
+		nav.pipe.handle(att);
 	};
 
 	const auto on_gps = [&](std::shared_ptr<MSP2::RawGPS> gps) {
-		pipe_0.handle(gps);
+		nav.pipe.handle(gps);
 	};
 
 	const auto on_alt = [&](std::shared_ptr<MSP2::Altitude> alt) {
-		pipe_0.handle(alt);
+		nav.pipe.handle(alt);
 	};
 
 	const auto on_rc = [&](std::shared_ptr<MSP2::RcPacket> rc) {
-		pipe_0.handle(rc);
+		nav.pipe.handle(rc);
 	};
 
 	Player player(file_name);

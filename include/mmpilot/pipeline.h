@@ -62,7 +62,7 @@ public:
 	}
 
 	void init_sync(int width, int height) {
-		gl_main.post(std::bind(&Pipeline::init, this, width, height));
+		gl_main.post(std::bind(&Pipeline::init_wh, this, width, height));
 		sync();
 	}
 
@@ -153,7 +153,7 @@ private:
 		have_init = true;
 	}
 
-	void init(int w, int h)
+	void init_wh(int w, int h)
 	{
 		width = w;
 		height = h;
@@ -222,7 +222,7 @@ private:
 			std::cout << "[" << img->sequence << "] decode took " << (get_time_micros() - begin) / 1e3 << " ms" << std::endl;
 
 			if(!have_init) {
-				init(w, h);
+				init_wh(w, h);
 			}
 			input_luma->upload(img_luma.data(), w);
 
@@ -230,7 +230,7 @@ private:
 		}
 		else if(img->format == "YUV420") {
 			if(!have_init) {
-				init(img->width, img->height);
+				init_wh(img->width, img->height);
 			}
 			input_luma->upload(img->data[0].data(), img->stride);
 		}

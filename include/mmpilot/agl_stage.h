@@ -78,7 +78,7 @@ public:
 
 		// affine fallback
 		if(!done && delta.valid()) {
-			AGL_out *= delta.scale();
+			AGL_out = AGL_out * delta.scale();
 			AGL_source = "CAM";
 			done = true;
 		}
@@ -100,7 +100,7 @@ public:
 		// keep last known value as a last resort
 		AGL_source = "NONE";
 
-		std::cout << "AGL: " << AGL_out << " m (" << AGL_source << ")" << std::endl;
+		std::cout << "AGL: " << AGL_out << " m (" << AGL_source.value << ")" << std::endl;
 	}
 
 private:

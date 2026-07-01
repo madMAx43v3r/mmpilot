@@ -98,6 +98,23 @@ public:
 	}
 };
 
+class String : public Value {
+public:
+	std::string value;
+
+	String() = default;
+	String(const std::string& v) : value(v) {}
+
+	std::string& operator=(const std::string& v) {
+		value = v;
+		return value;
+	}
+
+	std::string to_string() const override {
+		return value;
+	}
+};
+
 template<typename T>
 class Integral : public Value {
 public:
@@ -125,7 +142,6 @@ using Integer64 = Integral<int64_t>;
 using Bool    = Integral<bool>;
 using Float   = Integral<float>;
 using Double  = Integral<double>;
-using String  = Integral<std::string>;
 
 
 
