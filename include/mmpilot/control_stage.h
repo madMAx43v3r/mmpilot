@@ -115,11 +115,12 @@ public:
 	float yaw_rate = 0;					// [deg / sec]
 	Vec2f xy_speed = Vec2f(0, 0);		// body frame [pix / sec]
 
+	Vec2f offset;						// body frame
+
 	Float base_throttle = 0.5;			// 0 to 1
 	float base_throttle_gain = 0.2;
 
 	Transform2D odom;					// camera frame
-	Transform2D offset;					// body frame
 
 	ControlOutput out;
 
@@ -179,7 +180,7 @@ protected:
 		}
 
 		// convert to body frame
-		offset = R_BC * odom;
+		offset = R_BC * odom.pos;
 		xy_speed = R_BC * velocity.xy;
 
 		z_speed = velocity.z;
@@ -242,9 +243,9 @@ protected:
 			reset();
 			std::cout << "INFO: Switched to POSITION control mode" << std::endl;
 		}
-		const float yaw_deg = get_angle_deg(offset.rot);
+		const float yaw_deg = angle_norm_180(gyro.get_rpy().z());	// TODO: correct via odom
 
-		std::cout << "Odometry: pos = " << offset.pos.transpose() << ", yaw = " << yaw_deg << " deg, scale = " << offset.scale << std::endl;
+		std::cout << "Odometry: pos = " << offset.transpose() << ", yaw = " << yaw_deg << " deg, scale = " << odom.scale << std::endl;
 
 		// convert target to image units
 		const Vec2f target_pos = cam_fpx * Vec2f(cmd.pos.x(), cmd.pos.y()) / std::max(AGL, AGL_min);
@@ -255,12 +256,12 @@ protected:
 
 		if(active) {
 			out.angle = angle_control.update(
-					offset.pos - target_pos,
+					offset - target_pos,
 					-xy_speed
 			);
 
 			out.throttle = base_throttle + throttle_control.update(
-					target_z - offset.scale,
+					target_z - odom.scale,
 					z_speed - 1
 			);
 
@@ -329,7 +330,7 @@ protected:
 	{
 		// reset odometry
 		odom = Transform2D();
-		offset = R_BC * odom;
+		offset = Vec2f::Zero();
 
 		// reset controllers
 		speed_control.reset();
