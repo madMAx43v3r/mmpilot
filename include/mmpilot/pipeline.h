@@ -49,9 +49,6 @@ public:
 
 	virtual ~Pipeline()
 	{
-		if(display) {
-			display->close();
-		}
 		gl_main.close();
 	}
 
