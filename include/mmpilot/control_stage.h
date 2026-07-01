@@ -35,9 +35,12 @@ public:
 template<typename T>
 class ControlPID {
 public:
-	Vec3f PID = Vec3f(1, 0.1, -1);		// (P, I, D)
+	Vec3f PID = Vec3f(0, 1, 0.1);		// (P, I, D)
 	
 	float gain = 1;						// global gain
+
+	float min_bias = 0;
+	float max_bias = 0;
 
 	ControlPID() = default;
 
@@ -45,28 +48,52 @@ public:
 		reset();
 	}
 
+	void set_bias_limit(float min, float max) {
+		min_bias = min;
+		max_bias = max;
+	}
+
 	void reset() {
-		state = zero;
+		bias = zero;
 		last_error = zero;
+		have_init = false;
 	}
 
 	void reset(const T& init) {
-		state = init;
+		bias = init;
 		last_error = zero;
+		have_init = false;
 	}
 
 	T update(const T& error, const float dt)
 	{
-		state += error * PID.y() * dt;				// I
-		return state
-				+ error * PID.x()					// P
-				+ (last_error - error) * PID.z();	// D
+		const T err = error * gain;
+
+		const T derr = have_init && dt > 0
+				? (err - last_error) / dt
+				: zero;
+
+		const T out = bias
+				+ err * PID.x()			// P
+				+ derr * PID.z();		// D
+
+		if(dt > 0) {
+			bias += err * PID.y() * dt;	// I
+		}
+		bias = std::min(std::max(bias, min_bias), max_bias);
+
+		last_error = err;
+		have_init = true;
+		return out;
 	}
+
+	T bias = T();
 
 private:
 	T zero = T();
-	T state = T();
 	T last_error = T();
+
+	bool have_init = false;
 
 };
 
@@ -83,7 +110,7 @@ public:
 
 	float speed_gain = 1;
 	float yawrate_gain = 1;
-	float vertical_gain = 1;
+	float vertical_gain = 0.1;
 
 	float AGL_min = 1;					// sanity limit [m]
 
@@ -139,6 +166,10 @@ protected:
 		speed_control.gain = speed_gain;
 		yawrate_control.gain = yawrate_gain;
 		vertical_control.gain = vertical_gain;
+
+		speed_control.set_bias_limit(-max_angle, max_angle);
+		yawrate_control.set_bias_limit(-max_yaw, max_yaw);
+		vertical_control.set_bias_limit(0, max_throttle / 1000.f);
 
 		add_output("control", &out);
 		add_output("control_odom", &odom);
@@ -223,7 +254,9 @@ protected:
 		// convert target to image units
 		const Vec2f target_vel = cam_fpx * Vec2f(cmd.vel.x(), cmd.vel.y()) / std::max(AGL, AGL_min);
 
-		const float target_z = cmd.vel.z() / std::max(AGL, AGL_min);
+		const float target_z = 1 + cmd.vel.z() / std::max(AGL, AGL_min);
+
+		std::cout << "Target: xy = " << target_vel.transpose() << " pix/s, z = " << target_z << " 1/s, AGL = " << AGL << " m" << std::endl;
 
 		if(active) {
 			out.angle = speed_control.update(xy_speed - target_vel, dt);
