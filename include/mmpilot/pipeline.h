@@ -20,6 +20,7 @@
 #include <mmpilot/math.h>
 #include <mmpilot/stage.h>
 #include <mmpilot/gps.h>
+#include <mmpilot/record.h>
 
 #include <mmpilot/egl.h>
 
@@ -32,6 +33,7 @@ public:
 	bool src_flip_y = false;
 
 	bool is_debug = false;
+	bool do_record = false;
 
 	int64_t camera_delay = 50000;	// [us]
 
@@ -49,6 +51,9 @@ public:
 
 	virtual ~Pipeline()
 	{
+		if(recorder) {
+			recorder->close();
+		}
 		gl_main.close();
 	}
 
@@ -149,6 +154,10 @@ private:
 
 		for(auto stage : exec_chain) {
 			stage->init();
+		}
+
+		if(do_record) {
+			recorder = std::make_shared<Recorder>("record.dat");
 		}
 		have_init = true;
 	}
@@ -264,29 +273,41 @@ private:
 
 	void on_sample(std::shared_ptr<Sample> sample)
 	{
+		std::string topic = "null";
+
 		if(auto img = std::dynamic_pointer_cast<Image>(sample)) {
+			topic = "camera.nav";
 			on_image(img);
 		}
 		else if(auto imu = std::dynamic_pointer_cast<MSP2::RawImu>(sample)) {
+			topic = "msp.raw_imu";
 			gyro_api.on_raw_imu(*imu);
 		}
 		else if(auto att = std::dynamic_pointer_cast<MSP2::Attitude>(sample)) {
+			topic = "msp.attitude";
 			gyro_api.on_attitude(*att);
 			std::cout << "ATT: ts = " << att->ts << ", roll = " << att->roll << ", pitch = " << att->pitch << ", yaw = " << att->yaw << std::endl;
 		}
 		else if(auto alt = std::dynamic_pointer_cast<MSP2::Altitude>(sample)) {
+			topic = "msp.altitude";
 			msp_alt = alt;
 			std::cout << "ALT: ts = " << alt->ts << ", alt_cm = " << alt->alt_cm << ", vario_cms = " << alt->vario_cms << std::endl;
 		}
 		else if(auto rc = std::dynamic_pointer_cast<MSP2::RcPacket>(sample)) {
+			topic = "msp.rc";
 			msp_rc = rc;
 			std::cout << "RC: ts = " << rc->ts << ", roll = " << rc->roll() << ", pitch = " << rc->pitch() << ", yaw = " << rc->yaw() << ", throttle = " << rc->throttle() << std::endl;
 		}
 		else if(auto gps = std::dynamic_pointer_cast<MSP2::RawGPS>(sample)) {
+			topic = "msp.raw_gps";
 			gps_api.on_gps(*gps);
 			std::cout << "GPS: lat = " << gps->lat << ", lon = " << gps->lon
 					<< ", speed = " << gps->speed << ", heading = " << gps->course
 					<< ", alt = " << gps->alt << ", sats = " << int(gps->num_sats) << ", fix = " << int(gps->fix_type) << std::endl;
+		}
+
+		if(recorder && sample) {
+			write_sample(*recorder, topic, *sample);
 		}
 	}
 
@@ -310,6 +331,8 @@ private:
 	Thread gl_main;
 
 	int64_t time_offset = 0;	// [us]
+
+	std::shared_ptr<Recorder> recorder;
 
 	bool have_init = false;
 	bool time_init = false;

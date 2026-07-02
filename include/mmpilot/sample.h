@@ -26,6 +26,8 @@ public:
 
 	virtual ~Sample() {}
 
+	virtual void write(Recorder& out) const {}
+
 	std::string to_string() const override {
 		return "Sample(" + topic + ")";
 	}

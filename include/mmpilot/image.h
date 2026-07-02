@@ -28,7 +28,7 @@ public:
 	std::string format;
 	std::vector<std::vector<uint8_t>> data;
 
-	void write(Recorder& out) const
+	void write(Recorder& out) const override
 	{
 		out.write_u32(MAGIC);
 		out.write_u32(0);

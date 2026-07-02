@@ -29,15 +29,12 @@ int main(int argc, char** argv)
 	nav.virtual_cam.cam_model = 3;
 	nav.virtual_cam.K_param  = Vec2f(-0.01, -0.01);		// stereo
 
+
 	const auto on_frame = [&](std::shared_ptr<Image> frame) {
 		std::cout << "[" << frame->topic << "] ts = " << frame->timestamp
 				<< ", width = " << frame->width << ", height = " << frame->height
 				<< ", size = " << frame->data.size()
 				<< ", exposure = " << frame->exposure << ", gain = " << frame->analog_gain << std::endl;
-	};
-
-	const auto on_frame_0 = [&](std::shared_ptr<Image> frame) {
-		on_frame(frame);
 		nav.pipe.handle(frame);
 		nav.pipe.sync();
 	};
@@ -76,8 +73,11 @@ int main(int argc, char** argv)
 	player.handle["msp.raw_gps"]  = dispatch<MSP2::RawGPS>(on_gps);
 	player.handle["msp.rc"]       = dispatch<MSP2::RcPacket>(on_rc);
 
+	player.decode["camera.nav"] = &Image::read;
 	player.decode["camera.wide"] = &Image::read;
-	player.handle["camera.wide"] = dispatch<Image>(on_frame_0);
+
+	player.handle["camera.nav"] = dispatch<Image>(on_frame);
+	player.handle["camera.wide"] = dispatch<Image>(on_frame);
 
 	if(offset_sec > 0) {
 		player.seek(offset_sec * 1000);

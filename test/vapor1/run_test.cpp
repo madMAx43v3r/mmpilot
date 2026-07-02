@@ -30,6 +30,7 @@ int main(int argc, char** argv)
 	msp.interval = std::chrono::milliseconds(msp_inverval_ms);
 
 	Navigation nav(&msp);
+	nav.pipe.do_record = true;
 	nav.pipe.src_flip_y = true;
 	nav.pipe.radius_mask = 0.9;
 	nav.virtual_cam.FOV_in = 190;

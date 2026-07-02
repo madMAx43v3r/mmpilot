@@ -52,7 +52,7 @@ public:
 		int16_t pitch = 0;		// raw angle (0.1 deg)
 		int16_t yaw = 0;		// raw angle (0.1 deg or 1.0 deg)
 
-		void write(Recorder& out) const {
+		void write(Recorder& out) const override {
 			out.write_u32(MAGIC);
 			out.write_i16(roll);
 			out.write_i16(pitch);
@@ -81,7 +81,7 @@ public:
 		std::array<int16_t, 3> gyro = {0, 0, 0};   // raw gyro rate (1/16.4 deg/s at 2000 dps)
 		std::array<int16_t, 3> mag = {0, 0, 0};    // raw mag (0 if not present)
 
-		void write(Recorder& out) const {
+		void write(Recorder& out) const override {
 			out.write_u32(MAGIC);
 			for(int i = 0; i < 3; ++i) out.write_i16(acc[i]);
 			for(int i = 0; i < 3; ++i) out.write_i16(gyro[i]);
@@ -114,7 +114,7 @@ public:
 		uint16_t aux(size_t i) const { return ch.size() > 4 + i ? ch[4 + i] : 0; }
 		size_t num_aux() const    	 { return ch.size() > 4 ? ch.size() - 4 : 0; }
 
-		void write(Recorder& out) const {
+		void write(Recorder& out) const override {
 			out.write_u32(MAGIC);
 			out.write_u16(ch.size());
 			for(auto v : ch) {
@@ -154,7 +154,7 @@ public:
 		double get_speed() const { return speed * 1e-2; }		// m/s
 		double get_heading() const { return course * 1e-1; }	// deg
 
-		void write(Recorder& out) const {
+		void write(Recorder& out) const override {
 			out.write_u32(MAGIC);
 			out.write_u16(0);
 			out.write_u16(fix_type);
@@ -198,7 +198,7 @@ public:
 			return alt_cm / 100.f;		// [m]
 		}
 
-		void write(Recorder& out) const {
+		void write(Recorder& out) const override {
 			out.write_u32(MAGIC);
 			out.write_i32(alt_cm);
 			out.write_i16(vario_cms);
