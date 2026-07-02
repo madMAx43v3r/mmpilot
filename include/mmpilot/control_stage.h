@@ -213,7 +213,7 @@ protected:
 
 		const Vec2f target_pos = factor * Vec2f(cmd.pos.x(), cmd.pos.y());
 
-		const float target_z = (base_AGL + cmd.pos.z()) / std::max(AGL, AGL_min);
+		const float target_z = 1 + (cmd.pos.z() / std::max(base_AGL, AGL_min));
 
 		const float target_yaw = base_yaw + cmd.yaw_deg;		// [deg]
 
