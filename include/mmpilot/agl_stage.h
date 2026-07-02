@@ -76,15 +76,7 @@ public:
 			done = true;
 		}
 
-		// affine fallback
-		if(!done && delta.valid() && AGL_out > 0)
-		{
-			AGL_out = AGL_out * delta.scale();
-			AGL_source = "CAM";
-			done = true;
-		}
-
-		// barometer fallback (better than GPS fallback)
+		// barometer fallback
 		if(!done && baro)
 		{
 			AGL_out = base_ref + (baro->get_alt() - baro_ref);
@@ -97,6 +89,14 @@ public:
 		{
 			AGL_out = base_ref + (gps->alt_m - gps_ref);
 			AGL_source = "GPS";
+			done = true;
+		}
+
+		// affine fallback
+		if(!done && delta.valid() && AGL_out > 0)
+		{
+			AGL_out = AGL_out * delta.scale();
+			AGL_source = "CAM";
 			done = true;
 		}
 
