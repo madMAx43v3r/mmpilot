@@ -8,8 +8,24 @@
 #include <mmpilot/replay.h>
 #include <mmpilot/image.h>
 #include <mmpilot/navigation.h>
+#include <mmpilot/display.h>
 
 #include <iostream>
+
+class DisplayStage : public Stage {
+public:
+	DisplayStage() : Stage("display") {}
+
+	void exec() override
+	{
+		if(auto stage = find_stage<AffineStage>("affine")) {
+			show(display, stage->stage[0]->solver.tex_debug);
+		}
+	}
+
+	std::unique_ptr<TexDisplay> display;
+
+};
 
 
 int main(int argc, char** argv)
@@ -20,7 +36,7 @@ int main(int argc, char** argv)
 	std::cout << "offset = " << offset_sec << " sec" << std::endl;
 	std::cout << "file_name = " << file_name << std::endl;
 
-	Navigation nav(nullptr);
+	NavigationBase nav;
 	nav.pipe.src_flip_y = true;
 	nav.pipe.radius_mask = 0.9;
 	nav.virtual_cam.FOV_in = 190;
@@ -28,6 +44,10 @@ int main(int argc, char** argv)
 	nav.virtual_cam.RPY_cam = Vec3f(0, 0, -30 -90);
 	nav.virtual_cam.cam_model = 3;
 	nav.virtual_cam.K_param  = Vec2f(-0.01, -0.01);		// stereo
+	nav.affine.is_debug = true;
+
+	DisplayStage display;
+	nav.pipe.add_stage(&display);
 
 
 	const auto on_frame = [&](std::shared_ptr<Image> frame) {
