@@ -125,7 +125,7 @@ Eigen::Matrix<T, 3, 1> rot_zyx_to_rpy_deg(const Eigen::Matrix<T, 3, 3>& R) {
 	return rot_zyx_to_rpy(R) * T(180 / M_PI);
 }
 
-// Rotation matrix from roll/pitch/yaw in degrees, ZYX order:
+// Rotation matrix from roll/pitch/yaw in rad, ZYX order:
 // R = Rz(yaw) * Ry(pitch) * Rx(roll)
 template<typename T>
 Eigen::Matrix<T, 3, 3> rpy_to_rot_zyx(const Eigen::Matrix<T, 3, 1>& rpy_rad)
@@ -159,11 +159,12 @@ Eigen::Matrix<T, 3, 3> rpy_to_rot_zyx(const Eigen::Matrix<T, 3, 1>& rpy_rad)
 template<typename T>
 Eigen::Matrix<T, 3, 3> rpy_to_rot_zyx_deg(const Eigen::Matrix<T, 3, 1>& rpy_deg)
 {
-	return rpy_to_rot_zyx<T>({
-		deg2rad(rpy_deg.x()),
-		deg2rad(rpy_deg.y()),
-		deg2rad(rpy_deg.z())
-	});
+	Eigen::Matrix<T, 3, 1> rpy_rad;
+	rpy_rad.x() = deg2rad(rpy_deg.x());
+	rpy_rad.y() = deg2rad(rpy_deg.y());
+	rpy_rad.z() = deg2rad(rpy_deg.z());
+
+	return rpy_to_rot_zyx<T>(rpy_rad);
 }
 
 template<typename T>
