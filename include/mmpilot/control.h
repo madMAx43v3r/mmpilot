@@ -87,7 +87,8 @@ public:
 class ControlVar {
 public:
 	float gain = 1;					// global gain
-	float rate_gain = 0.5;			// derivative gain
+	float damping = 0.9;
+	float bias_gain = 0.2;
 	float look_ahead = 1;			// [sec]
 
 	float min_value = 0;
@@ -97,8 +98,9 @@ public:
 
 	void reset(float init)
 	{
+		bias = init;
 		state = init;
-		rate = 0;
+		velocity = 0;
 		last = 0;
 	}
 
@@ -112,22 +114,32 @@ public:
 	{
 		err *= gain;
 
-		if(dt > 0) {
-			rate = exp_gain(rate, (err - last) / dt, rate_gain);
-		}
-		last = err;
+		velocity += (state - bias) * dt;
 
-		if(err * rate < 0) {
-			err += rate * look_ahead;
-		}
+		err -= velocity * look_ahead;
+
+		velocity *= powf(damping, dt);
+
+//		if(dt > 0) {
+//			rate = exp_gain(rate, (err - last) / dt, rate_gain);
+//		}
+//		last = err;
+
+//		if(err * rate < 0) {
+//			err += rate * look_ahead;
+//		}
 		state += err * dt;
 
 		state = std::min(std::max(state, min_value), max_value);
+
+		bias = exp_gain(bias, state, bias_gain * dt);
+
 		return state;
 	}
 
+	float bias = 0;
 	float state = 0;
-	float rate = 0;
+	float velocity = 0;
 
 private:
 	float last = 0;
