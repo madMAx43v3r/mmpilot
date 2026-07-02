@@ -94,7 +94,7 @@ int main(int argc, char** argv)
 		out.exposure = frame.exposure;
 		out.analog_gain = frame.analog_gain;
 		out.sequence = frame.sequence;
-		out.timestamp = frame.timestamp / 1000;
+		out.timestamp = frame.timestamp;
 		out.format = "JPEG";
 		out.data.push_back(encode_jpeg_i420(
 				Y, U, V, frame.width, frame.height, frame.stride, quality));

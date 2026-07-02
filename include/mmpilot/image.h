@@ -98,7 +98,7 @@ public:
 		out->exposure = exposure;
 		out->analog_gain = analog_gain;
 		out->sequence = sequence;
-		out->timestamp = timestamp / 1000;
+		out->timestamp = timestamp;
 		out->format = "JPEG";
 		out->data.push_back(encode_jpeg_i420(
 				Y, U, V, width, height, stride, quality));
