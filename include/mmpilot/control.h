@@ -87,9 +87,9 @@ public:
 class ControlVar {
 public:
 	float gain = 1;					// global gain
-	float damping = 0.9;
+	float damping = 0.5;
 	float bias_gain = 0.2;
-	float look_ahead = 1;			// [sec]
+	float look_ahead = 10;			// [sec]
 
 	float min_value = 0;
 	float max_value = 0;
