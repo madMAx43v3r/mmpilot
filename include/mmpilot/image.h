@@ -10,6 +10,7 @@
 
 #include <mmpilot/sample.h>
 #include <mmpilot/replay.h>
+#include <mmpilot/jpeg.h>
 
 #include <vector>
 
@@ -77,6 +78,30 @@ public:
 			in.read(tmp.data(), size);
 			out->data.push_back(std::move(tmp));
 		}
+		return out;
+	}
+
+	std::shared_ptr<Image> to_jpeg(int quality = 95) const
+	{
+		if(format != "YUV420" || data.size() != 3) {
+			return nullptr;
+		}
+		const auto* Y = data[0].data();
+		const auto* U = data[1].data();
+		const auto* V = data[2].data();
+
+		auto out = std::make_shared<Image>();
+		out->ts = ts;
+		out->width = width;
+		out->height = height;
+		out->stride = width;
+		out->exposure = exposure;
+		out->analog_gain = analog_gain;
+		out->sequence = sequence;
+		out->timestamp = timestamp / 1000;
+		out->format = "JPEG";
+		out->data.push_back(encode_jpeg_i420(
+				Y, U, V, width, height, stride, quality));
 		return out;
 	}
 

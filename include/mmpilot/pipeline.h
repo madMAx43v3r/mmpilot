@@ -278,6 +278,9 @@ private:
 		if(auto img = std::dynamic_pointer_cast<Image>(sample)) {
 			topic = "camera.nav";
 			on_image(img);
+			if(recorder) {
+				sample = img->to_jpeg();
+			}
 		}
 		else if(auto imu = std::dynamic_pointer_cast<MSP2::RawImu>(sample)) {
 			topic = "msp.raw_imu";
