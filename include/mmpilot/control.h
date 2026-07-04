@@ -86,10 +86,10 @@ public:
 
 class ControlVar {
 public:
-	float gain = 1;					// global gain
-	float damping = 0.5;
-	float bias_gain = 0.2;
-	float look_ahead = 10;			// [sec]
+	float gain = 1;					// accel
+	float damping = 2;				// deccel
+	float target_time = 3;			// [sec]
+	float output_gain = 0.2;		// output smoothing
 
 	float min_value = 0;
 	float max_value = 0;
@@ -100,8 +100,6 @@ public:
 	{
 		bias = init;
 		state = init;
-		velocity = 0;
-		last = 0;
 	}
 
 	void set_limit(float min, float max)
@@ -110,39 +108,24 @@ public:
 		max_value = max;
 	}
 
-	float update(float err, const float dt)
+	float update(const float err, const float vel, const float dt)
 	{
-		err *= gain;
+		const float target_vel = err / target_time;
+		const float target_acc = vel / target_time;
 
-		velocity += (state - bias) * dt;
+		const float next = bias + (target_vel - vel) * gain - target_acc * damping;
 
-		err -= velocity * look_ahead;
-
-		velocity *= powf(damping, dt);
-
-//		if(dt > 0) {
-//			rate = exp_gain(rate, (err - last) / dt, rate_gain);
-//		}
-//		last = err;
-
-//		if(err * rate < 0) {
-//			err += rate * look_ahead;
-//		}
-		state += err * dt;
+		state = exp_gain(state, next, output_gain);
 
 		state = std::min(std::max(state, min_value), max_value);
 
-		bias = exp_gain(bias, state, bias_gain * dt);
+		bias = exp_gain(bias, state, dt / (2 * target_time));
 
 		return state;
 	}
 
 	float bias = 0;
 	float state = 0;
-	float velocity = 0;
-
-private:
-	float last = 0;
 
 };
 
