@@ -96,10 +96,11 @@ public:
 
 	ControlVar() = default;
 
-	void reset(float init)
+	void reset(const float init)
 	{
 		bias = init;
 		state = init;
+		have_init = false;
 	}
 
 	void set_limit(float min, float max)
@@ -108,12 +109,14 @@ public:
 		max_value = max;
 	}
 
-	float update(const float err, const float vel, const float dt)
+	float update(const float target, const float current, const float dt)
 	{
+		const float err = target - current;
+		const float vel = have_init && dt > 0 ? (current - last) / dt : 0;
 		const float target_vel = err / target_time;
 		const float target_acc = vel / target_time;
 
-		const float next = bias + (target_vel - vel) * gain - target_acc * damping;
+		const float next = bias + (target_vel - vel) * gain - target_acc * gain * damping;
 
 		state = exp_gain(state, next, output_gain);
 
@@ -121,11 +124,19 @@ public:
 
 		bias = exp_gain(bias, state, dt / (2 * target_time));
 
+		last = current;
+
+		have_init = true;
+
 		return state;
 	}
 
 	float bias = 0;
 	float state = 0;
+	float last = 0;
+
+private:
+	bool have_init = false;
 
 };
 

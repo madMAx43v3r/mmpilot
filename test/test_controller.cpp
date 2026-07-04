@@ -61,9 +61,9 @@ int main()
 
 	for(float t = 0; t <= t_end; t += dt)
 	{
-		const float err = target - plant.x;
+//		const float err = target - plant.x;
 
-		const float u = ctrl.update(err, plant.v, dt);
+		const float u = ctrl.update(target, plant.x, dt);
 
 		plant.update(u, dt);
 

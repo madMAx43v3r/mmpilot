@@ -181,12 +181,12 @@ protected:
 		std::cout << "Target: xy = " << target_vel.transpose() << " pix/s, z = " << target_z << ", AGL = " << AGL << " m" << std::endl;
 
 		if(active) {
-			out.angle.x() = -1 * velx_control.update(target_vel.x() - xy_speed.x(), dt);
-			out.angle.y() = -1 * vely_control.update(target_vel.y() - xy_speed.y(), dt);
+			out.angle.x() = -1 * velx_control.update(target_vel.x(), xy_speed.x(), dt);
+			out.angle.y() = -1 * vely_control.update(target_vel.y(), xy_speed.y(), dt);
 
-			out.yaw_rate = -1 * yawrate_control.update(cmd.yaw_rate - yaw_rate, dt);
+			out.yaw_rate = -1 * yawrate_control.update(cmd.yaw_rate, yaw_rate, dt);
 
-			out.throttle = vertical_control.update(target_z - z_speed, dt);
+			out.throttle = vertical_control.update(target_z, z_speed, dt);
 		}
 		else {
 			out.yaw_rate = 0;
@@ -204,7 +204,7 @@ protected:
 			reset();
 			std::cout << "INFO: Switched to POSITION control mode" << std::endl;
 		}
-		const float yaw_deg = angle_norm_180(gyro.get_rpy().z());	// TODO: correct via odom
+		const float yaw_deg = angle_norm_180(gyro.get_rpy().z() - base_yaw);	// TODO: correct via odom
 
 		std::cout << "Odometry: pos = " << offset.transpose() << ", yaw = " << yaw_deg << " deg, scale = " << odom.scale << std::endl;
 
@@ -215,17 +215,17 @@ protected:
 
 		const float target_z = 1 + (cmd.pos.z() / std::max(base_AGL, AGL_min));
 
-		const float target_yaw = base_yaw + cmd.yaw_deg;		// [deg]
+		const float target_yaw = angle_norm_180(cmd.yaw_deg);		// [deg]
 
 		std::cout << "Target: xy = " << target_pos.transpose() << " pix, z = " << target_z << ", AGL = " << AGL << " m" << std::endl;
 
 		if(active) {
-			out.angle.x() = -1 * posx_control.update(target_pos.x() - offset.x(), dt);
-			out.angle.y() = -1 * posy_control.update(target_pos.y() - offset.y(), dt);
+			out.angle.x() = -1 * posx_control.update(target_pos.x(), offset.x(), dt);
+			out.angle.y() = -1 * posy_control.update(target_pos.y(), offset.y(), dt);
 
-			out.yaw_rate = -1 * yaw_control.update(angle_norm_180(target_yaw - yaw_deg), dt);
+			out.yaw_rate = -1 * yaw_control.update(target_yaw, yaw_deg, dt);
 
-			out.throttle = throttle_control.update(target_z - odom.scale, dt);
+			out.throttle = throttle_control.update(target_z, odom.scale, dt);
 		}
 		else {
 			out.yaw_rate = 0;
@@ -299,7 +299,7 @@ protected:
 
 		// reset base values (for position mode)
 		base_AGL = std::max(AGL, AGL_min);
-		base_yaw = angle_norm_180(gyro.get_rpy().z());
+		base_yaw = gyro.get_rpy().z();
 	}
 
 private:
