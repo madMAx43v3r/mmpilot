@@ -46,9 +46,9 @@ int main()
 
 	mmpilot::ControlVar ctrl;
 	ctrl.gain = 1;
-	ctrl.damping = 1.5;
-	ctrl.target_time = 2;
-	ctrl.set_limit(-10, 10);
+	ctrl.damping = 2;
+	ctrl.target_time = 3;
+	ctrl.set_limit(-10, 10, 2);
 	ctrl.reset(0);
 
 	Mass1D plant;
@@ -57,7 +57,7 @@ int main()
 	plant.reset(0, 0);
 
 	std::ofstream file("step_response.csv");
-	file << "t, a, x, error, vel" << std::endl;
+	file << "t, a, x, vel" << std::endl;
 
 	for(float t = 0; t <= t_end; t += dt)
 	{

@@ -21,7 +21,11 @@ class ControlStage : public Stage {
 public:
 	int max_yaw = 50;			// RC offset
 	int max_angle = 200;		// RC offset
-	int max_throttle = 700;		// RC offset
+	int max_throttle = 0.7;		// 1
+
+	int max_yaw_rate = 50;			// RC / sec
+	int max_angle_rate = 50;		// RC / sec
+	int max_throttle_rate = 1;		// 1 / sec
 
 	float yaw_gain = 1;
 	float position_gain = 2;
@@ -79,20 +83,20 @@ protected:
 		yaw_control.gain = yaw_gain;
 		throttle_control.gain = throttle_gain;
 
-		posx_control.set_limit(-max_angle, max_angle);
-		posy_control.set_limit(-max_angle, max_angle);
-		yaw_control.set_limit(-max_yaw, max_yaw);
-		throttle_control.set_limit(0, max_throttle / 1000.f);
+		posx_control.set_limit(-max_angle, max_angle, max_angle_rate);
+		posy_control.set_limit(-max_angle, max_angle, max_angle_rate);
+		yaw_control.set_limit(-max_yaw, max_yaw, max_yaw_rate);
+		throttle_control.set_limit(0, max_throttle, max_throttle_rate);
 
 		velx_control.gain = velocity_gain;
 		vely_control.gain = velocity_gain;
 		yawrate_control.gain = yawrate_gain;
 		vertical_control.gain = vertical_gain;
 
-		velx_control.set_limit(-max_angle, max_angle);
-		vely_control.set_limit(-max_angle, max_angle);
-		yawrate_control.set_limit(-max_yaw, max_yaw);
-		vertical_control.set_limit(0, max_throttle / 1000.f);
+		velx_control.set_limit(-max_angle, max_angle, max_angle_rate);
+		vely_control.set_limit(-max_angle, max_angle, max_angle_rate);
+		yawrate_control.set_limit(-max_yaw, max_yaw, max_yaw_rate);
+		vertical_control.set_limit(0, max_throttle, max_throttle_rate);
 
 		add_output("control", &out);
 	}
@@ -171,8 +175,8 @@ protected:
 		std::cout << "Target: xy = " << target_vel.transpose() << " pix/s, z = " << target_z << ", AGL = " << AGL << " m" << std::endl;
 
 		if(active) {
-			out.angle.x() = -1 * velx_control.update(target_vel.x(), xy_speed.x(), dt);
-			out.angle.y() = -1 * vely_control.update(target_vel.y(), xy_speed.y(), dt);
+			out.angle.x() = 1 * velx_control.update(target_vel.x(), xy_speed.x(), dt);
+			out.angle.y() = 1 * vely_control.update(target_vel.y(), xy_speed.y(), dt);
 
 			out.yaw_rate = -1 * yawrate_control.update(cmd.yaw_rate, yaw_rate, dt);
 
@@ -213,8 +217,8 @@ protected:
 		std::cout << "Target: xy = " << target_pos.transpose() << " pix, z = " << target_z << ", AGL = " << AGL << " m" << std::endl;
 
 		if(active) {
-			out.angle.x() = -1 * posx_control.update(target_pos.x(), offset.x(), dt);
-			out.angle.y() = -1 * posy_control.update(target_pos.y(), offset.y(), dt);
+			out.angle.x() = 1 * posx_control.update(target_pos.x(), offset.x(), dt);
+			out.angle.y() = 1 * posy_control.update(target_pos.y(), offset.y(), dt);
 
 			out.yaw_rate = -1 * yaw_control.update(target_yaw, yaw_deg, dt);
 
@@ -252,7 +256,7 @@ protected:
 		std::array<uint16_t, 8> rc = {};
 		rc[0] = 1500 + std::min(std::max(int(out.angle.x()), -max_angle), max_angle);	// roll
 		rc[1] = 1500 + std::min(std::max(int(out.angle.y()), -max_angle), max_angle);	// pitch
-		rc[2] = 1000 + std::min(std::max(int(out.throttle * 1000), 0), max_throttle);	// throttle
+		rc[2] = 1000 + std::min(std::max(int(out.throttle), 0), max_throttle) * 1000;	// throttle
 		rc[3] = 1500 + std::min(std::max(int(out.yaw_rate), -max_yaw), max_yaw);		// yawrate
 
 		std::cout << "RC_OVERRIDE: " << to_string(rc) << std::endl;

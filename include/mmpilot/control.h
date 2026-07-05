@@ -94,6 +94,7 @@ public:
 
 	float min_value = 0;
 	float max_value = 0;
+	float max_rate = 0;
 
 	ControlVar() = default;
 
@@ -104,10 +105,11 @@ public:
 		have_init = false;
 	}
 
-	void set_limit(float min, float max)
+	void set_limit(float min, float max, float rate)
 	{
 		min_value = min;
 		max_value = max;
+		max_rate = std::abs(rate);
 	}
 
 	float update(const float target, const float current, const float dt)
@@ -117,14 +119,21 @@ public:
 		const float target_vel = err / target_time;
 		const float target_acc = vel / target_time;
 
-		const float next = bias + (target_vel - vel) * gain - target_acc * gain * damping;
+		float next = bias + (target_vel - vel) * gain - target_acc * gain * damping;
 
-		state = exp_gain(state, next, output_gain);
+		// smooth
+		next = exp_gain(state, next, output_gain);
 
-		state = std::min(std::max(state, min_value), max_value);
+		// rate limit
+		next = std::min(std::max(next, state - max_rate * dt), state + max_rate * dt);
 
+		// bounds limit
+		state = std::min(std::max(next, min_value), max_value);
+
+		// update bias
 		bias = exp_gain(bias, state, dt / (2 * target_time));
 
+		// to compute velocity
 		last = current;
 
 		have_init = true;
