@@ -27,9 +27,9 @@ public:
 	float position_gain = 2;
 	float throttle_gain = 0.1;
 
-	float yawrate_gain = 1;
-	float velocity_gain = 2;
-	float vertical_gain = 0.1;
+	float yawrate_gain = 0.5;
+	float velocity_gain = 1;
+	float vertical_gain = 0.05;
 
 	float AGL_min = 1;					// sanity limit [m]
 
@@ -50,8 +50,6 @@ public:
 	float AGL = 0;						// [m]
 	float cam_yaw = 0;					// [rad]
 	float cam_fpx = 0;					// focal length [pix]
-
-	Mat2f R_BC = Mat2f::Identity();		// camera to body transform
 
 	ControlVar posx_control;
 	ControlVar posy_control;
@@ -101,6 +99,7 @@ protected:
 
 	void exec() override
 	{
+		dt = get_input<Float>("dt");
 		gyro = get_input<Gyro::State>("gyro");
 		affine = get_input<Affine::Params>("affine");
 		velocity = get_input<ImageVelocity>("affine_vel");
@@ -108,14 +107,9 @@ protected:
 		cam_fpx = get_input<Float>("cam_fpx");
 		AGL = get_input<Float>("AGL");
 
-		const int64_t ts = get_input<Integer64>("ts");
-
-		dt = last_ts ? (ts - last_ts) * 1e-6 : 0;		// [sec]
-
 		if(affine.valid()) {
 			odom.add(affine.transform());
 		}
-		R_BC = get_rotation_matrix(cam_yaw);
 
 		if(auto rc = get_input<ConstPointer>("msp_rc").get<MSP2::RcPacket>())
 		{
@@ -136,9 +130,7 @@ protected:
 			std::cout << "RC: roll = " << rc->roll() << ", pitch = " << rc->pitch() << ", yaw = " << rc->yaw() << ", throttle = " << rc->throttle() << std::endl;
 		}
 
-		// convert to body frame
-		offset = R_BC * odom.pos;
-		xy_speed = R_BC * velocity.xy;
+		xy_speed = velocity.xy;
 
 		z_speed = velocity.z;
 		yaw_rate = gyro.rates.z();
@@ -160,8 +152,6 @@ protected:
 
 			exec_pos(PositionControl());
 		}
-
-		last_ts = ts;
 	}
 
 	void exec_vel(const VelocityControl& cmd)
@@ -204,6 +194,9 @@ protected:
 			reset();
 			std::cout << "INFO: Switched to POSITION control mode" << std::endl;
 		}
+		// convert odometry to body frame
+		offset = get_rotation_matrix(cam_yaw) * odom.pos;	// TODO: sign correct?
+
 		const float yaw_deg = angle_norm_180(gyro.get_rpy().z() - base_yaw);	// TODO: correct via odom
 
 		std::cout << "Odometry: pos = " << offset.transpose() << ", yaw = " << yaw_deg << " deg, scale = " << odom.scale << std::endl;
@@ -317,8 +310,6 @@ private:
 	float base_AGL = 0;				// [m]
 	float base_yaw = 0;				// [deg]
 	float base_throttle = 0.5;
-
-	int64_t last_ts = 0;			// [us]
 
 	ResponseEstimator2D response_xy;
 

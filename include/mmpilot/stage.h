@@ -31,6 +31,8 @@ public:
 
 	virtual void exec() {};
 
+	virtual void on_sample(std::shared_ptr<const Value> value) {};
+
 	const Value* find_output(const std::string& name) const
 	{
 		auto it = output_map.find(name);

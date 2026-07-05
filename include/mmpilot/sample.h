@@ -39,7 +39,7 @@ void write_sample(Recorder& out, const std::string& topic, const T& data)
 {
 	out.write_u32(0x3d171f57);
 	out.write_u32(0);
-	out.write_i64(get_time_micros());
+	out.write_i64(get_time_micros());	// don't use data.ts since we don't know if it's set correctly
 	out.write(topic);
 
 	data.write(out);

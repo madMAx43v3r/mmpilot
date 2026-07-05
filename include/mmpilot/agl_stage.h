@@ -25,9 +25,9 @@ namespace mmpilot {
 
 class AGL_Stage : public Stage {
 public:
-	float gain = 0.1;				// update gain
+	float gps_gain = 0.1;			// update gain
 
-	float min_gps_speed = 1;		// [m/s]
+	float min_gps_speed = 3;		// [m/s]
 	float min_affine_vel = 10;		// [pix/s]
 
 
@@ -62,7 +62,7 @@ public:
 			// only this case is a true absolute AGL measurement
 			const float alt_m = cam_fpx * gps->speed_ms / vel.xy.norm();
 
-			AGL_out = exp_gain<float>(AGL_out, alt_m, gain);
+			AGL_out = exp_gain<float>(AGL_out, alt_m, gps_gain);
 			AGL_source = "GPS_CAM";
 
 			if(baro) {

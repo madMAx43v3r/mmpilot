@@ -201,19 +201,25 @@ private:
 		rebase();
 
 		// --- compute velocity ---
-		const int64_t ts = get_input<Integer64>("ts");
+		const float dt = get_input<Float>("dt");
 
-		const float dt = last_ts ? (ts - last_ts) * 1e-6 : 0;		// [sec]
-
-		if(dt > 0 && output.valid()) {
+		if(dt > 0 && output.valid())
+		{
 			vel_out.z = pow(output.scale(), 1 / dt);
 			vel_out.xy = output.translation() / dt;
 			vel_out.yaw_rate = rad2deg(angle_norm_pi(output.yaw())) / dt;
-		} else {
+
+			// transform to body frame
+			const float cam_yaw = get_input<Float>("cam_yaw");
+
+			vel_out.xy = get_rotation_matrix(deg2rad(cam_yaw)) * vel_out.xy;	// TODO: cam_yaw sign?
+
+			std::cout << "AffineVel: xy = " << vel_out.xy.transpose() << " pix/s, yaw = "
+					<< vel_out.yaw_rate << " deg/s, z = " << vel_out.z << ", dt = " << dt << " sec" << std::endl;
+		}
+		else {
 			vel_out = ImageVelocity();
 		}
-
-		last_ts = ts;
 	}
 
 	void rebase()
@@ -222,9 +228,6 @@ private:
 			stage[i]->rebase(pyramid.out[i]);
 		}
 	}
-
-private:
-	int64_t last_ts = 0;				// us
 
 };
 

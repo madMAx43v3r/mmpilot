@@ -35,7 +35,7 @@ public:
 	bool is_debug = false;
 	bool do_record = false;
 
-	int64_t camera_delay = 50000;	// [us]
+	int64_t camera_delay = 100 * 1000;		// [usec]
 
 	float radius_mask = 1;			// proportional to width / 2
 
@@ -105,7 +105,10 @@ public:
 	int width = 0;			// input to pipeline
 	int height = 0;			// input to pipeline
 
-	Integer64 ts = 0;		// usec
+	Integer64 ts = 0;			// usec
+	Integer64 last_ts = 0;		// usec
+
+	Float dt = 0;				// sec
 
 	Gyro::State gyro;
 
@@ -120,10 +123,10 @@ public:
 	ConstPointer msp_rc;		// MSP2Client::RcPacket
 	ConstPointer msp_alt;		// MSP2Client::Altitude
 
-private:
 	GPS gps_api;
 	Gyro gyro_api;
 
+private:
 	FlipImage flip_image;
 	WeightRadius weight_radius;
 
@@ -144,6 +147,8 @@ private:
 		weight_radius.init(GL_RED, width, height);
 
 		add_output("ts", &ts);
+		add_output("dt", &dt);
+		add_output("last_ts", &last_ts);
 		add_output("image", &output);
 		add_output("image_rgb", &output_rgb);
 		add_output("gyro", &gyro);
@@ -175,6 +180,8 @@ private:
 		if(!have_init) {
 			throw std::logic_error("!have_init");
 		}
+		dt = last_ts ? (ts - last_ts) * 1e-6 : 0;		// [sec]
+
 		if(!gyro_api.avail()) {
 			std::cout << "WARN: Waiting for gyro init ..." << std::endl;
 			return;
@@ -216,9 +223,11 @@ private:
 				throw std::runtime_error(stage->stage_name + ": " + ex.what());
 			}
 		}
+
+		last_ts = ts;
 	}
 
-	void on_image(std::shared_ptr<Image> img)
+	void on_image(std::shared_ptr<const Image> img)
 	{
 		const auto begin = get_time_micros();
 
@@ -271,37 +280,35 @@ private:
 		std::cout << "[" << img->sequence << "] total_time = " << (get_time_micros() - begin) / 1e3 << " ms" << std::endl;
 	}
 
-	void on_sample(std::shared_ptr<Sample> sample)
+	void on_sample(std::shared_ptr<const Value> value) override
 	{
 		std::string topic = "null";
 
-		if(auto img = std::dynamic_pointer_cast<Image>(sample)) {
+		if(auto img = std::dynamic_pointer_cast<const Image>(value)) {
 			topic = "camera.nav";
 			on_image(img);
-			if(recorder) {
-				sample = img->to_jpeg();
-			}
 		}
-		else if(auto imu = std::dynamic_pointer_cast<MSP2::RawImu>(sample)) {
+		else if(auto imu = std::dynamic_pointer_cast<const MSP2::RawImu>(value)) {
 			topic = "msp.raw_imu";
 			gyro_api.on_raw_imu(*imu);
+			std::cout << "IMU: ts = " << imu->ts << ", gyro = " << to_string(imu->gyro) << ", accel = " << to_string(imu->acc) << std::endl;
 		}
-		else if(auto att = std::dynamic_pointer_cast<MSP2::Attitude>(sample)) {
+		else if(auto att = std::dynamic_pointer_cast<const MSP2::Attitude>(value)) {
 			topic = "msp.attitude";
 			gyro_api.on_attitude(*att);
 			std::cout << "ATT: ts = " << att->ts << ", roll = " << att->roll << ", pitch = " << att->pitch << ", yaw = " << att->yaw << std::endl;
 		}
-		else if(auto alt = std::dynamic_pointer_cast<MSP2::Altitude>(sample)) {
+		else if(auto alt = std::dynamic_pointer_cast<const MSP2::Altitude>(value)) {
 			topic = "msp.altitude";
 			msp_alt = alt;
 			std::cout << "ALT: ts = " << alt->ts << ", alt_cm = " << alt->alt_cm << ", vario_cms = " << alt->vario_cms << std::endl;
 		}
-		else if(auto rc = std::dynamic_pointer_cast<MSP2::RcPacket>(sample)) {
+		else if(auto rc = std::dynamic_pointer_cast<const MSP2::RcPacket>(value)) {
 			topic = "msp.rc";
 			msp_rc = rc;
 			std::cout << "RC: ts = " << rc->ts << ", roll = " << rc->roll() << ", pitch = " << rc->pitch() << ", yaw = " << rc->yaw() << ", throttle = " << rc->throttle() << std::endl;
 		}
-		else if(auto gps = std::dynamic_pointer_cast<MSP2::RawGPS>(sample)) {
+		else if(auto gps = std::dynamic_pointer_cast<const MSP2::RawGPS>(value)) {
 			topic = "msp.raw_gps";
 			gps_api.on_gps(*gps);
 			std::cout << "GPS: lat = " << gps->lat << ", lon = " << gps->lon
@@ -309,8 +316,23 @@ private:
 					<< ", alt = " << gps->alt << ", sats = " << int(gps->num_sats) << ", fix = " << int(gps->fix_type) << std::endl;
 		}
 
-		if(recorder && sample) {
-			write_sample(*recorder, topic, *sample);
+		for(auto stage : exec_chain) {
+			try {
+				if(value) {
+					stage->on_sample(value);
+				}
+			} catch(const std::exception& ex) {
+				throw std::runtime_error(stage->stage_name + ": " + ex.what());
+			}
+		}
+
+		if(recorder) {
+			if(auto img = std::dynamic_pointer_cast<const Image>(value)) {
+				value = img->to_jpeg();
+			}
+			if(auto out = std::dynamic_pointer_cast<const Sample>(value)) {
+				write_sample(*recorder, topic, *out);
+			}
 		}
 	}
 
@@ -333,7 +355,7 @@ private:
 private:
 	Thread gl_main;
 
-	int64_t time_offset = 0;	// [us]
+	int64_t time_offset = 0;	// [usec]
 
 	std::shared_ptr<Recorder> recorder;
 

@@ -26,7 +26,7 @@ public:
 
 class ImageVelocity : public Value {
 public:
-	Vec2f xy = Vec2f::Zero();		// image frame [pix/s]
+	Vec2f xy = Vec2f::Zero();		// body frame [pix/s]
 
 	float yaw_rate = 0;				// deg/s
 	float z = 1;					// scale
