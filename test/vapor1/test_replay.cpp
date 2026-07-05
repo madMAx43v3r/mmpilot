@@ -41,7 +41,7 @@ int main(int argc, char** argv)
 	nav.pipe.radius_mask = 0.9;
 	nav.virtual_cam.FOV_in = 190;
 	nav.virtual_cam.FOV_cam = 120;
-	nav.virtual_cam.RPY_cam = Vec3f(0, 0, -30 -90);
+	nav.virtual_cam.RPY_cam = Vec3f(0, 0, -30);
 	nav.virtual_cam.cam_model = 3;
 	nav.virtual_cam.K_param  = Vec2f(-0.01, -0.01);		// stereo
 	nav.affine.is_debug = true;

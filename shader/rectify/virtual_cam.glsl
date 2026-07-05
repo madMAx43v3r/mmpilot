@@ -22,6 +22,11 @@ uniform float uK4;              // r^4 coeff on angle-radius
 void main()
 {
     vec2 p = gl_FragCoord.xy - uCenter;
+    
+    // cancel axis swap in uRot
+    float p_x = p.x;
+    p.x = -p.y;
+    p.y = p_x;
 
     // Virtual camera ray direction
     vec3 dirV = normalize(vec3(p * uInvF, 1));

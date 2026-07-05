@@ -51,7 +51,11 @@ private:
 	{
 		cam_fpx = Vec2f(width, height).norm() / (2 * tan(deg2rad(FOV_cam) / 2));
 
-		R_BC = rpy_to_rot_zyx_deg(RPY_cam);
+		// align roll / pitch with camera
+		R_BC = rpy_to_rot_zyx_deg(Vec3f(0, 0, -90));
+
+		// apply camera rotation
+		R_BC = rpy_to_rot_zyx_deg(RPY_cam) * R_BC;
 
 		virtual_cam.width = width;
 		virtual_cam.height = height;
@@ -79,11 +83,10 @@ private:
 
 		const Vec3f RPY = gyro.get_rpy();
 
-		cam_yaw = RPY.z() - RPY_cam.z();	// [deg]
+		cam_yaw = RPY.z();	// [deg]
 
 		std::cout << "RPY: " << RPY[0] << ", " << RPY[1] << ", " << RPY[2] << std::endl;
 
-//		R_WB = rpy_to_rot_zyx_deg<float>({RPY[1], -RPY[0], RPY[2]});
 		R_WB = gyro.matrix();
 
 		virtual_cam.R_mat = R_BC * R_WB.transpose();
