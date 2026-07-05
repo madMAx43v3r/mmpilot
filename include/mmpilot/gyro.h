@@ -64,6 +64,7 @@ public:
 			return;
 		}
 		const auto prev = history.back();
+
 		const float dt = (imu.ts - prev.ts) * 1e-6f;		// [sec]
 
 		const Vec3f rates = Vec3f(imu.gyro[0], imu.gyro[1], imu.gyro[2]) * gyro_scale;	// [deg/s]
