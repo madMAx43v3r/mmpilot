@@ -247,6 +247,11 @@ protected:
 		out.throttle = std::min(std::max(out.throttle, 0.f), 1.f);
 
 		if(active) {
+			response_xy.add_sample(out.angle, xy_speed);
+
+			const Mat2f A = response_xy.get_matrix_or_identity();
+			std::cout << "Response: angle = " << rad2deg(response_xy.get_rotation()) << " deg, [" << A.col(0).transpose() << "] [" << A.col(1).transpose() << "]" << std::endl;
+
 			std::cout << "Control: roll = " << out.angle.x() << ", pitch = " << out.angle.y() << ", yaw = " << out.yaw_rate
 					<< ", throttle = " << out.throttle << " (extra " << extra_throttle << ")" << std::endl;
 		}
@@ -300,6 +305,8 @@ protected:
 		// reset base values (for position mode)
 		base_AGL = std::max(AGL, AGL_min);
 		base_yaw = gyro.get_rpy().z();
+
+		response_xy.reset();
 	}
 
 private:
@@ -314,6 +321,8 @@ private:
 	float base_throttle = 0.5;
 
 	int64_t last_ts = 0;			// [us]
+
+	ResponseEstimator2D response_xy;
 
 	MSP2* msp = nullptr;
 

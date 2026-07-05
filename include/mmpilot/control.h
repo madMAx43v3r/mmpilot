@@ -84,6 +84,7 @@ public:
 	}
 };
 
+
 class ControlVar {
 public:
 	float gain = 1;					// accel
@@ -137,6 +138,67 @@ public:
 
 private:
 	bool have_init = false;
+
+};
+
+
+class ResponseEstimator2D {
+public:
+	ResponseEstimator2D() {
+		reset();
+	}
+
+	void reset()
+	{
+		RU.setZero();
+		UU.setZero();
+		count = 0;
+	}
+
+	void add_sample(const Vec2f& input, const Vec2f& response)
+	{
+		RU += response * input.transpose();
+		UU += input * input.transpose();
+		count++;
+	}
+
+	bool get_matrix(Mat2f& A) const
+	{
+		if(count < 2) {
+			return false;
+		}
+
+		const float det = UU.determinant();
+
+		if(std::abs(det) < 1e-6f) {
+			return false;
+		}
+
+		A = RU * UU.inverse();
+		return true;
+	}
+
+	Mat2f get_matrix_or_identity() const
+	{
+		Mat2f A;
+		if(get_matrix(A)) {
+			return A;
+		}
+		return Mat2f::Identity();
+	}
+
+	float get_rotation() const
+	{
+		const Mat2f A = get_matrix_or_identity();
+		return std::atan2(
+				A(1, 0) - A(0, 1),
+				A(0, 0) + A(1, 1));
+	}
+
+private:
+	Mat2f RU = Mat2f::Zero();	// sum(response * input^T)
+	Mat2f UU = Mat2f::Zero();	// sum(input * input^T)
+	size_t count = 0;
 
 };
 
