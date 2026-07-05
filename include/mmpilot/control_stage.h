@@ -23,12 +23,12 @@ public:
 	int max_angle = 200;		// RC offset
 	int max_throttle = 700;		// RC offset
 
-	float yaw_gain = 2;
-	float position_gain = 10;
+	float yaw_gain = 1;
+	float position_gain = 2;
 	float throttle_gain = 0.1;
 
 	float yawrate_gain = 1;
-	float velocity_gain = 1;
+	float velocity_gain = 2;
 	float vertical_gain = 0.1;
 
 	float AGL_min = 1;					// sanity limit [m]
