@@ -24,9 +24,7 @@ void main()
     vec2 p = gl_FragCoord.xy - uCenter;
     
     // cancel axis swap in uRot
-    float p_x = p.x;
-    p.x = -p.y;
-    p.y = p_x;
+    p = vec2(-p.y, p.x);
 
     // Virtual camera ray direction
     vec3 dirV = normalize(vec3(p * uInvF, 1));

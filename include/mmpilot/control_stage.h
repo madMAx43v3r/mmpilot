@@ -65,9 +65,7 @@ public:
 	ControlVar yawrate_control;
 	ControlVar vertical_control;
 
-	float z_speed = 1;					// [scale / sec]
 	float yaw_rate = 0;					// [deg / sec]
-	Vec2f xy_speed = Vec2f(0, 0);		// body frame [pix / sec]
 
 	Vec2f offset;						// body frame
 
@@ -134,12 +132,9 @@ protected:
 			std::cout << "RC: roll = " << rc->roll() << ", pitch = " << rc->pitch() << ", yaw = " << rc->yaw() << ", throttle = " << rc->throttle() << std::endl;
 		}
 
-		xy_speed = velocity.xy;
-
-		z_speed = velocity.z;
 		yaw_rate = gyro.rates.z();
 
-		std::cout << "Speed: xy = " << xy_speed.transpose() << " pix/s, yaw = " << yaw_rate << " deg/s, z = " << z_speed << std::endl;
+		std::cout << "Speed: xy = " << velocity.xy.transpose() << " pix/s, yaw = " << yaw_rate << " deg/s, z = " << velocity.z << std::endl;
 
 		if(auto in = find_input<ConstPointer>("control"))
 		{
@@ -170,17 +165,17 @@ protected:
 
 		const Vec2f target_vel = factor * Vec2f(cmd.vel.x(), cmd.vel.y());		// [pix/s]
 
-		const float target_z = 1 + cmd.vel.z() / std::max(AGL, AGL_min);
+		const float target_z = cmd.vel.z() / std::max(AGL, AGL_min);
 
 		std::cout << "Target: xy = " << target_vel.transpose() << " pix/s, z = " << target_z << ", AGL = " << AGL << " m" << std::endl;
 
 		if(active) {
-			out.angle.x() = 1 * velx_control.update(target_vel.x(), xy_speed.x(), dt);
-			out.angle.y() = 1 * vely_control.update(target_vel.y(), xy_speed.y(), dt);
+			out.angle.x() = 1 * velx_control.update(target_vel.x(), velocity.xy.x(), dt);
+			out.angle.y() = 1 * vely_control.update(target_vel.y(), velocity.xy.y(), dt);
 
 			out.yaw_rate = -1 * yawrate_control.update(cmd.yaw_rate, yaw_rate, dt);
 
-			out.throttle = vertical_control.update(target_z, z_speed, dt);
+			out.throttle = vertical_control.update(target_z, velocity.z, dt);
 		}
 		else {
 			out.yaw_rate = 0;
@@ -244,7 +239,7 @@ protected:
 		out.throttle = std::min(std::max(out.throttle, 0.f), 1.f);
 
 		if(active) {
-			response_xy.add_sample(out.angle, xy_speed);
+			response_xy.add_sample(out.angle, velocity.xy);
 
 			const Mat2f A = response_xy.get_matrix_or_identity();
 			std::cout << "Response: angle = " << rad2deg(response_xy.get_rotation()) << " deg, [" << A.col(0).transpose() << "] [" << A.col(1).transpose() << "]" << std::endl;

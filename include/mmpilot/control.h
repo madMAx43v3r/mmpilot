@@ -29,7 +29,7 @@ public:
 	Vec2f xy = Vec2f::Zero();		// body frame [pix/s]
 
 	float yaw_rate = 0;				// deg/s
-	float z = 1;					// scale
+	float z = 0;					// scale factor
 
 };
 

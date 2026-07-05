@@ -54,7 +54,7 @@ public:
 		const Vec3f affine_vel = Vec3f(
 				-1 * affine.xy.x() * factor,
 				 1 * affine.xy.y() * factor,
-				(affine.z - 1) * AGL
+				 1 * affine.z * AGL
 		);
 
 		if(AGL > AGL_min) {

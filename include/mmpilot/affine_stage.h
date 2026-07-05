@@ -205,7 +205,7 @@ private:
 
 		if(dt > 0 && output.valid())
 		{
-			vel_out.z = pow(output.scale(), 1 / dt);
+			vel_out.z = powf(output.scale(), 1 / dt) - 1;
 			vel_out.xy = output.translation() / dt;
 			vel_out.yaw_rate = rad2deg(angle_norm_pi(output.yaw())) / dt;
 
