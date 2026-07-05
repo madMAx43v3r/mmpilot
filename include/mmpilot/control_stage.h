@@ -305,8 +305,6 @@ protected:
 		// reset base values (for position mode)
 		base_AGL = std::max(AGL, AGL_min);
 		base_yaw = gyro.get_rpy().z();
-
-		response_xy.reset();
 	}
 
 private:
