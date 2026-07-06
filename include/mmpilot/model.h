@@ -15,12 +15,12 @@ namespace mmpilot {
 
 class Model {
 public:
-	float bias_gain = 0.1;			// [1/sec]
-	float update_gain = 0.1;		// [1/sec]
+	float bias_gain = 0.2;			// [1/sec]
+	float update_gain = 0.2;		// [1/sec]
 
-	float affine_rate = 10;			// [deg/s]
+	float affine_rate = 20;			// [deg/s]
 
-	// --- output --
+	// --- output ---
 
 	Vec3f velocity;					// [m/s] (z aligned to gravity)
 
