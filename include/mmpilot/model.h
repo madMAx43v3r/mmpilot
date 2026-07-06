@@ -15,16 +15,22 @@ namespace mmpilot {
 
 class Model {
 public:
-	float bias_gain = 0.02;			// [1/sec]
-	float update_gain = 0.5;		// [1/sec]
+	float bias_gain = 0.1;			// [1/sec]
+	float update_gain = 0.1;		// [1/sec]
 
-	float affine_rate = 5;			// [deg/s]
+	float affine_rate = 10;			// [deg/s]
+
+	// --- output --
 
 	Vec3f velocity;					// [m/s] (z aligned to gravity)
+
+	Vec3f accel;					// [m/s^2]
 
 	Vec3f accel_bias;				// [m/s^2]
 
 	Vec3f error;					// [m/s]
+
+	float update_factor = 0;
 
 
 	Model() {
@@ -34,6 +40,7 @@ public:
 	void reset()
 	{
 		error = Vec3f::Zero();
+		accel = Vec3f::Zero();
 		velocity = Vec3f::Zero();
 		accel_bias = Vec3f::Zero();
 		update_factor = 0;
@@ -43,9 +50,9 @@ public:
 
 	void step(const Gyro::State& gyro, const float dt)
 	{
-		const Vec3f RPY = gyro.RPY();	// [deg]
-		const Vec3f rates = gyro.rates;		// [deg/s]
-		const Vec3f accel = gyro.accel;		// [g]
+		const Vec3f RPY = gyro.RPY();			// [deg]
+		const Vec3f gyro_rates = gyro.rates;	// [deg/s]
+		const Vec3f gyro_accel = gyro.accel;	// [g]
 
 		const float roll  = deg2rad(RPY.x());
 		const float pitch = deg2rad(RPY.y());
@@ -66,15 +73,15 @@ public:
 		// transform to level frame
 		const Mat3f R_yx = rpy_to_rot_zyx(Vec3f(roll, pitch, 0));
 
-		Vec3f acc = R_yx * (accel * g_const);	// [m/s^2]
+		accel = R_yx * (Vec3f(0, 0, gyro_accel.norm()) * g_const);	// [m/s^2]
 
-		acc.z() -= g_const;		// remove gravity
+		accel.z() -= g_const;		// remove gravity
 
-		acc -= accel_bias;		// remove bias
+		accel -= accel_bias;		// remove bias
 
-		velocity += acc * dt;
+		velocity += accel * dt;
 
-		update_factor = std::exp(-powf(rates.norm() / affine_rate, 2.f));
+		update_factor = std::exp(-powf(gyro_rates.norm() / affine_rate, 2.f));
 	}
 
 	void update(const Vec3f& affine_vel, const float dt)
@@ -98,7 +105,6 @@ private:
 	bool have_yaw = false;
 
 	float last_yaw = 0;				// [rad]
-	float update_factor = 0;
 
 	const float g_const = 9.8f;
 

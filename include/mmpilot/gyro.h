@@ -130,6 +130,7 @@ public:
 			State out;
 			out.ts = att.ts;
 			out.rot = rpy_to_rot_zyx_deg<float>({RPY.x(), RPY.y(), 0});	// ignore yaw
+			out.accel = out.rot * Vec3f(0, 0, 1);
 			history.push_back(out);
 		} else {
 //			const auto state = history.back().get_rpy();

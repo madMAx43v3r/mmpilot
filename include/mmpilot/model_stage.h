@@ -52,7 +52,7 @@ public:
 
 		// convert to [m/s]
 		const Vec3f affine_vel = Vec3f(
-				-1 * affine.xy.x() * factor,
+				 1 * affine.xy.x() * factor,
 				 1 * affine.xy.y() * factor,
 				 1 * affine.z * AGL
 		);
@@ -65,11 +65,13 @@ public:
 		out.z      = model.velocity.z();
 		out.yaw_rate = gyro.rates.z();
 
-		std::cout << "Accel: " << gyro.accel.transpose() << " g" << std::endl;
+		error_sum += model.error.norm();
+
+		std::cout << "Accel: " << model.accel.transpose() << " m/s^2" << std::endl;
 		std::cout << "Velocity: xy = " << out.xy.transpose() << " m/s, z = " << out.z << " m/s, yaw = " << gyro.yaw() << " deg" << std::endl;
 
-		std::cout << "ModelBias: " << model.accel_bias.transpose() << " m/s^2" << std::endl;
-		std::cout << "ModelError: " << model.error.transpose() << " m/s, yaw = " << gyro.yaw() << " deg" << std::endl;
+		std::cout << "AccelBias: " << model.accel_bias.transpose() << " m/s^2" << std::endl;
+		std::cout << "ModelError: " << model.error.transpose() << " m/s, yaw = " << gyro.yaw() << " deg, update = " << model.update_factor << ", sum = " << error_sum << std::endl;
 	}
 
 	void integrate()
@@ -97,6 +99,8 @@ public:
 
 private:
 	const Pipeline* pipe = nullptr;
+
+	double error_sum = 0;
 
 };
 
