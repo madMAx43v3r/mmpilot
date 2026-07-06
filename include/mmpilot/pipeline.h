@@ -231,6 +231,8 @@ private:
 	{
 		const auto begin = get_time_micros();
 
+		std::cout << "Image: ts = " << img->ts << ", exposure = " << img->exposure << ", gain = " << img->analog_gain << std::endl;
+
 		if(img->format == "JPEG") {
 			int w, h;
 			const auto& data = img->data[0];
