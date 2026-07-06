@@ -79,7 +79,7 @@ protected:
 		odom = Transform2D();
 
 		// keep current yaw
-		target_yaw = angle_norm_180(gyro.get_rpy().z());
+		target_yaw = angle_norm_180(gyro.RPY().z());
 
 		rebase();
 
@@ -115,7 +115,7 @@ protected:
 
 		odom.add(delta.transform());
 
-		const Vec3f RPY_deg = gyro.get_rpy();
+		const Vec3f RPY_deg = gyro.RPY();
 
 		// get drift corrected yaw angle
 		const float yaw_deg = angle_norm_180(RPY_deg.z() - get_angle_deg(odom.rot));	// TODO: sign correct?

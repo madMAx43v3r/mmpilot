@@ -43,7 +43,7 @@ public:
 
 	void step(const Gyro::State& gyro, const float dt)
 	{
-		const Vec3f RPY = gyro.get_rpy();	// [deg]
+		const Vec3f RPY = gyro.RPY();	// [deg]
 		const Vec3f rates = gyro.rates;		// [deg/s]
 		const Vec3f accel = gyro.accel;		// [g]
 

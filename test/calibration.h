@@ -167,7 +167,7 @@ protected:
 		const auto H = get_params();
 		const auto T = H.transform();
 
-		const Vec3f delta_rpy = gyro_state.get_rpy() - base_gyro.get_rpy();
+		const Vec3f delta_rpy = gyro_state.RPY() - base_gyro.RPY();
 		const float roll_pitch = Vec2f(delta_rpy.x(), delta_rpy.y()).norm();
 
 //		std::cout << "calib: roll_pitch = " << roll_pitch << " deg" << std::endl;

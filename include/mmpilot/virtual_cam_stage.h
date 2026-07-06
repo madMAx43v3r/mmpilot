@@ -81,7 +81,7 @@ private:
 		const auto gyro = get_input<Gyro::State>("gyro");
 		const auto input = get_input<ConstPointer>("image").get<GL_Tex2D>();
 
-		const Vec3f RPY = gyro.get_rpy();
+		const Vec3f RPY = gyro.RPY();
 
 		cam_yaw = RPY.z();	// [deg]
 

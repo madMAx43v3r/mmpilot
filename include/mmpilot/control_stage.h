@@ -308,7 +308,7 @@ protected:
 		// convert odometry to body frame
 		offset = get_rotation_matrix(-cam_yaw) * odom.pos;
 
-		const float yaw_deg = angle_norm_180(gyro.get_rpy().z() - base_yaw);	// TODO: correct via odom
+		const float yaw_deg = angle_norm_180(gyro.RPY().z() - base_yaw);	// TODO: correct via odom
 
 		std::cout << "Odometry: pos = " << offset.transpose() << ", yaw = " << yaw_deg << " deg, scale = " << odom.scale << std::endl;
 
@@ -342,7 +342,7 @@ protected:
 
 	void send()
 	{
-		const Vec3f RPY = gyro.get_rpy();		// [deg]
+		const Vec3f RPY = gyro.RPY();		// [deg]
 
 		// compensate for thrust vector loss
 		const auto extra_throttle = 1 / (cosf(deg2rad(RPY.x())) * cosf(deg2rad(RPY.y())));
@@ -405,7 +405,7 @@ protected:
 
 		// reset base values (for position mode)
 		base_AGL = std::max(AGL, AGL_min);
-		base_yaw = gyro.get_rpy().z();
+		base_yaw = gyro.RPY().z();
 	}
 
 private:

@@ -290,7 +290,7 @@ protected:
 		}
 		gyro_state = gyro;
 
-		const Vec3f RPY = gyro.get_rpy();
+		const Vec3f RPY = gyro.RPY();
 
 //		R_WB = rpy_to_rot_zyx_deg<float>({RPY[1], -RPY[0], RPY[2]});
 		R_WB = gyro.matrix();

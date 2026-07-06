@@ -38,18 +38,28 @@ public:
 		}
 
 		// RPY in deg
-		Vec3f get_rpy() const {
+		Vec3f RPY() const {
 			const auto raw = rot_zyx_to_rpy_deg(rot);
 			return Vec3f(raw.x(), raw.y(), angle_norm_360(raw.z()));
 		}
 
+		State extrapolate(const int64_t dt) const
+		{
+			State out = *this;
+			out.ts += dt;
+			out.rot = rot * so3_exp<float>(deg2rad(rates) * (dt * 1e-6f));
+			return out;
+		}
+
 		std::string to_string() const override {
-			const auto RPY = get_rpy();
-			return mmpilot::to_string(std::array<float, 3>{RPY.x(), RPY.y(), RPY.y()});
+			const auto RPY_ = RPY();
+			return mmpilot::to_string(std::array<float, 3>{RPY_.x(), RPY_.y(), RPY_.z()});
 		}
 	};
 
 	size_t max_history = 1000;					// samples
+
+	int64_t max_extrapolate = 500 * 1000;		// [usec]
 
 	float gyro_scale = 1 / 16.4;				// [deg/s]
 	float accel_scale = 1 / 2048.f;				// [g]
@@ -60,7 +70,7 @@ public:
 
 	void on_raw_imu(const MSP2::RawImu& imu)
 	{
-		if(history.empty() || imu.ts <= head_ts()) {
+		if(history.empty() || imu.ts <= back_ts()) {
 			return;
 		}
 		const auto prev = history.back();
@@ -81,7 +91,7 @@ public:
 		out.accel = accel;
 		history.push_back(out);
 
-		const auto RPY = out.get_rpy();
+		const auto RPY = out.RPY();
 
 //		std::cout << "gyro imu raw:   ts=" << out.ts << " roll=" << imu.gyro[0] << ", pitch=" << imu.gyro[1] << ", yaw=" << imu.gyro[2] << std::endl;
 //		std::cout << "gyro imu rates: ts=" << out.ts << " roll=" << rates[0] << " deg/s, pitch=" << rates[1] << " deg/s, yaw=" << rates[2] << " deg/s" << std::endl;
@@ -136,12 +146,14 @@ public:
 			throw std::runtime_error("Gyro::lookup(): history is empty");
 		}
 		if(ts < front_ts()) {
-			std::cout << "Gyro::lookup(): requested ts beyond history: " << ts << std::endl;
+			std::cout << "Gyro::lookup(): requested ts before history: " << ts << std::endl;
 			return history.front();
 		}
-		if(ts > head_ts()) {
-			std::cout << "Gyro::lookup(): requested ts in future by " << (ts - head_ts()) << " us" << std::endl;
-			return history.back();
+		if(ts > back_ts()) {
+			const auto delta = ts - back_ts();
+			std::cout << "Gyro::lookup(): requested ts in future by " << delta << " us" << std::endl;
+
+			return history.back().extrapolate(std::min(delta, max_extrapolate));
 		}
 
 		// Find bracketing states [a,b] with a.ts <= ts <= b.ts
@@ -179,7 +191,7 @@ public:
 		return history.front().ts;
 	}
 
-	int64_t head_ts() const
+	int64_t back_ts() const
 	{
 		if(history.empty()) {
 			return 0;
