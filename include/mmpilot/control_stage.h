@@ -194,7 +194,7 @@ protected:
 			std::cout << "INFO: Switched to POSITION control mode" << std::endl;
 		}
 		// convert odometry to body frame
-		offset = get_rotation_matrix(cam_yaw) * odom.pos;	// TODO: sign correct?
+		offset = get_rotation_matrix(-cam_yaw) * odom.pos;
 
 		const float yaw_deg = angle_norm_180(gyro.get_rpy().z() - base_yaw);	// TODO: correct via odom
 

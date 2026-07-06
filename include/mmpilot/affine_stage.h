@@ -212,7 +212,7 @@ private:
 			// transform to body frame
 			const float cam_yaw = get_input<Float>("cam_yaw");
 
-			vel_out.xy = get_rotation_matrix(deg2rad(cam_yaw)) * vel_out.xy;	// TODO: cam_yaw sign?
+			vel_out.xy = get_rotation_matrix(deg2rad(-cam_yaw)) * vel_out.xy;
 
 			std::cout << "AffineVel: xy = " << vel_out.xy.transpose() << " pix/s, yaw = "
 					<< vel_out.yaw_rate << " deg/s, z = " << vel_out.z << ", dt = " << dt << " sec" << std::endl;
