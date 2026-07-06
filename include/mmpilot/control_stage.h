@@ -19,13 +19,13 @@ namespace mmpilot {
 
 class ControlStage : public Stage {
 public:
-	int max_yaw = 50;			// RC offset
-	int max_angle = 200;		// RC offset
-	int max_throttle = 0.7;		// 1
+	int max_yaw = 50;					// RC offset
+	int max_angle = 200;				// RC offset
+	int max_throttle = 700;				// RC offset
 
-	int max_yaw_rate = 50;			// RC / sec
-	int max_angle_rate = 50;		// RC / sec
-	int max_throttle_rate = 1;		// 1 / sec
+	float max_yaw_rate = 50;			// RC / sec
+	float max_angle_rate = 50;			// RC / sec
+	float max_throttle_rate = 1000;		// RC / sec
 
 	float yaw_gain = 1;
 	float position_gain = 2;
@@ -84,7 +84,7 @@ protected:
 		posx_control.set_limit(-max_angle, max_angle, max_angle_rate);
 		posy_control.set_limit(-max_angle, max_angle, max_angle_rate);
 		yaw_control.set_limit(-max_yaw, max_yaw, max_yaw_rate);
-		throttle_control.set_limit(0, max_throttle, max_throttle_rate);
+		throttle_control.set_limit(0, max_throttle / 1000.f, max_throttle_rate / 1000.f);
 
 		velx_control.gain = velocity_gain;
 		vely_control.gain = velocity_gain;
@@ -94,7 +94,7 @@ protected:
 		velx_control.set_limit(-max_angle, max_angle, max_angle_rate);
 		vely_control.set_limit(-max_angle, max_angle, max_angle_rate);
 		yawrate_control.set_limit(-max_yaw, max_yaw, max_yaw_rate);
-		vertical_control.set_limit(0, max_throttle, max_throttle_rate);
+		vertical_control.set_limit(0, max_throttle / 1000.f, max_throttle_rate / 1000.f);
 
 		add_output("control", &out);
 	}
@@ -251,7 +251,7 @@ protected:
 		std::array<uint16_t, 8> rc = {};
 		rc[0] = 1500 + std::min(std::max(int(out.angle.x()), -max_angle), max_angle);	// roll
 		rc[1] = 1500 + std::min(std::max(int(out.angle.y()), -max_angle), max_angle);	// pitch
-		rc[2] = 1000 + std::min(std::max(int(out.throttle), 0), max_throttle) * 1000;	// throttle
+		rc[2] = 1000 + std::min(std::max(int(out.throttle * 1000), 0), max_throttle);	// throttle
 		rc[3] = 1500 + std::min(std::max(int(out.yaw_rate), -max_yaw), max_yaw);		// yawrate
 
 		std::cout << "RC_OVERRIDE: " << to_string(rc) << std::endl;
