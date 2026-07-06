@@ -91,6 +91,7 @@ public:
 	float damping = 2;				// deccel
 	float target_time = 3;			// [sec]
 	float output_gain = 0.2;		// output smoothing
+	float look_ahead = 0.5;			// [sec]
 
 	float min_value = 0;
 	float max_value = 0;
@@ -114,8 +115,11 @@ public:
 
 	float update(const float target, const float current, const float dt)
 	{
-		const float err = target - current;
+		float err = target - current;
 		const float vel = have_init && dt > 0 ? (current - last) / dt : 0;
+
+		err -= vel * look_ahead;
+
 		const float target_vel = err / target_time;
 		const float target_acc = vel / target_time;
 
@@ -131,7 +135,7 @@ public:
 		state = std::min(std::max(next, min_value), max_value);
 
 		// update bias
-		bias = exp_gain(bias, state, dt / (2 * target_time));
+		bias = exp_gain(bias, state, dt / target_time);
 
 		// to compute velocity
 		last = current;
