@@ -87,9 +87,6 @@ protected:
 				cmd.throttle = next->throttle;
 				send(cmd);
 			}
-			else if(next) {
-				send(*next);
-			}
 			signal.wait_for(lock, std::chrono::microseconds(interval_us));
 		}
 	}
@@ -119,7 +116,6 @@ private:
 	std::condition_variable signal;
 
 	bool do_run = false;
-
 	int64_t last_send = 0;
 	std::shared_ptr<const ControlOutput> prev;
 	std::shared_ptr<const ControlOutput> next;
