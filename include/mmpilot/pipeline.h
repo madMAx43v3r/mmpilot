@@ -35,7 +35,7 @@ public:
 	bool is_debug = false;
 	bool do_record = false;
 
-	int64_t camera_delay = 100 * 1000;		// [usec]
+	int64_t camera_delay = 20 * 1000;		// [usec]
 
 	float radius_mask = 1;			// proportional to width / 2
 
