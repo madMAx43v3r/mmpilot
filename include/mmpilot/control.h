@@ -59,8 +59,9 @@ public:
 
 class ControlOutput : public Value {
 public:
+	int64_t ts = 0;					// [usec]
 	Vec2f angle = Vec2f::Zero();	// ticks
-	float throttle = 0;				// 0 to 1
+	float throttle = 0;				// ticks
 	float yaw_rate = 0;				// ticks
 
 	std::string to_string() const override {

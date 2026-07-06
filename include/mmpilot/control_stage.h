@@ -14,14 +14,126 @@
 #include <mmpilot/affine.h>
 #include <mmpilot/transform.h>
 
+#include <mutex>
+#include <thread>
+#include <algorithm>
+#include <condition_variable>
+
 
 namespace mmpilot {
 
+class ControlThread {
+public:
+	int interval_us = 20 * 1000;		// [usec]
+
+	ControlThread(MSP2* msp_) : msp(msp_) {}
+
+	~ControlThread()
+	{
+		stop();
+		join();
+	}
+
+	void start()
+	{
+		if(!do_run) {
+			std::unique_lock<std::mutex> lock(mutex);
+			do_run = true;
+			thread = std::thread(&ControlThread::run, this);
+		}
+	}
+
+	void stop()
+	{
+		std::lock_guard<std::mutex> lock(mutex);
+		do_run = false;
+		signal.notify_all();
+	}
+
+	void join()
+	{
+		if(thread.joinable()) {
+			thread.join();
+		}
+	}
+
+	void update(std::shared_ptr<const ControlOutput> cmd)
+	{
+		std::lock_guard<std::mutex> lock(mutex);
+		prev = next;
+		next = cmd;
+	}
+
+protected:
+	void run()
+	{
+		while(true) {
+			std::unique_lock<std::mutex> lock(mutex);
+			if(!do_run) {
+				break;
+			}
+
+			if(prev && next && next->ts > prev->ts)
+			{
+				const int64_t dt = next->ts - prev->ts;
+				const int64_t ts = std::min(std::max(get_time_micros() - dt, prev->ts), next->ts);
+
+				const float t = float(ts - prev->ts) / dt;
+
+				ControlOutput cmd;
+				cmd.ts = ts;
+				cmd.angle = prev->angle * (1 - t) + next->angle * t;
+				cmd.throttle = prev->throttle * (1 - t) + next->throttle * t;
+				cmd.yaw_rate = prev->yaw_rate * (1 - t) + next->yaw_rate * t;
+				send(cmd);
+			}
+			else if(next) {
+				send(*next);
+			}
+			signal.wait_for(lock, std::chrono::microseconds(interval_us));
+		}
+	}
+
+	void send(const ControlOutput& cmd)
+	{
+		const auto now = get_time_micros();
+
+		if(now - last_send < interval_us - 100) {
+			return;
+		}
+		std::array<uint16_t, 8> rc = {};
+		rc[0] = 1500 + std::clamp<int>(std::lround(cmd.angle.x()), -500, 500);		// roll
+		rc[1] = 1500 + std::clamp<int>(std::lround(cmd.angle.y()), -500, 500);		// pitch
+		rc[2] = 1000 + std::clamp<int>(std::lround(cmd.throttle), 0, 1000);			// throttle
+		rc[3] = 1500 + std::clamp<int>(std::lround(cmd.yaw_rate), -500, 500);		// yawrate
+
+		if(msp) {
+			msp->send_raw_rc(rc);
+		}
+		last_send = now;
+	}
+
+private:
+	std::mutex mutex;
+	std::thread thread;
+	std::condition_variable signal;
+
+	bool do_run = false;
+
+	int64_t last_send = 0;
+	std::shared_ptr<const ControlOutput> prev;
+	std::shared_ptr<const ControlOutput> next;
+
+	MSP2* msp = nullptr;
+
+};
+
+
 class ControlStage : public Stage {
 public:
-	int max_yaw = 50;					// RC offset
-	int max_angle = 200;				// RC offset
-	int max_throttle = 700;				// RC offset
+	float max_yaw = 50;					// RC offset
+	float max_angle = 200;				// RC offset
+	float max_throttle = 700;			// RC offset
 
 	float max_yaw_rate = 50;			// RC / sec
 	float max_angle_rate = 200;			// RC / sec
@@ -40,9 +152,11 @@ public:
 	int override_channel = 5;			// AUX
 	int override_threshold = 1550;
 
+	ControlThread thread;
+
 
 	ControlStage(MSP2* msp_)
-		:	Stage("control"), msp(msp_)
+		:	Stage("control"), thread(msp_)
 	{
 	}
 
@@ -95,6 +209,8 @@ protected:
 		vely_control.set_limit(-max_angle, max_angle, max_angle_rate);
 		yawrate_control.set_limit(-max_yaw, max_yaw, max_yaw_rate);
 		vertical_control.set_limit(0, max_throttle / 1000.f, max_throttle_rate / 1000.f);
+
+		thread.start();
 
 		add_output("control", &out);
 	}
@@ -248,17 +364,14 @@ protected:
 					<< ", throttle = " << out.throttle << " (extra " << extra_throttle << ")" << std::endl;
 		}
 
-		std::array<uint16_t, 8> rc = {};
-		rc[0] = 1500 + std::min(std::max(int(out.angle.x()), -max_angle), max_angle);	// roll
-		rc[1] = 1500 + std::min(std::max(int(out.angle.y()), -max_angle), max_angle);	// pitch
-		rc[2] = 1000 + std::min(std::max(int(out.throttle * 1000), 0), max_throttle);	// throttle
-		rc[3] = 1500 + std::min(std::max(int(out.yaw_rate), -max_yaw), max_yaw);		// yawrate
+		auto cmd = std::make_shared<ControlOutput>();
+		cmd->ts = get_time_micros();
+		cmd->angle.x() = std::clamp<float>(out.angle.x(), -max_angle, max_angle);		// roll
+		cmd->angle.y() = std::clamp<float>(out.angle.y(), -max_angle, max_angle);		// pitch
+		cmd->throttle  = std::clamp<float>(out.throttle * 1000, 0.f, max_throttle);		// throttle
+		cmd->yaw_rate  = std::clamp<float>(out.yaw_rate, -max_yaw, max_yaw);			// yawrate
 
-		std::cout << "RC_OVERRIDE: " << to_string(rc) << std::endl;
-
-		if(msp) {
-			msp->send_raw_rc(rc);
-		}
+		thread.update(cmd);
 	}
 
 	void enable()
@@ -311,8 +424,6 @@ private:
 	float base_throttle = 0.5;
 
 	ResponseEstimator2D response_xy;
-
-	MSP2* msp = nullptr;
 
 };
 
