@@ -82,9 +82,9 @@ protected:
 
 				ControlOutput cmd;
 				cmd.ts = ts;
-				cmd.angle = prev->angle * (1 - t) + next->angle * t;
-				cmd.throttle = prev->throttle * (1 - t) + next->throttle * t;
+				cmd.angle    = prev->angle * (1 - t) + next->angle * t;
 				cmd.yaw_rate = prev->yaw_rate * (1 - t) + next->yaw_rate * t;
+				cmd.throttle = next->throttle;
 				send(cmd);
 			}
 			else if(next) {
