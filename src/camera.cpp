@@ -211,8 +211,10 @@ void Camera::start()
 
 	// Create one request per buffer
 	requests.clear();
-	requests.reserve(buffers.size());
 	for(auto& buf : buffers) {
+		if(requests.size() >= queue_depth) {
+			break;
+		}
 		std::unique_ptr<Request> req = cam->createRequest();
 		if(!req) {
 			throw std::runtime_error("failed to create request");
