@@ -65,10 +65,11 @@ public:
 		out.z      = model.velocity.z();
 		out.yaw_rate = gyro.rates.z();
 
-		std::cout << "Velocity: xy = " << out.xy.transpose() << " m/s, z = " << out.z << " m/s" << std::endl;
+		std::cout << "Accel: " << gyro.accel.transpose() << " g" << std::endl;
+		std::cout << "Velocity: xy = " << out.xy.transpose() << " m/s, z = " << out.z << " m/s, yaw = " << gyro.yaw() << " deg" << std::endl;
 
 		std::cout << "ModelBias: " << model.accel_bias.transpose() << " m/s^2" << std::endl;
-		std::cout << "ModelError: " << model.error.transpose() << " m/s" << std::endl;
+		std::cout << "ModelError: " << model.error.transpose() << " m/s, yaw = " << gyro.yaw() << " deg" << std::endl;
 	}
 
 	void integrate()

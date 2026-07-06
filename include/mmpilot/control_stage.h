@@ -308,7 +308,7 @@ protected:
 		// convert odometry to body frame
 		offset = get_rotation_matrix(-cam_yaw) * odom.pos;
 
-		const float yaw_deg = angle_norm_180(gyro.RPY().z() - base_yaw);	// TODO: correct via odom
+		const float yaw_deg = angle_norm_180(gyro.yaw() - base_yaw);	// TODO: correct via odom
 
 		std::cout << "Odometry: pos = " << offset.transpose() << ", yaw = " << yaw_deg << " deg, scale = " << odom.scale << std::endl;
 
@@ -405,7 +405,7 @@ protected:
 
 		// reset base values (for position mode)
 		base_AGL = std::max(AGL, AGL_min);
-		base_yaw = gyro.RPY().z();
+		base_yaw = gyro.yaw();
 	}
 
 private:

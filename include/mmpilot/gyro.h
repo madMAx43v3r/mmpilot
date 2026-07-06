@@ -37,10 +37,15 @@ public:
 			return rot;
 		}
 
-		// RPY in deg
+		// RPY in [deg]
 		Vec3f RPY() const {
 			const auto raw = rot_zyx_to_rpy_deg(rot);
 			return Vec3f(raw.x(), raw.y(), angle_norm_360(raw.z()));
+		}
+
+		// yaw angle in [deg]
+		float yaw() const {
+			return RPY().z();
 		}
 
 		State extrapolate(const int64_t dt) const
