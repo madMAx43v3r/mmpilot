@@ -89,9 +89,9 @@ class ControlVar {
 public:
 	float gain = 1;					// accel
 	float damping = 2;				// deccel
+	float look_ahead = 0.5;			// [sec]
 	float target_time = 3;			// [sec]
 	float output_gain = 0.2;		// output smoothing
-	float look_ahead = 0.5;			// [sec]
 
 	float min_value = 0;
 	float max_value = 0;
@@ -115,10 +115,9 @@ public:
 
 	float update(const float target, const float current, const float dt)
 	{
-		float err = target - current;
 		const float vel = have_init && dt > 0 ? (current - last) / dt : 0;
 
-		err -= vel * look_ahead;
+		const float err = (target - current) - (vel * look_ahead);
 
 		const float target_vel = err / target_time;
 		const float target_acc = vel / target_time;
