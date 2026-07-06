@@ -25,7 +25,7 @@ class Camera {
 public:
 	bool show_meta = false;
 
-	size_t queue_depth = 3;
+	size_t queue_depth = 2;
 
 	std::function<void(const CameraFrame&)> on_frame;
 
