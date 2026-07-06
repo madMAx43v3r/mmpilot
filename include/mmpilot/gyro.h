@@ -62,9 +62,11 @@ public:
 		}
 	};
 
-	size_t max_history = 1000;					// samples
-
+	size_t  max_history = 1000;					// samples
 	int64_t max_extrapolate = 500 * 1000;		// [usec]
+
+	float rates_gain = 0.1;
+	float accel_gain = 0.1;
 
 	float gyro_scale = 1 / 16.4;				// [deg/s]
 	float accel_scale = 1 / 2048.f;				// [g]
@@ -92,8 +94,8 @@ public:
 		out.ts = imu.ts;
 		out.rot = prev.rot * so3_exp<float>(omega * dt);
 		out.rot = orthonormalize(out.rot);
-		out.rates = rates;
-		out.accel = accel;
+		out.rates = prev.rates * (1 - rates_gain) + rates * rates_gain;
+		out.accel = prev.accel * (1 - accel_gain) + accel * accel_gain;
 		history.push_back(out);
 
 		const auto RPY = out.RPY();
