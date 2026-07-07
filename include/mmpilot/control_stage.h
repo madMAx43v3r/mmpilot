@@ -136,8 +136,8 @@ public:
 	float max_throttle_rate = 1000;		// RC / sec
 
 	float yaw_gain = 1;
-	float position_gain = 2;
-	float throttle_gain = 0.2;
+	float position_gain = 1;
+	float throttle_gain = 0.1;
 
 	float yawrate_gain = 0.5;
 	float velocity_gain = 1;
