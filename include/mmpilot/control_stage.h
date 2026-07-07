@@ -158,7 +158,7 @@ public:
 
 	Gyro::State gyro;
 	Affine::Params affine;
-	ImageVelocity velocity;
+	Velocity velocity;
 
 	float dt = 0;						// [sec]
 	float AGL = 0;						// [m]
@@ -176,8 +176,6 @@ public:
 	ControlVar vertical_control;
 
 	float yaw_rate = 0;					// [deg / sec]
-
-	Vec2f offset;						// body frame
 
 	Transform2D odom;					// camera frame
 
@@ -216,7 +214,7 @@ protected:
 		dt = get_input<Float>("dt");
 		gyro = get_input<Gyro::State>("gyro");
 		affine = get_input<Affine::Params>("affine");
-		velocity = get_input<ImageVelocity>("affine_vel");
+		velocity = get_input<Velocity>("velocity");
 		cam_yaw = deg2rad(get_input<Float>("cam_yaw"));
 		cam_fpx = get_input<Float>("cam_fpx");
 		AGL = get_input<Float>("AGL");
@@ -246,8 +244,6 @@ protected:
 
 		yaw_rate = gyro.rates.z();
 
-		std::cout << "Speed: xy = " << velocity.xy.transpose() << " pix/s, yaw = " << yaw_rate << " deg/s, z = " << velocity.z << std::endl;
-
 		if(auto in = find_input<ConstPointer>("control"))
 		{
 			if(auto cmd = in->get<VelocityControl>()) {
@@ -272,22 +268,15 @@ protected:
 			reset();
 			std::cout << "INFO: Switched to VELOCITY control mode" << std::endl;
 		}
-		// convert target to image units
-		const float factor = cam_fpx / std::max(AGL, AGL_min);
-
-		const Vec2f target_vel = factor * Vec2f(cmd.vel.x(), cmd.vel.y());		// [pix/s]
-
-		const float target_z = cmd.vel.z() / std::max(AGL, AGL_min);
-
-		std::cout << "Target: xy = " << target_vel.transpose() << " pix/s, z = " << target_z << ", AGL = " << AGL << " m" << std::endl;
+		std::cout << "Target: xy = " << cmd.vel.x() << " " << cmd.vel.y() << " m/s, z = " << cmd.vel.z() << " m/s, yawrate = " << cmd.yaw_rate << " deg/s" << std::endl;
 
 		if(active) {
-			out.angle.x() = 1 * velx_control.update(target_vel.x(), velocity.xy.x(), dt);
-			out.angle.y() = 1 * vely_control.update(target_vel.y(), velocity.xy.y(), dt);
+			out.angle.x() = 1 * velx_control.update(cmd.vel.x(), velocity.xy.x(), dt);
+			out.angle.y() = 1 * vely_control.update(cmd.vel.y(), velocity.xy.y(), dt);
 
 			out.yaw_rate = -1 * yawrate_control.update(cmd.yaw_rate, yaw_rate, dt);
 
-			out.throttle = vertical_control.update(target_z, velocity.z, dt);
+			out.throttle = vertical_control.update(cmd.vel.z(), velocity.z, dt);
 		}
 		else {
 			out.yaw_rate = 0;
@@ -306,9 +295,10 @@ protected:
 			std::cout << "INFO: Switched to POSITION control mode" << std::endl;
 		}
 		// convert odometry to body frame
-		offset = get_rotation_matrix(-cam_yaw) * odom.pos;
+		const Vec2f offset = get_rotation_matrix(-cam_yaw) * odom.pos;
 
-		const float yaw_deg = angle_norm_180(gyro.yaw() - base_yaw);	// TODO: correct via odom
+		// TODO: sign correct?
+		const float yaw_deg = angle_norm_180(gyro.yaw() - base_yaw - get_angle_deg(odom.rot));
 
 		std::cout << "Odometry: pos = " << offset.transpose() << ", yaw = " << yaw_deg << " deg, scale = " << odom.scale << std::endl;
 
@@ -321,7 +311,7 @@ protected:
 
 		const float target_yaw = angle_norm_180(cmd.yaw_deg);		// [deg]
 
-		std::cout << "Target: xy = " << target_pos.transpose() << " pix, z = " << target_z << ", AGL = " << AGL << " m" << std::endl;
+		std::cout << "Target: xy = " << target_pos.x() << " " << target_pos.y() << " pix, z = " << target_z << ", yaw = " << target_yaw << " deg" << std::endl;
 
 		if(active) {
 			out.angle.x() = 1 * posx_control.update(target_pos.x(), offset.x(), dt);
@@ -368,6 +358,8 @@ protected:
 		cmd->yaw_rate  = std::clamp<float>(out.yaw_rate, -max_yaw, max_yaw);			// yawrate
 
 		thread.update(cmd);
+
+		std::cout << "CMD: " << cmd->to_string() << std::endl;
 	}
 
 	void enable()

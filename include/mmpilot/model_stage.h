@@ -35,6 +35,8 @@ public:
 		pipe = find_stage<Pipeline>("root");
 
 		model.reset();
+
+		add_output("velocity", &out);
 	}
 
 	void exec() override
