@@ -382,7 +382,6 @@ protected:
 	{
 		// reset odometry
 		odom = Transform2D();
-		offset = Vec2f::Zero();
 
 		// reset controllers
 		yaw_control.reset(0);
